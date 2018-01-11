@@ -27,7 +27,7 @@
 #include "Aql/Function.h"
 #include "Aql/Query.h"
 #include "RocksDBEngine/RocksDBFulltextIndex.h"
-#include "RocksDBEngine/RocksDBGeoIndex.h"
+#include "RocksDBEngine/GeoIndex/RocksDBGeoIndex.h"
 #include "StorageEngine/TransactionState.h"
 #include "StorageEngine/PhysicalCollection.h"
 #include "Transaction/Helpers.h"

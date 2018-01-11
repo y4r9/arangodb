@@ -21,7 +21,7 @@
 /// @author Jan Christoph Uhde
 ////////////////////////////////////////////////////////////////////////////////
 
-#include "RocksDBGeoIndex.h"
+#include "RocksDBEngine/GeoIndex/RocksDBGeoIndex.h"
 
 #include "Aql/Ast.h"
 #include "Aql/AstNode.h"

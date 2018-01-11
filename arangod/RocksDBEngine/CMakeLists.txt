@@ -48,8 +48,8 @@ set(ROCKSDB_SOURCES
   RocksDBEngine/RocksDBEngine.cpp
   RocksDBEngine/RocksDBExportCursor.cpp
   RocksDBEngine/RocksDBFulltextIndex.cpp
-  RocksDBEngine/RocksDBGeoIndex.cpp
-  RocksDBEngine/RocksDBGeoIndexImpl.cpp
+  RocksDBEngine/GeoIndex/RocksDBGeoIndex.cpp
+  RocksDBEngine/GeoIndex/RocksDBGeoIndexImpl.cpp
   RocksDBEngine/RocksDBHashIndex.cpp
   RocksDBEngine/RocksDBIncrementalSync.cpp
   RocksDBEngine/RocksDBIndex.cpp

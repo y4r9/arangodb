@@ -28,7 +28,7 @@
 #include <cstddef>
 #include <limits>
 
-#include "RocksDBEngine/RocksDBGeoIndexImpl.h"
+#include "RocksDBEngine/GeoIndex/RocksDBGeoIndexImpl.h"
 #include "RocksDBEngine/RocksDBMethods.h"
 
 /* Radius of the earth used for distances  */
@@ -261,7 +261,7 @@ typedef struct {
 // must be included here after struct definition
 #include <RocksDBEngine/RocksDBCommon.h>
 #include <RocksDBEngine/RocksDBEngine.h>
-#include <RocksDBEngine/RocksDBGeoIndexImpl.h>
+#include <RocksDBEngine/GeoIndex/RocksDBGeoIndexImpl.h>
 #include <RocksDBEngine/RocksDBKey.h>
 #include <StorageEngine/EngineSelectorFeature.h>
 
