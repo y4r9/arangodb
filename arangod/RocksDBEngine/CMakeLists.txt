@@ -50,6 +50,7 @@ set(ROCKSDB_SOURCES
   RocksDBEngine/RocksDBFulltextIndex.cpp
   RocksDBEngine/GeoIndex/RocksDBGeoIndex.cpp
   RocksDBEngine/GeoIndex/RocksDBGeoIndexImpl.cpp
+  RocksDBEngine/GeoIndex/stones.cpp
   RocksDBEngine/RocksDBHashIndex.cpp
   RocksDBEngine/RocksDBIncrementalSync.cpp
   RocksDBEngine/RocksDBIndex.cpp

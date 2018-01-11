@@ -77,6 +77,8 @@
 #include "Transaction/Options.h"
 #include "VocBase/ticks.h"
 
+#include "RocksDBEngine/GeoIndex/stones.h"
+
 #include <rocksdb/convenience.h>
 #include <rocksdb/db.h>
 #include <rocksdb/env.h>
@@ -1269,6 +1271,9 @@ void RocksDBEngine::addOptimizerRules() {
 void RocksDBEngine::addV8Functions() {
   // there are no specific V8 functions here
   RocksDBV8Functions::registerResources();
+  
+  /// FIXME: remove after benchmarking phase
+  RocksDBGeoV8Functions::registerResources();
 }
 
 /// @brief Add engine-specific REST handlers
