@@ -167,6 +167,7 @@ add_library(${LIB_ARANGO} STATIC
   Basics/memory.cpp
   Basics/mimetypes.cpp
   Basics/prime-numbers.cpp
+  Basics/priq64.cpp
   Basics/process-utils.cpp
   Basics/socket-utils.cpp
   Basics/system-functions.cpp
