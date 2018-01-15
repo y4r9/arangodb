@@ -22,7 +22,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #ifndef ARANGO_LIB_BASICS_PRIQ64_H
-#define ARANGO_LIB_BASICS_PRIQ64_H
+#define ARANGO_LIB_BASICS_PRIQ64_H 1
 
 #include "Basics/Common.h"
 
