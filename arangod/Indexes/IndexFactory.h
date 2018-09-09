@@ -115,6 +115,28 @@ class IndexFactory {
     arangodb::velocypack::Slice const& indexesSlice,
     std::vector<std::shared_ptr<arangodb::Index>>& indexes
   ) const = 0;
+  
+  /// @brief process the fields list, deduplicate it, and add it to the json
+  static Result processIndexFields(arangodb::velocypack::Slice definition, 
+                                   arangodb::velocypack::Builder& builder,
+                                   size_t minFields, size_t maxField, bool create,
+                                   bool allowExpansion);
+
+  /// @brief process the unique flag and add it to the json
+  static void processIndexUniqueFlag(arangodb::velocypack::Slice definition,
+                                     arangodb::velocypack::Builder& builder);
+
+  /// @brief process the sparse flag and add it to the json
+  static void processIndexSparseFlag(arangodb::velocypack::Slice definition,
+                                     arangodb::velocypack::Builder& builder, bool create);
+
+  /// @brief process the deduplicate flag and add it to the json
+  static void processIndexDeduplicateFlag(arangodb::velocypack::Slice definition, 
+                                          arangodb::velocypack::Builder& builder);
+
+  /// @brief process the geojson flag and add it to the json
+  static void processIndexGeoJsonFlag(arangodb::velocypack::Slice definition,
+                                      arangodb::velocypack::Builder& builder);
 
  protected:
   /// @brief clear internal factory/normalizer maps

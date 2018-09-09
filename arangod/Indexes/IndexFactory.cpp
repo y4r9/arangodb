@@ -22,15 +22,19 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include "IndexFactory.h"
+#include "Basics/AttributeNameParser.h"
 #include "Basics/Exceptions.h"
 #include "Basics/StaticStrings.h"
+#include "Basics/StringRef.h"
 #include "Basics/StringUtils.h"
 #include "Basics/VelocyPackHelper.h"
 #include "Cluster/ServerState.h"
 #include "Indexes/Index.h"
 #include "RestServer/BootstrapFeature.h"
 
+#include <velocypack/Iterator.h>
 #include <velocypack/Slice.h>
+#include <velocypack/velocypack-aliases.h>
 
 namespace arangodb {
 
@@ -114,14 +118,14 @@ Result IndexFactory::enhanceIndexDefinition(
   auto type = definition.get(StaticStrings::IndexType);
 
   if (!type.isString()) {
-    return TRI_ERROR_BAD_PARAMETER;
+    return Result(TRI_ERROR_BAD_PARAMETER, "invalid index type");
   }
 
   auto typeString = type.copyString();
   auto itr = _normalizers.find(typeString);
 
   if (itr == _normalizers.end()) {
-    return TRI_ERROR_BAD_PARAMETER;
+    return Result(TRI_ERROR_BAD_PARAMETER, "invalid index type");
   }
 
   TRI_ASSERT(ServerState::instance()->isCoordinator() == isCoordinator);
@@ -147,9 +151,9 @@ Result IndexFactory::enhanceIndexDefinition(
 
     return itr->second(normalized, definition, isCreation);
   } catch (basics::Exception const& ex) {
-    return ex.code();
+    return Result(ex.code(), ex.what());
   } catch (std::exception const&) {
-    return TRI_ERROR_OUT_OF_MEMORY;
+    return TRI_ERROR_INTERNAL;
   } catch (...) {
     return TRI_ERROR_INTERNAL;
   }
@@ -183,17 +187,20 @@ std::shared_ptr<Index> IndexFactory::prepareIndexFromSlice(
   return itr->second(collection, definition, id, isClusterConstructor);
 }
 
-/// same for both storage engines
 std::vector<std::string> IndexFactory::supportedIndexes() const {
-  return std::vector<std::string>{"primary", "edge", "hash", "skiplist",
-    "persistent", "geo",  "fulltext"};
+  std::vector<std::string> result;
+  result.reserve(_factories.size());
+  for (auto const& it : _factories) {
+    result.emplace_back(it.first);
+  }
+  return result;
 }
 
 TRI_idx_iid_t IndexFactory::validateSlice(arangodb::velocypack::Slice info, 
                                           bool generateKey, 
                                           bool isClusterConstructor) {
   if (!info.isObject()) {
-    THROW_ARANGO_EXCEPTION(TRI_ERROR_BAD_PARAMETER);
+    THROW_ARANGO_EXCEPTION_MESSAGE(TRI_ERROR_BAD_PARAMETER, "expecting object for index definition");
   }
 
   TRI_idx_iid_t iid = 0;
@@ -218,6 +225,110 @@ TRI_idx_iid_t IndexFactory::validateSlice(arangodb::velocypack::Slice info,
   }
 
   return iid;
+}
+
+/// @brief process the fields list, deduplicate it, and add it to the json
+Result IndexFactory::processIndexFields(VPackSlice definition, VPackBuilder& builder,
+                                        size_t minFields, size_t maxField, bool create,
+                                        bool allowExpansion) {
+  TRI_ASSERT(builder.isOpenObject());
+  std::unordered_set<StringRef> fields;
+  auto fieldsSlice = definition.get(arangodb::StaticStrings::IndexFields);
+
+  builder.add(
+    arangodb::velocypack::Value(arangodb::StaticStrings::IndexFields)
+  );
+  builder.openArray();
+
+  if (fieldsSlice.isArray()) {
+    // "fields" is a list of fields
+    for (auto const& it : VPackArrayIterator(fieldsSlice)) {
+      if (!it.isString()) {
+        return Result(TRI_ERROR_BAD_PARAMETER, "index field names must be strings");
+      }
+
+      StringRef f(it);
+
+      if (f.empty() || (create && f == StaticStrings::IdString)) {
+        // accessing internal attributes is disallowed
+        return Result(TRI_ERROR_BAD_PARAMETER, "_id attribute cannot be indexed");
+      }
+
+      if (fields.find(f) != fields.end()) {
+        // duplicate attribute name
+        return Result(TRI_ERROR_BAD_PARAMETER, "duplicate attribute name in index fields list");
+      }
+
+      std::vector<basics::AttributeName> temp;
+      TRI_ParseAttributeString(f, temp, allowExpansion);
+
+      fields.insert(f);
+      builder.add(it);
+    }
+  }
+
+  size_t cc = fields.size();
+  if (cc == 0 || cc < minFields || cc > maxField) {
+    return Result(TRI_ERROR_BAD_PARAMETER, "invalid number of index attributes");
+  }
+
+  builder.close();
+  return Result();
+}
+
+/// @brief process the unique flag and add it to the json
+void IndexFactory::processIndexUniqueFlag(VPackSlice definition,
+                                          VPackBuilder& builder) {
+  bool unique = basics::VelocyPackHelper::getBooleanValue(
+    definition, arangodb::StaticStrings::IndexUnique.c_str(), false
+  );
+
+  builder.add(
+    arangodb::StaticStrings::IndexUnique,
+    arangodb::velocypack::Value(unique)
+  );
+}
+
+/// @brief process the sparse flag and add it to the json
+void IndexFactory::processIndexSparseFlag(VPackSlice definition,
+                                          VPackBuilder& builder, bool create) {
+  if (definition.hasKey(arangodb::StaticStrings::IndexSparse)) {
+    bool sparseBool = basics::VelocyPackHelper::getBooleanValue(
+      definition, arangodb::StaticStrings::IndexSparse.c_str(), false
+    );
+
+    builder.add(
+      arangodb::StaticStrings::IndexSparse,
+      arangodb::velocypack::Value(sparseBool)
+    );
+  } else if (create) {
+    // not set. now add a default value
+    builder.add(
+      arangodb::StaticStrings::IndexSparse,
+      arangodb::velocypack::Value(false)
+    );
+  }
+}
+
+/// @brief process the deduplicate flag and add it to the json
+void IndexFactory::processIndexDeduplicateFlag(VPackSlice definition,
+                                               VPackBuilder& builder) {
+  bool dup = basics::VelocyPackHelper::getBooleanValue(definition,
+                                                       "deduplicate", true);
+  builder.add("deduplicate", VPackValue(dup));
+}
+
+/// @brief process the geojson flag and add it to the json
+void IndexFactory::processIndexGeoJsonFlag(VPackSlice definition,
+                                           VPackBuilder& builder) {
+  auto fieldsSlice = definition.get(arangodb::StaticStrings::IndexFields);
+
+  if (fieldsSlice.isArray() && fieldsSlice.length() == 1) {
+    // only add geoJson for indexes with a single field (with needs to be an array)
+    bool geoJson = basics::VelocyPackHelper::getBooleanValue(definition, "geoJson", false);
+
+    builder.add("geoJson", VPackValue(geoJson));
+  }
 }
 
 } // arangodb

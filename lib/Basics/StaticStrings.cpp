@@ -95,6 +95,7 @@ std::string const StaticStrings::IndexId("id");
 std::string const StaticStrings::IndexSparse("sparse");
 std::string const StaticStrings::IndexType("type");
 std::string const StaticStrings::IndexUnique("unique");
+std::string const StaticStrings::IndexExpireAfter("expireAfter");
 
 // HTTP headers
 std::string const StaticStrings::Accept("accept");

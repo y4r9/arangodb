@@ -231,6 +231,9 @@ Index::IndexType Index::type(char const* type) {
   if (::strcmp(type, "skiplist") == 0) {
     return TRI_IDX_TYPE_SKIPLIST_INDEX;
   }
+  if (::strcmp(type, "ttl") == 0) {
+    return TRI_IDX_TYPE_TTL_INDEX;
+  }
   if (::strcmp(type, "persistent") == 0 || ::strcmp(type, "rocksdb") == 0) {
     return TRI_IDX_TYPE_PERSISTENT_INDEX;
   }
@@ -273,6 +276,8 @@ char const* Index::oldtypeName(Index::IndexType type) {
       return "hash";
     case TRI_IDX_TYPE_SKIPLIST_INDEX:
       return "skiplist";
+    case TRI_IDX_TYPE_TTL_INDEX:
+      return "ttl";
     case TRI_IDX_TYPE_PERSISTENT_INDEX:
       return "persistent";
     case TRI_IDX_TYPE_FULLTEXT_INDEX:

@@ -167,6 +167,7 @@ RocksDBVPackIndexIterator::RocksDBVPackIndexIterator(
 
   TRI_ASSERT(options.prefix_same_as_start);
   _iterator = mthds->NewIterator(options, index->columnFamily());
+
   if (reverse) {
     _iterator->SeekForPrev(_bounds.end());
   } else {

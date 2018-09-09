@@ -97,7 +97,8 @@ ClusterIndexFactory::ClusterIndexFactory() {
     "geo2",
     "hash",
     "persistent",
-    "skiplist"
+    "skiplist",
+    "ttl"
   };
 
   for (auto& typeStr: supported) {
@@ -232,7 +233,3 @@ void ClusterIndexFactory::prepareIndexes(
 }
 
 } // arangodb
-
-// -----------------------------------------------------------------------------
-// --SECTION--                                                       END-OF-FILE
-// -----------------------------------------------------------------------------

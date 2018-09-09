@@ -38,7 +38,6 @@
 #include "VocBase/Methods/Upgrade.h"
 #include "V8Server/V8DealerFeature.h"
 
-
 using namespace arangodb;
 using namespace arangodb::options;
 

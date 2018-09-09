@@ -333,6 +333,7 @@ RocksDBKeyBounds RocksDBIndex::getBounds(Index::IndexType type,
       return RocksDBKeyBounds::EdgeIndex(objectId);
     case RocksDBIndex::TRI_IDX_TYPE_HASH_INDEX:
     case RocksDBIndex::TRI_IDX_TYPE_SKIPLIST_INDEX:
+    case RocksDBIndex::TRI_IDX_TYPE_TTL_INDEX:
     case RocksDBIndex::TRI_IDX_TYPE_PERSISTENT_INDEX:
       if (unique) {
         return RocksDBKeyBounds::UniqueVPackIndex(objectId);

@@ -313,7 +313,6 @@ static Result EnsureIndexLocal(arangodb::LogicalCollection* collection,
   } catch (...) {
     return Result(TRI_ERROR_OUT_OF_MEMORY);
   }
-  // builder->close();
   res = trx.commit();
   if (!res.ok()) {
     return res;
@@ -356,22 +355,22 @@ Result Indexes::ensureIndex(LogicalCollection* collection,
     bool canRead = exec->canUseCollection(collection->name(), auth::Level::RO);
     if ((create && (lvl != auth::Level::RW || !canModify)) ||
         (lvl == auth::Level::NONE || !canRead)) {
-      return TRI_ERROR_FORBIDDEN;
+      return Result(TRI_ERROR_FORBIDDEN);
     }
   }
 
   VPackBuilder normalized;
   StorageEngine* engine = EngineSelectorFeature::ENGINE;
-  int res = engine->indexFactory().enhanceIndexDefinition(
+  Result res = engine->indexFactory().enhanceIndexDefinition(
     input, normalized, create, ServerState::instance()->isCoordinator()
-  ).errorNumber();
+  );
 
-  if (res != TRI_ERROR_NO_ERROR) {
-    return Result(res);
+  if (res.fail()) {
+    return res;
   }
 
   TRI_ASSERT(collection);
-  auto& dbname = collection->vocbase().name();
+  auto const& dbname = collection->vocbase().name();
   std::string const collname(collection->name());
   VPackSlice indexDef = normalized.slice();
 

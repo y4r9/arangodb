@@ -2092,12 +2092,19 @@ std::shared_ptr<Index> MMFilesCollection::lookupIndex(
   std::string tmp = value.copyString();
   arangodb::Index::IndexType const type = arangodb::Index::type(tmp.c_str());
 
-  {READ_LOCKER(guard, _indexesLock);
+  {
+    READ_LOCKER(guard, _indexesLock);
+
     for (auto const& idx : _indexes) {
       if (idx->type() == type) {
-        // Only check relevant indices
+        // Only check relevant indexes
         if (idx->matchesDefinition(info)) {
           // We found an index for this definition.
+          return idx;
+        }
+      
+        if (type == Index::IndexType::TRI_IDX_TYPE_TTL_INDEX) {
+          // there can only be one ttl index per collection
           return idx;
         }
       }

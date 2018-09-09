@@ -345,6 +345,11 @@ static std::shared_ptr<Index> findIndex(
         // We found an index for this definition.
         return idx;
       }
+      
+      if (type == Index::IndexType::TRI_IDX_TYPE_TTL_INDEX) {
+        // there can only be one ttl index per collection
+        return idx;
+      }
     }
   }
   return nullptr;
