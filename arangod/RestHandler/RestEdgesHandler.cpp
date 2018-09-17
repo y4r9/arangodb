@@ -214,9 +214,8 @@ bool RestEdgesHandler::readEdges() {
     VPackBuilder resultDocument(buffer);
     resultDocument.openObject();
     int res = getFilteredEdgesOnCoordinator(
-      _vocbase.name(),
+      *trx,
       collectionName,
-      *(trx.get()),
       vertexString,
       direction,
       responseCode,
@@ -364,9 +363,8 @@ bool RestEdgesHandler::readEdgesForMultipleVertices() {
       if (it.isString()) {
         std::string vertexString(it.copyString());
         int res = getFilteredEdgesOnCoordinator(
-          _vocbase.name(),
+          *trx,
           collectionName,
-          *(trx.get()),
           vertexString,
           direction,
           responseCode,

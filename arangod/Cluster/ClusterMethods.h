@@ -29,9 +29,8 @@
 #include <velocypack/Slice.h>
 #include <velocypack/velocypack-aliases.h>
 
-#include "Agency/AgencyComm.h"
 #include "Cluster/TraverserEngineRegistry.h"
-#include "Rest/HttpResponse.h"
+#include "Rest/CommonDefines.h"
 #include "VocBase/LogicalCollection.h"
 #include "VocBase/voc-types.h"
 
@@ -43,6 +42,7 @@ class Builder;
 class Slice;
 }
 
+class GeneralRequest;
 struct OperationOptions;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -86,8 +86,7 @@ int figuresOnCoordinator(std::string const& dbname, std::string const& collname,
 /// @brief counts number of documents in a coordinator, by shard
 ////////////////////////////////////////////////////////////////////////////////
 
-int countOnCoordinator(std::string const& dbname, std::string const& collname,
-                       transaction::Methods const& trx,
+int countOnCoordinator(transaction::Methods const& trx, std::string const& cname,
                        std::vector<std::pair<std::string, uint64_t>>& result);
   
 ////////////////////////////////////////////////////////////////////////////////
@@ -102,8 +101,7 @@ int selectivityEstimatesOnCoordinator(std::string const& dbname, std::string con
 ////////////////////////////////////////////////////////////////////////////////
 
 Result createDocumentOnCoordinator(
-    std::string const& dbname, std::string const& collname,
-    transaction::Methods const& trx,
+    transaction::Methods const& trx, std::string const& collname,
     OperationOptions const& options, arangodb::velocypack::Slice const& slice,
     arangodb::rest::ResponseCode& responseCode,
     std::unordered_map<int, size_t>& errorCounters,
@@ -114,8 +112,7 @@ Result createDocumentOnCoordinator(
 ////////////////////////////////////////////////////////////////////////////////
 
 int deleteDocumentOnCoordinator(
-    std::string const& dbname, std::string const& collname,
-    transaction::Methods const& trx,
+    transaction::Methods const& trx, std::string const& cname,
     VPackSlice const slice, OperationOptions const& options,
     arangodb::rest::ResponseCode& responseCode,
     std::unordered_map<int, size_t>& errorCounters,
@@ -126,8 +123,7 @@ int deleteDocumentOnCoordinator(
 ////////////////////////////////////////////////////////////////////////////////
 
 int getDocumentOnCoordinator(
-    std::string const& dbname, std::string const& collname,
-    transaction::Methods const& trx,
+    transaction::Methods const& trx, std::string const& cname,
     VPackSlice slice, OperationOptions const& options,
     arangodb::rest::ResponseCode& responseCode,
     std::unordered_map<int, size_t>& errorCounter,
@@ -146,7 +142,7 @@ int getDocumentOnCoordinator(
 ///        TraversalVariant
 
 int fetchEdgesFromEngines(
-    std::string const&,
+    transaction::Methods const& trx,
     std::unordered_map<ServerID, traverser::TraverserEngineID> const*,
     arangodb::velocypack::Slice vertexId, size_t,
     std::unordered_map<StringRef, arangodb::velocypack::Slice>&,
@@ -167,7 +163,7 @@ int fetchEdgesFromEngines(
 ///        ShortestPathVariant
 
 int fetchEdgesFromEngines(
-    std::string const& dbname,
+    transaction::Methods const& trx,
     std::unordered_map<ServerID, traverser::TraverserEngineID> const* engines,
     arangodb::velocypack::Slice vertexId,
     bool backward,
@@ -186,11 +182,10 @@ int fetchEdgesFromEngines(
 ///        a 'null' will be inserted into the result.
 
 void fetchVerticesFromEngines(
-    std::string const&,
+    transaction::Methods& trx,
     std::unordered_map<ServerID, traverser::TraverserEngineID> const*,
     std::unordered_set<StringRef>&,
-    std::unordered_map<StringRef, std::shared_ptr<arangodb::velocypack::Buffer<uint8_t>>>&,
-    arangodb::velocypack::Builder&);
+    std::unordered_map<StringRef, std::shared_ptr<arangodb::velocypack::Buffer<uint8_t>>>&);
 
 /// @brief fetch vertices from TraverserEngines
 ///        Contacts all TraverserEngines placed
@@ -203,12 +198,11 @@ void fetchVerticesFromEngines(
 ///        ShortestPath Variant
 
 void fetchVerticesFromEngines(
-    std::string const&,
+    transaction::Methods& trx,
     std::unordered_map<ServerID, traverser::TraverserEngineID> const*,
     std::unordered_set<StringRef>&,
     std::unordered_map<StringRef, arangodb::velocypack::Slice>& result,
-    std::vector<std::shared_ptr<arangodb::velocypack::Builder>>& datalake,
-    arangodb::velocypack::Builder&);
+    std::vector<std::shared_ptr<arangodb::velocypack::Builder>>& datalake);
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -217,8 +211,7 @@ void fetchVerticesFromEngines(
 ////////////////////////////////////////////////////////////////////////////////
 
 int getFilteredEdgesOnCoordinator(
-    std::string const& dbname, std::string const& collname,
-    transaction::Methods const& trx,
+    transaction::Methods const& trx, std::string const& collname,
     std::string const& vertex, TRI_edge_direction_e const& direction,
     arangodb::rest::ResponseCode& responseCode,
     arangodb::velocypack::Builder& result);
@@ -228,8 +221,7 @@ int getFilteredEdgesOnCoordinator(
 ////////////////////////////////////////////////////////////////////////////////
 
 int modifyDocumentOnCoordinator(
-    std::string const& dbname, std::string const& collname,
-    transaction::Methods const& trx,
+    transaction::Methods const& trx, std::string const& collname,
     arangodb::velocypack::Slice const& slice, OperationOptions const& options,
     bool isPatch,
     std::unique_ptr<std::unordered_map<std::string, std::string>>& headers,

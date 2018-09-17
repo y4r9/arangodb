@@ -46,13 +46,14 @@ ClusterEdgeCursor::ClusterEdgeCursor(StringRef vertexId, uint64_t depth,
       _cache(static_cast<ClusterTraverserCache*>(opts->cache())) {
   TRI_ASSERT(_cache != nullptr);
   auto trx = _opts->trx();
+  TRI_ASSERT(trx != nullptr);
   transaction::BuilderLeaser leased(trx);
   transaction::BuilderLeaser b(trx);
 
   b->add(VPackValuePair(vertexId.data(), vertexId.length(),
                         VPackValueType::String));
   fetchEdgesFromEngines(
-    trx->vocbase().name(),
+    *trx,
     _cache->engines(),
     b->slice(),
     depth,
@@ -80,7 +81,7 @@ ClusterEdgeCursor::ClusterEdgeCursor(StringRef vertexId, bool backward,
   b->add(VPackValuePair(vertexId.data(), vertexId.length(),
                         VPackValueType::String));
   fetchEdgesFromEngines(
-    trx->vocbase().name(),
+    *trx,
     _cache->engines(),
     b->slice(),
     backward,

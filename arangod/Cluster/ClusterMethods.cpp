@@ -891,8 +891,7 @@ int figuresOnCoordinator(std::string const& dbname, std::string const& collname,
 /// @brief counts number of documents in a coordinator, by shard
 ////////////////////////////////////////////////////////////////////////////////
 
-int countOnCoordinator(std::string const& dbname, std::string const& cname,
-                       transaction::Methods const& trx,
+int countOnCoordinator(transaction::Methods const& trx, std::string const& cname,
                        std::vector<std::pair<std::string, uint64_t>>& result) {
   // Set a few variables needed for our work:
   ClusterInfo* ci = ClusterInfo::instance();
@@ -904,6 +903,7 @@ int countOnCoordinator(std::string const& dbname, std::string const& cname,
 
   result.clear();
 
+  std::string const& dbname = trx.vocbase().name();
   // First determine the collection ID from the name:
   std::shared_ptr<LogicalCollection> collinfo;
   try {
@@ -1077,9 +1077,8 @@ int selectivityEstimatesOnCoordinator(
 /// for their documents.
 ////////////////////////////////////////////////////////////////////////////////
 
-Result createDocumentOnCoordinator(
-    std::string const& dbname, std::string const& collname,
-    transaction::Methods const& trx,
+Result createDocumentOnCoordinator(transaction::Methods const& trx,
+    std::string const& cname,
     arangodb::OperationOptions const& options, VPackSlice const& slice,
     arangodb::rest::ResponseCode& responseCode,
     std::unordered_map<int, size_t>& errorCounter,
@@ -1094,10 +1093,11 @@ Result createDocumentOnCoordinator(
   ClusterInfo* ci = ClusterInfo::instance();
   TRI_ASSERT(ci != nullptr);
 
+  std::string const& dbname = trx.vocbase().name();
   // First determine the collection ID from the name:
   std::shared_ptr<LogicalCollection> collinfo;
   try {
-    collinfo = ci->getCollection(dbname, collname);
+    collinfo = ci->getCollection(dbname, cname);
   } catch (...) {
     return TRI_ERROR_ARANGO_DATA_SOURCE_NOT_FOUND;
   }
@@ -1226,8 +1226,8 @@ Result createDocumentOnCoordinator(
 ////////////////////////////////////////////////////////////////////////////////
 
 int deleteDocumentOnCoordinator(
-    std::string const& dbname, std::string const& collname,
     arangodb::transaction::Methods const& trx,
+    std::string const& cname,
     VPackSlice const slice, arangodb::OperationOptions const& options,
     arangodb::rest::ResponseCode& responseCode,
     std::unordered_map<int, size_t>& errorCounter,
@@ -1240,10 +1240,11 @@ int deleteDocumentOnCoordinator(
     return TRI_ERROR_SHUTTING_DOWN;
   }
 
+  std::string const& dbname = trx.vocbase().name();
   // First determine the collection ID from the name:
   std::shared_ptr<LogicalCollection> collinfo;
   try {
-    collinfo = ci->getCollection(dbname, collname);
+    collinfo = ci->getCollection(dbname, cname);
   } catch (...) {
     return TRI_ERROR_ARANGO_DATA_SOURCE_NOT_FOUND;
   }
@@ -1578,9 +1579,8 @@ int rotateActiveJournalOnAllDBServers(std::string const& dbname,
 /// @brief get a document in a coordinator
 ////////////////////////////////////////////////////////////////////////////////
 
-int getDocumentOnCoordinator(
-    std::string const& dbname, std::string const& collname,
-    arangodb::transaction::Methods const& trx,
+int getDocumentOnCoordinator(arangodb::transaction::Methods const& trx,
+                             std::string const& cname,
     VPackSlice slice, OperationOptions const& options,
     arangodb::rest::ResponseCode& responseCode,
     std::unordered_map<int, size_t>& errorCounter,
@@ -1593,10 +1593,11 @@ int getDocumentOnCoordinator(
     return TRI_ERROR_SHUTTING_DOWN;
   }
 
+  std::string const& dbname = trx.vocbase().name();
   // First determine the collection ID from the name:
   std::shared_ptr<LogicalCollection> collinfo;
   try {
-    collinfo = ci->getCollection(dbname, collname);
+    collinfo = ci->getCollection(dbname, cname);
   } catch (...) {
     return TRI_ERROR_ARANGO_DATA_SOURCE_NOT_FOUND;
   }
@@ -1853,7 +1854,7 @@ int getDocumentOnCoordinator(
 ///        the lake is cleared.
 
 int fetchEdgesFromEngines(
-    std::string const& dbname,
+    transaction::Methods const& trx,
     std::unordered_map<ServerID, traverser::TraverserEngineID> const* engines,
     VPackSlice const vertexId,
     size_t depth,
@@ -1879,7 +1880,8 @@ int fetchEdgesFromEngines(
   builder.add("depth", VPackValue(depth));
   builder.add("keys", vertexId);
   builder.close();
-
+  
+  std::string const& dbname = trx.vocbase().name();
   std::string const url =
       "/_db/" + StringUtils::urlEncode(dbname) + "/_internal/traverser/edge/";
 
@@ -1951,12 +1953,11 @@ int fetchEdgesFromEngines(
 ///        a 'null' will be inserted into the result.
 
 void fetchVerticesFromEngines(
-    std::string const& dbname,
+    transaction::Methods& trx,
     std::unordered_map<ServerID, traverser::TraverserEngineID> const* engines,
     std::unordered_set<StringRef>& vertexIds,
     std::unordered_map<StringRef, std::shared_ptr<VPackBuffer<uint8_t>>>&
-        result,
-    VPackBuilder& builder) {
+        result) {
   auto cc = ClusterComm::instance();
   if (cc == nullptr) {
     // nullptr happens only during controlled shutdown
@@ -1964,6 +1965,9 @@ void fetchVerticesFromEngines(
   }
   // TODO map id => ServerID if possible
   // And go fast-path
+  
+  transaction::BuilderLeaser leased(&trx);
+  VPackBuilder& builder = *leased.get();
 
   // slow path, sharding not deducable from _id
   builder.clear();
@@ -1977,6 +1981,7 @@ void fetchVerticesFromEngines(
   builder.close(); // 'keys' Array
   builder.close(); // base object
 
+  std::string dbname = trx.vocbase().name();
   std::string const url =
       "/_db/" + StringUtils::urlEncode(dbname) + "/_internal/traverser/vertex/";
 
@@ -2056,12 +2061,11 @@ void fetchVerticesFromEngines(
 ///        ShortestPathVariant
 
 void fetchVerticesFromEngines(
-    std::string const& dbname,
+    transaction::Methods& trx,
     std::unordered_map<ServerID, traverser::TraverserEngineID> const* engines,
     std::unordered_set<StringRef>& vertexIds,
     std::unordered_map<StringRef, arangodb::velocypack::Slice>& result,
-    std::vector<std::shared_ptr<arangodb::velocypack::Builder>>& datalake,
-    VPackBuilder& builder) {
+    std::vector<std::shared_ptr<arangodb::velocypack::Builder>>& datalake) {
   auto cc = ClusterComm::instance();
   if (cc == nullptr) {
     // nullptr happens only during controlled shutdown
@@ -2069,6 +2073,9 @@ void fetchVerticesFromEngines(
   }
   // TODO map id => ServerID if possible
   // And go fast-path
+  
+  transaction::BuilderLeaser leased(&trx);
+  VPackBuilder& builder = *leased.get();
 
   // slow path, sharding not deducable from _id
   builder.clear();
@@ -2082,6 +2089,7 @@ void fetchVerticesFromEngines(
   builder.close(); // 'keys' Array
   builder.close(); // base object
 
+  std::string dbname = trx.vocbase().name();
   std::string const url =
       "/_db/" + StringUtils::urlEncode(dbname) + "/_internal/traverser/vertex/";
 
@@ -2145,8 +2153,7 @@ void fetchVerticesFromEngines(
 ////////////////////////////////////////////////////////////////////////////////
 
 int getFilteredEdgesOnCoordinator(
-    std::string const& dbname, std::string const& collname,
-    arangodb::transaction::Methods const& trx,
+    transaction::Methods const& trx, std::string const& cname,
     std::string const& vertex, TRI_edge_direction_e const& direction,
     arangodb::rest::ResponseCode& responseCode,
     VPackBuilder& result) {
@@ -2160,9 +2167,9 @@ int getFilteredEdgesOnCoordinator(
     return TRI_ERROR_SHUTTING_DOWN;
   }
 
+  std::string const& dbname = trx.vocbase().name();
   // First determine the collection ID from the name:
-  std::shared_ptr<LogicalCollection> collinfo =
-      ci->getCollection(dbname, collname);
+  std::shared_ptr<LogicalCollection> collinfo = ci->getCollection(dbname, cname);
 
   std::shared_ptr<std::unordered_map<std::string, std::vector<std::string>>> shards;
   if (collinfo->isSmart() && collinfo->type() == TRI_COL_TYPE_EDGE) {
@@ -2269,8 +2276,8 @@ int getFilteredEdgesOnCoordinator(
 ////////////////////////////////////////////////////////////////////////////////
 
 int modifyDocumentOnCoordinator(
-    std::string const& dbname, std::string const& collname,
     arangodb::transaction::Methods const& trx,
+    std::string const& cname,
     VPackSlice const& slice, arangodb::OperationOptions const& options,
     bool isPatch,
     std::unique_ptr<std::unordered_map<std::string, std::string>>& headers,
@@ -2285,9 +2292,9 @@ int modifyDocumentOnCoordinator(
     return TRI_ERROR_SHUTTING_DOWN;
   }
 
+  std::string const& dbname = trx.vocbase().name();
   // First determine the collection ID from the name:
-  std::shared_ptr<LogicalCollection> collinfo =
-      ci->getCollection(dbname, collname);
+  std::shared_ptr<LogicalCollection> collinfo = ci->getCollection(dbname, cname);
   auto collid = std::to_string(collinfo->id());
 
   // We have a fast path and a slow path. The fast path only asks one shard
@@ -2741,7 +2748,7 @@ std::shared_ptr<LogicalCollection> ClusterMethods::persistCollectionInAgency(
 ///        the lake is cleared.
 
 int fetchEdgesFromEngines(
-    std::string const& dbname,
+    transaction::Methods const& trx,
     std::unordered_map<ServerID, traverser::TraverserEngineID> const* engines,
     VPackSlice const vertexId,
     bool backward,
@@ -2767,6 +2774,7 @@ int fetchEdgesFromEngines(
   builder.add("keys", vertexId);
   builder.close();
 
+  std::string const& dbname = trx.vocbase().name();
   std::string const url =
       "/_db/" + StringUtils::urlEncode(dbname) + "/_internal/traverser/edge/";
 
