@@ -25,6 +25,7 @@
 #include "SynchronizeShard.h"
 
 #include "Agency/TimeString.h"
+#include "Agency/AgencyStrings.h"
 #include "ApplicationFeatures/ApplicationServer.h"
 #include "Basics/VelocyPackHelper.h"
 #include "Cluster/ActionDescription.h"
@@ -58,29 +59,26 @@ using namespace arangodb::maintenance;
 using namespace arangodb::methods;
 using namespace arangodb::transaction;
 using namespace arangodb;
+using namespace arangodb::consensus;
 
-constexpr auto REPL_HOLD_READ_LOCK = "/_api/replication/holdReadLockCollection";
-constexpr auto REPL_ADD_FOLLOWER = "/_api/replication/addFollower";
-constexpr auto REPL_REM_FOLLOWER = "/_api/replication/removeFollower";
 
-std::string const READ_LOCK_TIMEOUT ("startReadLockOnLeader: giving up");
-std::string const DB ("/_db/");
-std::string const SYSTEM ("/_db/_system");
-std::string const TTL ("ttl");
-std::string const REPL_BARRIER_API ("/_api/replication/barrier/");
 std::string const ENDPOINT("endpoint");
+std::string const INCLUDE("include");
+std::string const INCLUDE_SYSTEM("includeSystem");
 std::string const INCREMENTAL("incremental");
 std::string const KEEP_BARRIER("keepBarrier");
 std::string const LEADER_ID("leaderId");
-std::string const SKIP_CREATE_DROP("skipCreateDrop");
-std::string const COLLECTIONS("collections");
-std::string const LAST_LOG_TICK("lastLogTick");
 std::string const BARRIER_ID("barrierId");
-std::string const FOLLOWER_ID("followerId");
+std::string const LAST_LOG_TICK("lastLogTick");
+std::string const API_REPLICATION("/_api/replication/");
+std::string const REPL_ADD_FOLLOWER(API_REPLICATION + "addFollower");
+std::string const REPL_BARRIER_API(API_REPLICATION + "barrier/");
+std::string const REPL_HOLD_READ_LOCK(API_REPLICATION + "holdReadLockCollection");
+std::string const REPL_REM_FOLLOWER(API_REPLICATION + "removeFollower");
 std::string const RESTRICT_TYPE("restrictType");
 std::string const RESTRICT_COLLECTIONS("restrictCollections");
-std::string const INCLUDE("include");
-std::string const INCLUDE_SYSTEM("includeSystem");
+std::string const SKIP_CREATE_DROP("skipCreateDrop");
+std::string const TTL("ttl");
 using namespace std::chrono;
 
 SynchronizeShard::SynchronizeShard(
@@ -100,14 +98,19 @@ SynchronizeShard::SynchronizeShard(
   TRI_ASSERT(desc.has(DATABASE));
 
   if (!desc.has(SHARD)) {
-    error << "SHARD must be stecified";
+    error << "SHARD must be specified";
   }
   TRI_ASSERT(desc.has(SHARD));
 
-  if (!desc.has(LEADER)) {
+  if (!desc.has(THE_LEADER)) {
     error << "leader must be stecified";
   }
-  TRI_ASSERT(desc.has(LEADER));
+  TRI_ASSERT(desc.has(THE_LEADER));
+
+  if (!desc.has(SHARD_VERSION)) {
+    error << "local shard version must be specified. ";
+  }
+  TRI_ASSERT(desc.has(SHARD_VERSION));
 
   if (!error.str().empty()) {
     LOG_TOPIC(ERR, Logger::MAINTENANCE) << "SynchronizeShard: " << error.str();
@@ -124,6 +127,8 @@ public:
     return true;
   }
 };
+
+SynchronizeShard::~SynchronizeShard() {}
 
 
 arangodb::Result getReadLockId (
@@ -334,7 +339,7 @@ arangodb::Result cancelReadLockOnLeader (
   // the read lock under all circumstances.
   auto comres = cc->syncRequest(
     TRI_NewTickServer(), endpoint, rest::RequestType::DELETE_REQ,
-    SYSTEM + REPL_HOLD_READ_LOCK, body.toJson(),
+    DB + StaticStrings::SystemDatabase + REPL_HOLD_READ_LOCK, body.toJson(),
     std::unordered_map<std::string, std::string>(), timeout);
 
   auto result = comres->result;
@@ -468,7 +473,7 @@ arangodb::Result SynchronizeShard::getReadLock(
       << "startReadLockOnLeader: expection in cancel: " << e.what();
   }
 
-  return arangodb::Result(TRI_ERROR_CLUSTER_TIMEOUT, READ_LOCK_TIMEOUT);
+  return arangodb::Result(TRI_ERROR_CLUSTER_TIMEOUT, "startReadLockOnLeader: giving up");
 
 }
 
@@ -630,7 +635,7 @@ bool SynchronizeShard::first() {
   std::string database = _description.get(DATABASE);
   std::string planId = _description.get(COLLECTION);
   std::string shard = _description.get(SHARD);
-  std::string leader = _description.get(LEADER);
+  std::string leader = _description.get(THE_LEADER);
 
   LOG_TOPIC(DEBUG, Logger::MAINTENANCE)
     << "SynchronizeShard: synchronizing shard '" << database << "/" << shard
@@ -806,7 +811,7 @@ bool SynchronizeShard::first() {
       bool longSync = false;
 
       // Long shard sync initialisation
-      if (endTime-startTime > seconds(5)) {
+      if (endTime - startTime > seconds(5)) {
         LOG_TOPIC(WARN, Logger::MAINTENANCE)
           << "synchronizeOneShard: long call to syncCollection for shard"
           << shard << " " << syncRes.errorMessage() <<  " start time: "
@@ -949,9 +954,21 @@ bool SynchronizeShard::first() {
     << timepointToString(startTime) << ", ended: " << timepointToString(endTime);
 
   notify();
-  return false;;
+  return false;
 
 }
 
-SynchronizeShard::~SynchronizeShard() {};
+
+void SynchronizeShard::setState(ActionState state) {
+  
+  if ((COMPLETE==state || FAILED==state) && _state != state) {
+    TRI_ASSERT(_description.has("shard"));
+    _feature.incShardVersion(_description.get("shard"));
+  }
+  
+  ActionBase::setState(state);
+  
+}
+
+
 

@@ -220,7 +220,8 @@ size_t MMFilesPrimaryIndex::memory() const {
 }
 
 /// @brief return a VelocyPack representation of the index
-void MMFilesPrimaryIndex::toVelocyPack(VPackBuilder& builder, unsigned flags) const {
+void MMFilesPrimaryIndex::toVelocyPack(VPackBuilder& builder,
+                                       std::underlying_type<Serialize>::type flags) const {
   builder.openObject();
   Index::toVelocyPack(builder, flags);
   // hard-coded
@@ -449,6 +450,7 @@ void MMFilesPrimaryIndex::invokeOnAllElementsForRemoval(
 
 /// @brief checks whether the index supports the condition
 bool MMFilesPrimaryIndex::supportsFilterCondition(
+    std::vector<std::shared_ptr<arangodb::Index>> const&,
     arangodb::aql::AstNode const* node,
     arangodb::aql::Variable const* reference, size_t itemsInIndex,
     size_t& estimatedItems, double& estimatedCost) const {

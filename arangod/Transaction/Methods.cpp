@@ -288,7 +288,8 @@ std::shared_ptr<arangodb::Index> transaction::Methods::IndexHandle::getIndex()
 
 /// @brief IndexHandle toVelocyPack method passthrough
 void transaction::Methods::IndexHandle::toVelocyPack(
-    arangodb::velocypack::Builder& builder, unsigned flags) const {
+    arangodb::velocypack::Builder& builder,
+    std::underlying_type<Index::Serialize>::type flags) const {
   _index->toVelocyPack(builder, flags);
 }
 
@@ -572,7 +573,7 @@ std::pair<bool, bool> transaction::Methods::findIndexHandleForAndNode(
     // check if the index supports the filter expression
     double estimatedCost;
     size_t estimatedItems;
-    if (idx->supportsFilterCondition(node, reference, itemsInIndex,
+    if (idx->supportsFilterCondition(indexes, node, reference, itemsInIndex,
                                      estimatedItems, estimatedCost)) {
       // index supports the filter condition
       filterCost = estimatedCost;
@@ -660,7 +661,7 @@ bool transaction::Methods::findIndexHandleForAndNode(
     // check if the index supports the filter expression
     double estimatedCost;
     size_t estimatedItems;
-    bool supportsFilter = idx->supportsFilterCondition(node, reference, itemsInIndex,
+    bool supportsFilter = idx->supportsFilterCondition(indexes, node, reference, itemsInIndex,
                                                        estimatedItems, estimatedCost);
 
     // enable the following line to see index candidates considered with their
@@ -2991,7 +2992,7 @@ bool transaction::Methods::supportsFilterCondition(
                                    "The index id cannot be empty.");
   }
 
-  return idx->supportsFilterCondition(condition, reference, itemsInIndex,
+  return idx->supportsFilterCondition(std::vector<std::shared_ptr<Index>>(), condition, reference, itemsInIndex,
                                       estimatedItems, estimatedCost);
 }
 
@@ -3356,20 +3357,10 @@ transaction::Methods::indexesForCollectionCoordinator(
     std::string const& name) const {
   auto clusterInfo = arangodb::ClusterInfo::instance();
   auto collection = clusterInfo->getCollection(vocbase().name(), name);
-  std::vector<std::shared_ptr<Index>> indexes = collection->getIndexes();
-
-  // update estimates in logical collection
-  auto selectivity = collection->clusterIndexEstimates();
-
-  // push updated values into indexes
-  for(std::shared_ptr<Index>& idx : indexes){
-    auto it = selectivity.find(std::to_string(idx->id()));
-    if (it != selectivity.end()) {
-      idx->updateClusterSelectivityEstimate(it->second);
-    }
-  }
-
-  return indexes;
+  
+  // update selectivity estimates if they were expired
+  collection->clusterIndexEstimates(true);
+  return collection->getIndexes();
 }
 
 /// @brief get the index by it's identifier. Will either throw or

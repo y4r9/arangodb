@@ -139,36 +139,6 @@ arangodb::LogicalDataSource::Type const& readType(
 
 } // namespace
 
-/// @brief This the "copy" constructor used in the cluster
-///        it is required to create objects that survive plan
-///        modifications and can be freed
-LogicalCollection::LogicalCollection(LogicalCollection const& other)
-    : LogicalDataSource(other),
-      _version(other._version),
-      _internalVersion(0),
-      _type(other.type()),
-      _status(other.status()),
-      _isAStub(other._isAStub),
-      _isSmart(other.isSmart()),
-      _isLocal(false),
-      _waitForSync(other.waitForSync()),
-      _allowUserKeys(other.allowUserKeys()),
-      _keyOptions(other._keyOptions),
-      _keyGenerator(KeyGenerator::factory(VPackSlice(keyOptions()))),
-      _physical(other.getPhysical()->clone(*this)),
-      _clusterEstimateTTL(0),
-      _followers(), // intentionally empty here
-      _sharding() {
-  TRI_ASSERT(_physical != nullptr);
-
-  _sharding = std::make_unique<ShardingInfo>(*other._sharding.get(), this);
-  
-  if (ServerState::instance()->isDBServer() ||
-      !ServerState::instance()->isRunningInCluster()) {
-    _followers.reset(new FollowerInfo(this));
-  }
-}
-
 // The Slice contains the part of the plan that
 // is relevant for this collection.
 LogicalCollection::LogicalCollection(
@@ -212,7 +182,6 @@ LogicalCollection::LogicalCollection(
       _physical(
         EngineSelectorFeature::ENGINE->createPhysicalCollection(*this, info)
       ),
-      _clusterEstimateTTL(0),
       _sharding() {
   TRI_ASSERT(info.isObject());
 
@@ -230,7 +199,7 @@ LogicalCollection::LogicalCollection(
   }
 
   TRI_ASSERT(!guid().empty());
-  
+
   // update server's tick value
   TRI_UpdateTickServer(static_cast<TRI_voc_tick_t>(id()));
 
@@ -240,9 +209,9 @@ LogicalCollection::LogicalCollection(
   if (!keyOpts.isNone()) {
     _keyOptions = VPackBuilder::clone(keyOpts).steal();
   }
-  
+
   _sharding = std::make_unique<ShardingInfo>(info, this);
-  
+
   if (ServerState::instance()->isDBServer() ||
       !ServerState::instance()->isRunningInCluster()) {
     _followers.reset(new FollowerInfo(this));
@@ -253,7 +222,7 @@ LogicalCollection::LogicalCollection(
   // together.
   prepareIndexes(info.get("indexes"));
 }
-   
+
 LogicalCollection::~LogicalCollection() {}
 
 /*static*/ LogicalDataSource::Category const& LogicalCollection::category() noexcept {
@@ -261,7 +230,7 @@ LogicalCollection::~LogicalCollection() {}
 
   return category;
 }
-  
+
 // SECTION: sharding
 ShardingInfo* LogicalCollection::shardingInfo() const {
   TRI_ASSERT(_sharding != nullptr);
@@ -317,7 +286,7 @@ void LogicalCollection::setShardMap(std::shared_ptr<ShardMap> const& map) {
   TRI_ASSERT(_sharding != nullptr);
   _sharding->setShardMap(map);
 }
-  
+
 int LogicalCollection::getResponsibleShard(arangodb::velocypack::Slice slice,
                                            bool docComplete, std::string& shardID) {
   bool usesDefaultShardKeys;
@@ -449,51 +418,25 @@ bool LogicalCollection::isSmart() const { return _isSmart; }
 std::unique_ptr<FollowerInfo> const& LogicalCollection::followers() const {
   return _followers;
 }
-
-// SECTION: Indexes
-std::unordered_map<std::string, double> LogicalCollection::clusterIndexEstimates(bool doNotUpdate) {
-  READ_LOCKER(readlock, _clusterEstimatesLock);
-  if (doNotUpdate) {
-    return _clusterEstimates;
-  }
-
-  double ctime = TRI_microtime(); // in seconds
-  auto needEstimateUpdate = [this, ctime]() {
-    if(_clusterEstimates.empty()) {
-      LOG_TOPIC(TRACE, Logger::CLUSTER) << "update because estimate is not available";
-      return true;
-    } else if (ctime - _clusterEstimateTTL > 60.0) {
-      LOG_TOPIC(TRACE, Logger::CLUSTER) << "update because estimate is too old: " << ctime - _clusterEstimateTTL;
-      return true;
-    }
-    return false;
-  };
-
-  if (needEstimateUpdate()) {
-    readlock.unlock();
-    WRITE_LOCKER(writelock, _clusterEstimatesLock);
-
-    if (needEstimateUpdate()) {
-      selectivityEstimatesOnCoordinator(vocbase().name(), name(), _clusterEstimates);
-      _clusterEstimateTTL = TRI_microtime();
-    }
-    return _clusterEstimates;
-  }
-
-  return _clusterEstimates;
+ 
+std::unordered_map<std::string, double> LogicalCollection::clusterIndexEstimates(bool allowUpdate) {
+  return getPhysical()->clusterIndexEstimates(allowUpdate);
 }
 
 void LogicalCollection::clusterIndexEstimates(std::unordered_map<std::string, double>&& estimates) {
-  WRITE_LOCKER(lock, _clusterEstimatesLock);
-  _clusterEstimates = std::move(estimates);
+  getPhysical()->clusterIndexEstimates(std::move(estimates));
 }
 
-std::vector<std::shared_ptr<arangodb::Index>>
-LogicalCollection::getIndexes() const {
+void LogicalCollection::flushClusterIndexEstimates() {
+  getPhysical()->flushClusterIndexEstimates();
+}
+
+std::vector<std::shared_ptr<arangodb::Index>> LogicalCollection::getIndexes() const {
   return getPhysical()->getIndexes();
 }
 
-void LogicalCollection::getIndexesVPack(VPackBuilder& result, unsigned flags,
+void LogicalCollection::getIndexesVPack(VPackBuilder& result,
+                                        std::underlying_type<Index::Serialize>::type flags,
                                         std::function<bool(arangodb::Index const*)> const& filter) const {
   getPhysical()->getIndexesVPack(result, flags, filter);
 }
@@ -637,7 +580,14 @@ void LogicalCollection::toVelocyPackForClusterInventory(VPackBuilder& result,
   }
 
   result.add(VPackValue("indexes"));
-  getIndexesVPack(result, Index::SERIALIZE_BASICS);
+  getIndexesVPack(result, Index::makeFlags(), [](arangodb::Index const* idx) {
+    // we have to exclude the primary and the edge index here, because otherwise
+    // at least the MMFiles engine will try to create it
+    // AND exclude arangosearch indexes
+    return (idx->type() != arangodb::Index::TRI_IDX_TYPE_PRIMARY_INDEX &&
+            idx->type() != arangodb::Index::TRI_IDX_TYPE_EDGE_INDEX &&
+            idx->type() != arangodb::Index::TRI_IDX_TYPE_IRESEARCH_LINK);
+  });
   result.add("planVersion", VPackValue(planVersion()));
   result.add("isReady", VPackValue(isReady));
   result.add("allInSync", VPackValue(allInSync));
@@ -689,9 +639,9 @@ arangodb::Result LogicalCollection::appendVelocyPack(
 
   // Indexes
   result.add(VPackValue("indexes"));
-  unsigned flags = Index::SERIALIZE_BASICS;
+  auto flags = Index::makeFlags();
   if (forPersistence) {
-    flags |= Index::SERIALIZE_OBJECTID;
+    flags = Index::makeFlags(Index::Serialize::ObjectId);
   }
   getIndexesVPack(result, flags);
 
@@ -719,8 +669,8 @@ void LogicalCollection::toVelocyPackIgnore(VPackBuilder& result,
     bool forPersistence) const {
   TRI_ASSERT(result.isOpenObject());
   VPackBuilder b = toVelocyPackIgnore(ignoreKeys, translateCids, forPersistence);
-  result.add(VPackObjectIterator(b.slice())); 
-} 
+  result.add(VPackObjectIterator(b.slice()));
+}
 
 VPackBuilder LogicalCollection::toVelocyPackIgnore(
     std::unordered_set<std::string> const& ignoreKeys, bool translateCids,
@@ -750,7 +700,7 @@ arangodb::Result LogicalCollection::updateProperties(VPackSlice const& slice,
   // ... probably a few others missing here ...
 
   MUTEX_LOCKER(guard, _infoLock); // prevent simultanious updates
-  
+
   size_t rf = _sharding->replicationFactor();
   VPackSlice rfSl = slice.get("replicationFactor");
   if (!rfSl.isNone()) {
@@ -765,7 +715,7 @@ arangodb::Result LogicalCollection::updateProperties(VPackSlice const& slice,
       if ((!isSatellite() && rf == 0) || rf > 10) {
         return Result(TRI_ERROR_BAD_PARAMETER, "bad value for replicationFactor");
       }
-      
+
       if (!_isLocal && rf != _sharding->replicationFactor()) { // sanity checks
         if (!_sharding->distributeShardsLike().empty()) {
           return Result(TRI_ERROR_FORBIDDEN, "Cannot change replicationFactor, "
@@ -1052,7 +1002,7 @@ ChecksumResult LogicalCollection::checksum(bool withRevisions, bool withData) co
 
   trx.invokeOnAllElements(name(), [&hash, &withData, &withRevisions, &trx, &collection](LocalDocumentId const& token) {
     collection->readDocumentWithCallback(&trx, token, [&](LocalDocumentId const&, VPackSlice slice) {
-      uint64_t localHash = transaction::helpers::extractKeyFromDocument(slice).hashString(); 
+      uint64_t localHash = transaction::helpers::extractKeyFromDocument(slice).hashString();
 
       if (withRevisions) {
         localHash += transaction::helpers::extractRevSliceFromDocument(slice).hash();
@@ -1069,7 +1019,7 @@ ChecksumResult LogicalCollection::checksum(bool withRevisions, bool withData) co
           // was already handled before
           VPackValueLength keyLength;
           char const* key = it.key.getString(keyLength);
-          if (keyLength >= 3 && 
+          if (keyLength >= 3 &&
               key[0] == '_' &&
               ((keyLength == 3 && memcmp(key, "_id", 3) == 0) ||
               (keyLength == 4 && (memcmp(key, "_key", 4) == 0 || memcmp(key, "_rev", 4) == 0)))) {
@@ -1077,8 +1027,8 @@ ChecksumResult LogicalCollection::checksum(bool withRevisions, bool withData) co
             continue;
           }
 
-          localHash ^= it.key.hash(seed) ^ 0xba5befd00d; 
-          localHash += it.value.normalizedHash(seed) ^ 0xd4129f526421; 
+          localHash ^= it.key.hash(seed) ^ 0xba5befd00d;
+          localHash += it.value.normalizedHash(seed) ^ 0xd4129f526421;
         }
       }
 

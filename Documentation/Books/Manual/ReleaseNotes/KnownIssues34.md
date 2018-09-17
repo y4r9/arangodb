@@ -12,12 +12,41 @@ Installer
   and only some of them shall be upgraded, or they should be upgraded one after the
   other.
 
-APIs
-----
+* Ubuntu 14.04 is not yet supported
 
-* the REST API for retrieving indexes at endpoint GET `/_api/index/?collection=<collection>` will 
-  currently also return all links (type `arangosearch`) for views that refer to this collection. The links
-  will be removed from the results of this API in a later version.
-* the REST API for retrieving a single index at endpoint GET `/_api/index/<indexname>` will current
-  succeed for indexes used internally for links of views. These requests will return a notfound error in 
-  a later version.
+
+Modify documents in cluster using AQL and an incorrect custom shard key
+-----------------------------------------------------------------------
+
+* In a very uncommon edge case there is an issue with an optimization rule in the cluster.
+
+  If you are running a cluster and use a custom shard key on a collection (default is `_key`)
+  **and** you provide a wrong shard key in a modifying query (`UPDATE`, `REPLACE`, `DELETE`)
+  **and** the wrong shard key is on a different shard than the correct one, you'll get a
+  `DOCUMENT NOT FOUND` error, instead of a modification.
+
+  The modification always happens if the rule is switched off.
+
+  Example query:
+
+      UPDATE { _key: "123", shardKey: "wrongKey"} WITH { foo: "bar" } IN mycollection
+
+  If your setup could run into this issue you may want to
+  [deactivate the optimizing rule](../../AQL/ExecutionAndPerformance/Optimizer.html#turning-specific-optimizer-rules-off)
+  `restrict-to-single-shard`.
+
+More details can be found in [issue 6399](https://github.com/arangodb/arangodb/issues/6399).
+
+
+ArangoSearch
+------------
+
+* ArangoSearch ignores `_id` attribute even if `includeAllFields` is set to `true` (internal #445)
+* Creation of ArangoSearch on a large collection may cause OOM (internal #407)
+* Long-running transaction with a huge number of DML operations may cause OOM (internal #407)
+* Using score functions (BM25/TFIDF) in ArangoDB expression is not supported (internal #316)
+* Using a loop variable in expressions within a corresponding SEARCH condition is not supported (internal #318)
+* Data of "NONE" collection could be accessed via a view for a used regardless of rights check (internal #453)
+* "NONE" read permission is not checked for a single link in a view with multiple links where others are "RW" for a user in cluster (internal #452)
+* ArangoSearch doesn't support joins with satellite collections (internal #440)
+* RocksDB recovery fails sometimes after renaming a view (internal #469)

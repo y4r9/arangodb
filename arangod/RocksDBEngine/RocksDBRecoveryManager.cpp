@@ -79,6 +79,7 @@ RocksDBRecoveryManager::RocksDBRecoveryManager(
   startsAfter("BasicsPhase");
 
   startsAfter("Database");
+  startsAfter("SystemDatabase");
   startsAfter("RocksDBEngine");
   startsAfter("ServerId");
   startsAfter("StorageEngine");
@@ -93,7 +94,7 @@ void RocksDBRecoveryManager::start() {
 
   _db = ApplicationServer::getFeature<RocksDBEngine>("RocksDBEngine")->db();
   runRecovery();
-  _inRecovery = false;
+  _inRecovery.store(false);
 
   // notify everyone that recovery is now done
   auto databaseFeature =
@@ -113,7 +114,7 @@ void RocksDBRecoveryManager::runRecovery() {
   }
 }
 
-bool RocksDBRecoveryManager::inRecovery() const { return _inRecovery; }
+bool RocksDBRecoveryManager::inRecovery() const { return _inRecovery.load(); }
 
 class WBReader final : public rocksdb::WriteBatch::Handler {
  public:
@@ -344,7 +345,7 @@ class WBReader final : public rocksdb::WriteBatch::Handler {
   rocksdb::Status DeleteCF(uint32_t column_family_id,
                            const rocksdb::Slice& key) override {
     if (column_family_id == RocksDBColumnFamily::documents()->GetID()) {
-      
+
       if (shouldHandleDocument(key)) {
         uint64_t objectId = RocksDBKey::objectId(key);
         auto const& it = deltas.find(objectId);

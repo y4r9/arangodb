@@ -184,7 +184,7 @@ class EdgeIndexMock final : public arangodb::Index {
 
   void toVelocyPack(
       VPackBuilder& builder,
-      unsigned flags
+      std::underlying_type<arangodb::Index::Serialize>::type flags
   ) const override {
     builder.openObject();
     Index::toVelocyPack(builder, flags);
@@ -263,6 +263,7 @@ class EdgeIndexMock final : public arangodb::Index {
   }
 
   bool supportsFilterCondition(
+      std::vector<std::shared_ptr<arangodb::Index>> const& /*allIndexes*/,
       arangodb::aql::AstNode const* node,
       arangodb::aql::Variable const* reference,
       size_t itemsInIndex,
