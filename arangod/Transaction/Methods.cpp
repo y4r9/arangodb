@@ -1142,11 +1142,6 @@ TRI_col_type_e transaction::Methods::getCollectionType(
   return collection ? collection->type() : TRI_COL_TYPE_UNKNOWN;
 }
 
-/// @brief return the name of a collection
-std::string transaction::Methods::collectionName(TRI_voc_cid_t cid) {
-  return resolver()->getCollectionName(cid);
-}
-
 /// @brief Iterate over all elements of the collection.
 void transaction::Methods::invokeOnAllElements(
     std::string const& collectionName,
@@ -1434,9 +1429,8 @@ OperationResult transaction::Methods::documentCoordinator(
   }
 
   int res = arangodb::getDocumentOnCoordinator(
-    vocbase().name(),
-    collectionName,
     *this,
+    collectionName,
     value,
     options,
     responseCode,
@@ -1568,7 +1562,7 @@ OperationResult transaction::Methods::insertCoordinator(
   auto resultBody = std::make_shared<VPackBuilder>();
 
   Result res = arangodb::createDocumentOnCoordinator(
-      vocbase().name(), collectionName, *this, options, value, responseCode,
+      *this, collectionName, options, value, responseCode,
       errorCounter, resultBody);
 
   if (res.ok()) {
@@ -1885,9 +1879,8 @@ OperationResult transaction::Methods::updateCoordinator(
   std::unordered_map<int, size_t> errorCounter;
   auto resultBody = std::make_shared<VPackBuilder>();
   int res = arangodb::modifyDocumentOnCoordinator(
-    vocbase().name(),
-    collectionName,
     *this,
+    collectionName,
     newValue,
     options,
     true /* isPatch */,
@@ -1944,9 +1937,8 @@ OperationResult transaction::Methods::replaceCoordinator(
   std::unordered_map<int, size_t> errorCounter;
   auto resultBody = std::make_shared<VPackBuilder>();
   int res = arangodb::modifyDocumentOnCoordinator(
-    vocbase().name(),
-    collectionName,
     *this,
+    collectionName,
     newValue,
     options,
     false /* isPatch */,
@@ -2260,9 +2252,8 @@ OperationResult transaction::Methods::removeCoordinator(
   std::unordered_map<int, size_t> errorCounter;
   auto resultBody = std::make_shared<VPackBuilder>();
   int res = arangodb::deleteDocumentOnCoordinator(
-    vocbase().name(),
-    collectionName,
     *this,
+    collectionName,
     value,
     options,
     responseCode,
@@ -2847,7 +2838,7 @@ OperationResult transaction::Methods::countCoordinatorHelper(
     // no cache hit, or detailed results requested
     std::vector<std::pair<std::string, uint64_t>> count;
     auto res = arangodb::countOnCoordinator(
-      vocbase().name(), collectionName, *this, count 
+      *this, collectionName, count 
     );
 
     if (res != TRI_ERROR_NO_ERROR) {
@@ -3423,32 +3414,6 @@ transaction::Methods::IndexHandle transaction::Methods::getIndexByIdentifier(
 
   // We have successfully found an index with the requested id.
   return IndexHandle(idx);
-}
-
-Result transaction::Methods::resolveId(char const* handle, size_t length,
-                                       TRI_voc_cid_t& cid, char const*& key,
-                                       size_t& outLength) {
-  char const* p = static_cast<char const*>(
-      memchr(handle, TRI_DOCUMENT_HANDLE_SEPARATOR_CHR, length));
-
-  if (p == nullptr || *p == '\0') {
-    return TRI_ERROR_ARANGO_DOCUMENT_HANDLE_BAD;
-  }
-
-  if (*handle >= '0' && *handle <= '9') {
-    cid = NumberUtils::atoi_zero<TRI_voc_cid_t>(handle, p);
-  } else {
-    cid = resolver()->getCollectionIdCluster(std::string(handle, p - handle));
-  }
-
-  if (cid == 0) {
-    return TRI_ERROR_ARANGO_DATA_SOURCE_NOT_FOUND;
-  }
-
-  key = p + 1;
-  outLength = length - (key - handle);
-
-  return TRI_ERROR_NO_ERROR;
 }
 
 Result transaction::Methods::resolveId(char const* handle, size_t length,

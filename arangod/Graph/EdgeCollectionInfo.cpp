@@ -102,9 +102,8 @@ int EdgeCollectionInfo::getEdgesCoordinator(VPackSlice const& vertexId,
   result.openObject();
 
   int res = getFilteredEdgesOnCoordinator(
-    _trx->vocbase().name(),
-    _collectionName,
     *_trx,
+    _collectionName,
     vertexId.copyString(),
     _dir,
     responseCode,
@@ -156,9 +155,8 @@ int EdgeCollectionInfo::getReverseEdgesCoordinator(VPackSlice const& vertexId,
   }
 
   int res = getFilteredEdgesOnCoordinator(
-    _trx->vocbase().name(),
-    _collectionName,
     *_trx,
+    _collectionName,
     vertexId.copyString(),
     dir,
     responseCode,

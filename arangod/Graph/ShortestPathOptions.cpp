@@ -230,15 +230,13 @@ void ShortestPathOptions::fetchVerticesCoordinator(
     }
   }
   if (!fetch.empty()) {
-    transaction::BuilderLeaser leased(trx());
 
     fetchVerticesFromEngines(
-      trx()->vocbase().name(),
+      *trx(),
       ch->engines(),
       fetch,
       cache,
-      ch->datalake(),
-      *(leased.get())
+      ch->datalake()
     );
   }
 }
