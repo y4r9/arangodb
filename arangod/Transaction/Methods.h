@@ -28,6 +28,7 @@
 #include "Basics/Exceptions.h"
 #include "Basics/StringRef.h"
 #include "Basics/Result.h"
+#include "Futures/Future.h"
 #include "Utils/OperationResult.h"
 #include "Transaction/CountCache.h"
 #include "Transaction/Hints.h"
@@ -115,6 +116,7 @@ class Methods {
   };
 
   using VPackSlice = arangodb::velocypack::Slice;
+  using Future = arangodb::futures::Future;
 
   /// @brief transaction::Methods
  private:
@@ -279,53 +281,53 @@ class Methods {
                                bool shouldLock);
 
   /// @brief return one or multiple documents from a collection
-  ENTERPRISE_VIRT OperationResult document(std::string const& collectionName,
-                           VPackSlice const value,
-                           OperationOptions& options);
+  ENTERPRISE_VIRT Future<OperationResult> document(std::string const& collectionName,
+                                                   VPackSlice const value,
+                                                   OperationOptions& options);
 
   /// @brief create one or multiple documents in a collection
   /// the single-document variant of this operation will either succeed or,
   /// if it fails, clean up after itself
-  OperationResult insert(std::string const& collectionName,
-                         VPackSlice const value,
-                         OperationOptions const& options);
+  Future<OperationResult> insert(std::string const& collectionName,
+                                 VPackSlice const value,
+                                 OperationOptions const& options);
 
   /// @brief update/patch one or multiple documents in a collecti  Result
   /// the single-document variant of this operation will either succeed or,
   /// if it fails, clean up after itself
-  OperationResult update(std::string const& collectionName,
-                         VPackSlice const updateValue,
-                         OperationOptions const& options);
+  Future<OperationResult> update(std::string const& collectionName,
+                                 VPackSlice const updateValue,
+                                 OperationOptions const& options);
 
   /// @brief replace one or multiple documents in a collection
   /// the single-document variant of this operation will either succeed or,
   /// if it fails, clean up after itself
-  OperationResult replace(std::string const& collectionName,
-                          VPackSlice const updateValue,
-                          OperationOptions const& options);
+  Future<OperationResult> replace(std::string const& collectionName,
+                                  VPackSlice const updateValue,
+                                  OperationOptions const& options);
 
   /// @brief remove one or multiple documents in a collection
   /// the single-document variant of this operation will either succeed or,
   /// if it fails, clean up after itself
-  OperationResult remove(std::string const& collectionName,
-                         VPackSlice const value,
-                         OperationOptions const& options);
+  Future<OperationResult> remove(std::string const& collectionName,
+                                 VPackSlice const value,
+                                 OperationOptions const& options);
 
   /// @brief fetches all documents in a collection
   ENTERPRISE_VIRT OperationResult all(std::string const& collectionName,
-                      uint64_t skip, uint64_t limit,
-                      OperationOptions const& options);
+                                      uint64_t skip, uint64_t limit,
+                                      OperationOptions const& options);
 
   /// @brief remove all documents in a collection
-  OperationResult truncate(std::string const& collectionName,
-                           OperationOptions const& options);
+  Future<OperationResult> truncate(std::string const& collectionName,
+                                   OperationOptions const& options);
 
   /// @brief rotate all active journals of the collection
   OperationResult rotateActiveJournal(std::string const& collectionName,
                                       OperationOptions const& options);
 
   /// @brief count the number of documents in a collection
-  virtual OperationResult count(std::string const& collectionName, CountType type);
+  virtual Future<OperationResult> count(std::string const& collectionName, CountType type);
 
   /// @brief Gets the best fitting index for an AQL condition.
   /// note: the caller must have read-locked the underlying collection when
@@ -451,46 +453,46 @@ class Methods {
                              ManagedDocumentResult const* oldDoc,
                              ManagedDocumentResult const* newDoc);
 
-  OperationResult documentCoordinator(std::string const& collectionName,
+  Future<OperationResult> documentCoordinator(std::string const& collectionName,
                                       VPackSlice const value,
                                       OperationOptions& options);
 
-  OperationResult documentLocal(std::string const& collectionName,
-                                VPackSlice const value,
-                                OperationOptions& options);
+  Future<OperationResult> documentLocal(std::string const& collectionName,
+                                        VPackSlice const value,
+                                        OperationOptions& options);
 
-  OperationResult insertCoordinator(std::string const& collectionName,
+  Future<OperationResult> insertCoordinator(std::string const& collectionName,
                                     VPackSlice const value,
                                     OperationOptions& options);
 
-  OperationResult insertLocal(std::string const& collectionName,
-                              VPackSlice const value,
-                              OperationOptions& options);
+  Future<OperationResult> insertLocal(std::string const& collectionName,
+                                      VPackSlice const value,
+                                      OperationOptions& options);
 
-  OperationResult updateCoordinator(std::string const& collectionName,
-                                    VPackSlice const newValue,
-                                    OperationOptions& options);
+  Future<OperationResult> updateCoordinator(std::string const& collectionName,
+                                            VPackSlice const newValue,
+                                            OperationOptions& options);
 
-  OperationResult replaceCoordinator(std::string const& collectionName,
-                                     VPackSlice const newValue,
-                                     OperationOptions& options);
+  Future<OperationResult> replaceCoordinator(std::string const& collectionName,
+                                             VPackSlice const newValue,
+                                             OperationOptions& options);
 
-  OperationResult modifyLocal(std::string const& collectionName,
+  Future<OperationResult> modifyLocal(std::string const& collectionName,
                               VPackSlice const newValue,
                               OperationOptions& options,
                               TRI_voc_document_operation_e operation);
 
-  OperationResult removeCoordinator(std::string const& collectionName,
-                                    VPackSlice const value,
-                                    OperationOptions& options);
+  Future<OperationResult> removeCoordinator(std::string const& collectionName,
+                                            VPackSlice const value,
+                                            OperationOptions& options);
 
-  OperationResult removeLocal(std::string const& collectionName,
-                              VPackSlice const value,
-                              OperationOptions& options);
+  Future<OperationResult> removeLocal(std::string const& collectionName,
+                                      VPackSlice const value,
+                                      OperationOptions& options);
 
-  OperationResult allCoordinator(std::string const& collectionName,
-                                 uint64_t skip, uint64_t limit,
-                                 OperationOptions& options);
+  Future<OperationResult> allCoordinator(std::string const& collectionName,
+                                         uint64_t skip, uint64_t limit,
+                                         OperationOptions& options);
 
   OperationResult allLocal(std::string const& collectionName,
                            uint64_t skip, uint64_t limit,
@@ -500,11 +502,11 @@ class Methods {
 
   OperationResult anyLocal(std::string const& collectionName);
 
-  OperationResult truncateCoordinator(std::string const& collectionName,
-                                      OperationOptions& options);
+  Future<OperationResult> truncateCoordinator(std::string const& collectionName,
+                                              OperationOptions& options);
 
-  OperationResult truncateLocal(std::string const& collectionName,
-                                OperationOptions& options);
+  Future<OperationResult> truncateLocal(std::string const& collectionName,
+                                        OperationOptions& options);
 
   OperationResult rotateActiveJournalCoordinator(std::string const& collectionName,
                                                  OperationOptions const& options);

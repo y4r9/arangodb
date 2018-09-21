@@ -394,23 +394,23 @@ void RestCollectionHandler::handleCommandPut() {
         } else if (sub == "truncate") {
           OperationOptions opts;
 
-        opts.waitForSync = _request->parsedValue("waitForSync", false);
-        opts.isSynchronousReplicationFrom =
-          _request->value("isSynchronousReplication");
+          opts.waitForSync = _request->parsedValue("waitForSync", false);
+          opts.isSynchronousReplicationFrom =
+            _request->value("isSynchronousReplication");
 
-        auto ctx = transaction::StandaloneContext::Create(_vocbase);
-        SingleCollectionTransaction trx(ctx, *coll, AccessMode::Type::EXCLUSIVE);
-        trx.addHint(transaction::Hints::Hint::INTERMEDIATE_COMMITS);
-        trx.addHint(transaction::Hints::Hint::ALLOW_RANGE_DELETE);
-        res = trx.begin();
+          auto ctx = transaction::StandaloneContext::Create(_vocbase);
+          SingleCollectionTransaction trx(ctx, *coll, AccessMode::Type::EXCLUSIVE);
+          trx.addHint(transaction::Hints::Hint::INTERMEDIATE_COMMITS);
+          trx.addHint(transaction::Hints::Hint::ALLOW_RANGE_DELETE);
+          res = trx.begin();
 
-        if (res.ok()) {
-          auto result = trx.truncate(coll->name(), opts);
+          if (res.ok()) {
+            auto result = trx.truncate(coll->name(), opts);
 
-          res = trx.finish(result.result);
-        }
+            res = trx.finish(result.result);
+          }
 
-        if (res.ok()) {
+          if (res.ok()) {
             if (!coll->isLocal()) { // ClusterInfo::loadPlan eventually updates status
               coll->setStatus(TRI_vocbase_col_status_e::TRI_VOC_COL_STATUS_LOADED);
             }
