@@ -144,13 +144,13 @@ void PriQ64Dest(PRIQ64 * pq)
 
 void PriQ64Dump(PRIQ64 * pq)
 {
-    unsigned int i,j;
+    int i,j;
     printf("Heap has %lu records\n",pq->nodect);
     for(i=0;i<pq->nodect;i++)
     {
         printf("%4d ",i);
         for(j=0;j<8;j++)
-            printf(" %2u",(int)(pq->heap[i]>>(56-8*j))&255);
+            printf(" %2u",(int)(pq->heap[i]>>56-8*j)&255);
         printf("\n");
     }
 }

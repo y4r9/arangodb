@@ -26,6 +26,16 @@
 #include "RocksDBEngine/GeoIndex/stones.h"
 #include "Basics/priq64.h"
 #include "RocksDBEngine/GeoIndex/GeoIndex.h"
+#include "VocBase/ticks.h"
+
+/// ========= demo stuff ===========
+#include "V8/v8-globals.h"
+#include "V8/v8-utils.h"
+#include "V8/v8-conv.h"
+#include "V8Server/v8-externals.h"
+/// ================================
+
+#include <stdio.h>
 
 namespace arangodb {
 namespace geoindex {
@@ -347,6 +357,7 @@ GeoCursor * GeoIQuery(GeoIx * gix, void * trans, GeoQuery * gq)
     uint64_t i;
     long j;
     SITR * si;
+    uint32_t pix;
     uint8_t minkey[14]={0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0};
     uint8_t maxkey[14]={0xff, 0xff, 0xff, 0xff,  0xff, 0xff,
            0xff, 0xff,  0xff, 0xff, 0xff, 0xff,  0xff, 0xff};
@@ -369,7 +380,7 @@ GeoCursor * GeoIQuery(GeoIx * gix, void * trans, GeoQuery * gq)
     gc->pf3[INITPF3-1].payfree=0xffffffffffffffff;
     gc->freechain=0;
 // set up the PriQ64 heap for points
-    gc->ptheap=arangodb::basics::PriQ64Cons(INITPF3);
+    gc->ptheap=PriQ64Cons(INITPF3);
 
 // Now the "Read Whole Database" bit.
 // Do the seek
@@ -446,6 +457,144 @@ void GeoDestPoints(GeoPoints * gp)
     free(gp);
 }
 
+// ten biggest cities in Germany
+
+static double lt1[] = { 52.52,  53.55,  48.14,  50.95,  50.12,
+                        51.510, 48.79,  51.47,  51.24,  53.08};
+static double lg1[] = { 13.38,  10.00,  11.58,   6.97,   8.68,
+                        7.480,  9.19,   7.00,   6.79,   8.81};
+static uint64_t py1[]={     1,      2,      3,      4,      5,
+                            6,      7,      8,      9,     10};
+//                          B      HH       M       K       F
+//                         DO       S       E       D      HB
+
+void JS_GeoIndexTest(v8::FunctionCallbackInfo<v8::Value> const& args) {
+  TRI_V8_TRY_CATCH_BEGIN(isolate);
+  
+  if (args.Length() > 0) {
+    TRI_V8_THROW_EXCEPTION_USAGE("GEOINDEX_TEST()");
+  }
+  double startTime = TRI_microtime();
+
+  GeoParm gp;     // not used in test version
+  GeoDetails gd;
+  GeoIx * gix;
+  GeoPoints gt;
+  GeoPoints * gr;   // results
+  GeoQuery gq;
+  GeoCursor * gc;
+  void * trans;
+  long r,i;
+  char tr[]="Got Transaction correctly";
+  float km164;
+  double meters[15];
+
+//    need to set up gp to test it under RocksDB!
+//    "StonesDB" hasn't got anything.
+  gp.objectId = TRI_NewTickServer();
+
+  trans=(void *) tr; 
+
+  gd.type=1;    // geo
+  gix=GeoCreate(&gp,&gd);
+  GeoDisconnect(gix);
+
+  GeoDrop(&gp);
+
+  gix=GeoCreate(&gp,&gd);
+  GeoDisconnect(gix);
+  gix=GeoConnect(&gp,&gd);
+  gt.latitudes=lt1;
+  gt.longitudes=lg1;
+  gt.payloads=py1;
+  gt.pointcount=10;
+  r=GeoIns(gix,trans, &gt);
+  printf("result %ld\n",r);
+  gt.pointcount=2;
+  r=GeoDel(gix,trans,&gt);
+
+  r=GeoIns(gix,trans,&gt);
+// make cursor on cities in order of distance from Horrem
+// set everything so that valgrind doesn't complain
+  gq.type=3;
+  gq.tarlat=50.91;
+  gq.tarlong=6.71;
+  gq.maxmdf=NOMAXMDF;
+  gc=GeoIQuery(gix,trans,&gq);
+  PriQ64Dump(gc->ptheap);
+  gr=GeoReadCursor(gc,5,NOMAXMDF);   // read five nearest cities
+  GeoMDFToMeters(gr->mdfs, gr->pointcount, meters);
+  for(i=0;i<5;i++)
+  {
+      printf("%ld %d %8.2f %8.2f %12.2f\n",i,(int)gr->payloads[i],
+            gr->latitudes[i],gr->longitudes[i],meters[i]);
+  }
+  printf("Next mdf = %8.5f\n",gr->nextmdf);
+  GeoDestPoints(gr);
+  GeoDestCursor(gc);
+
+// make cursor on cities in order of distance from Horrem
+// but now limit cursor to 164 KM
+  gq.type=3;
+  gq.tarlat=50.91;
+  gq.tarlong=6.71;
+  gq.maxmdf=NOMAXMDF;
+  km164=GeoMetersToMDF(164000.0);  // change to 165 to include Frankfurt
+  printf("MDF of 164 Km is %8.5f\n",km164);
+  gc=GeoIQuery(gix,trans,&gq);
+  gr=GeoReadCursor(gc,100,km164);   // read cities within 164KM
+                                    // Frankfurt is ~165
+  GeoMDFToMeters(gr->mdfs, gr->pointcount, meters);
+  for(i=0;i<gr->pointcount;i++)
+  {
+      printf("%ld %d %8.2f %8.2f %12.2f\n",i,(int)gr->payloads[i],
+            gr->latitudes[i],gr->longitudes[i],meters[i]);
+  }
+  GeoDestPoints(gr);
+  GeoDestCursor(gc);
+
+// make cursor on cities in order of distance from Horrem
+// but now limit QUERY to 164 KM
+  gq.type=3;
+  gq.tarlat=50.91;
+  gq.tarlong=6.71;
+
+  km164=GeoMetersToMDF(164000.0);  // change to 165 to include Frankfurt
+  gq.maxmdf=km164;;
+  gc=GeoIQuery(gix,trans,&gq);
+  gr=GeoReadCursor(gc,100,NOMAXMDF);   // read cities within 164KM
+                                    // Frankfurt is ~165
+  GeoMDFToMeters(gr->mdfs, gr->pointcount, meters);
+  for(i=0;i<gr->pointcount;i++)
+  {
+      printf("%ld %d %8.2f %8.2f %12.2f\n",i,(int)gr->payloads[i],
+            gr->latitudes[i],gr->longitudes[i],meters[i]);
+  }
+  GeoDestPoints(gr);
+  GeoDestCursor(gc);
+
+  GeoDisconnect(gix);
+  GeoDrop(&gp);
+  printf("GeoIndex test completed\n");
+  
+  double duration = TRI_microtime() - startTime;
+
+  v8::Handle<v8::Value> V8r = v8::Number::New(isolate, duration);
+  TRI_V8_RETURN(V8r);
+
+  TRI_V8_TRY_CATCH_END
 }
+
+}
+}
+
+void RocksDBGeoV8Functions::registerResources2() {
+  ISOLATE;
+  v8::HandleScope scope(isolate);
+  
+  // add global testing functions
+  TRI_AddGlobalFunctionVocbase(isolate,
+      TRI_V8_ASCII_STRING(isolate, "GEOINDEX_TEST"),
+      arangodb::geoindex::JS_GeoIndexTest, true);
 }
 

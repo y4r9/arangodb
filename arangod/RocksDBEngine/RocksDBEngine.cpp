@@ -1274,6 +1274,7 @@ void RocksDBEngine::addV8Functions() {
   
   /// FIXME: remove after benchmarking phase
   RocksDBGeoV8Functions::registerResources();
+  RocksDBGeoV8Functions::registerResources2();
 }
 
 /// @brief Add engine-specific REST handlers

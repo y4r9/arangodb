@@ -102,6 +102,7 @@ void StonDump(STON * st);
 // only for some testings
 struct RocksDBGeoV8Functions {
   static void registerResources();
+  static void registerResources2();
 };
 
 #endif
