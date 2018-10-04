@@ -435,18 +435,25 @@ function executeAndWait (cmd, args, options, valgrindTest, rootDir, circumventCo
     instanceInfo.exitStatus = res;
     const procdumpArgs = [
       '-accepteula',
-      '-64',
       '-e',
-      '1',
-      /*
-      '-f',
-      'bad_cast',
-*/
       '-ma',
       res.pid,
       fs.join(rootDir, 'core.dmp')
     ];
 
+    /*
+    const procdumpArgs = [
+      '-accepteula',
+      '-64',
+      '-e',
+      '1',
+      '-f',
+      'bad_cast',
+      '-ma',
+      res.pid,
+      fs.join(rootDir, 'core.dmp')
+    ];
+*/
     try {
       instanceInfo.monitor = executeExternal('procdump', procdumpArgs);
     } catch (x) {
@@ -1237,18 +1244,25 @@ function startArango (protocol, options, addArgs, rootDir, role) {
   if (platform.substr(0, 3) === 'win' && !options.disableMonitor) {
     const procdumpArgs = [
       '-accepteula',
-      '-64',
       '-e',
-      '1',
-      /*
-      '-f',
-      'bad_cast',
-*/
       '-ma',
       instanceInfo.pid,
       fs.join(rootDir, 'core.dmp')
     ];
 
+    /*
+    const procdumpArgs = [
+      '-accepteula',
+      '-64',
+      '-e',
+      '1',
+      '-f',
+      'bad_cast',
+      '-ma',
+      instanceInfo.pid,
+      fs.join(rootDir, 'core.dmp')
+    ];
+*/
     try {
       instanceInfo.monitor = executeExternal('procdump', procdumpArgs);
     } catch (x) {
