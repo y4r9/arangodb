@@ -821,6 +821,7 @@ function shutdownArangod (arangod, options, forceTerminate) {
 // //////////////////////////////////////////////////////////////////////////////
 
 function shutdownInstance (instanceInfo, options, forceTerminate) {
+  runNetCount();
   if (forceTerminate === undefined) {
     forceTerminate = false;
   }
