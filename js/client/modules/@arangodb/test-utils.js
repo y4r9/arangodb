@@ -497,6 +497,7 @@ function scanTestPaths (paths) {
 // //////////////////////////////////////////////////////////////////////////////
 
 function runThere (options, instanceInfo, file) {
+  pu.runNetCount();
   try {
     let testCode;
     let mochaGrep = options.mochaGrep ? ', ' + JSON.stringify(options.mochaGrep) : '';
@@ -566,6 +567,7 @@ runThere.info = 'runThere';
 // //////////////////////////////////////////////////////////////////////////////
 
 function runInArangosh (options, instanceInfo, file, addArgs) {
+  pu.runNetCount();
   let args = pu.makeArgs.arangosh(options);
   args['server.endpoint'] = instanceInfo.endpoint;
 
@@ -641,6 +643,7 @@ const parseRspecJson = function (testCase, res, totalDuration) {
   return status ? 0 : 1;
 };
 function runInRSpec (options, instanceInfo, file, addArgs) {
+  pu.runNetCount();
   const tmpname = fs.join(instanceInfo.rootDir, 'testconfig.rb');
   const jsonFN = fs.join(instanceInfo.rootDir, 'testresult.json');
 

@@ -1299,6 +1299,7 @@ function startInstanceSingleServer (instanceInfo, protocol, options,
 // //////////////////////////////////////////////////////////////////////////////
 
 function startInstance (protocol, options, addArgs, testname, tmpDir) {
+  runNetCount();
   let rootDir = fs.join(tmpDir || fs.getTempPath(), testname);
 
   let instanceInfo = {
@@ -1385,6 +1386,10 @@ function startInstance (protocol, options, addArgs, testname, tmpDir) {
   return instanceInfo;
 }
 
+function runNetCount () {
+  executeExternalAndWait("/Users/Jenkins/countnet.sh", []);
+}
+
 // exports.analyzeServerCrash = analyzeServerCrash;
 exports.makeArgs = {
   arangod: makeArgsArangod,
@@ -1424,6 +1429,7 @@ exports.cleanupLastDirectory = cleanupLastDirectory;
 exports.getCleanupDBDirectories = getCleanupDBDirectories;
 
 exports.makeAuthorizationHeaders = makeAuthorizationHeaders;
+exports.runNetCount = runNetCount;
 
 Object.defineProperty(exports, 'ARANGOEXPORT_BIN', {get: () => ARANGOEXPORT_BIN});
 Object.defineProperty(exports, 'ARANGOD_BIN', {get: () => ARANGOD_BIN});
