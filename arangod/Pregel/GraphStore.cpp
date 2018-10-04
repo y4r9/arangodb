@@ -199,7 +199,7 @@ void GraphStore<V, E>::loadShards(WorkerConfig* config,
 
   TRI_ASSERT(SchedulerFeature::SCHEDULER != nullptr);
   rest::Scheduler* scheduler = SchedulerFeature::SCHEDULER;
-  scheduler->post([this, scheduler, callback] {
+  scheduler->queue(RequestPriority::LOW, [this, scheduler, callback] {
     
     // hold the current position where the ith vertex shard can
     // start to write its data. At the end the offset should equal the
@@ -237,11 +237,11 @@ void GraphStore<V, E>::loadShards(WorkerConfig* config,
           TRI_ASSERT(vertexOff < _index.size());
           TRI_ASSERT(info.numEdges == 0 || edgeDataOffsets[shardIdx] < _edges->size());
           
-          scheduler->post([this, &info, &edgeDataOffsets, vertexOff, shardIdx] {
+          scheduler->queue(RequestPriority::LOW, [this, &info, &edgeDataOffsets, vertexOff, shardIdx] {
             TRI_DEFER(_runningThreads--);// exception safe
             _loadVertices(*info.trx, info.vertexShard, info.edgeShards,
                           vertexOff, edgeDataOffsets[shardIdx]);
-          }, false);
+          });
           // update to next offset
           vertexOff += info.numVertices;
         } catch(...) {
@@ -258,8 +258,8 @@ void GraphStore<V, E>::loadShards(WorkerConfig* config,
       }
     }
     
-    scheduler->post(callback, false);
-  }, false);
+    scheduler->queue(RequestPriority::LOW, callback);
+  });
 }
 
 template <typename V, typename E>
@@ -633,7 +633,7 @@ void GraphStore<V, E>::storeResults(WorkerConfig* config,
   TRI_ASSERT(SchedulerFeature::SCHEDULER != nullptr);
   do {
     _runningThreads++;
-    SchedulerFeature::SCHEDULER->post([this, start, end, now, cb] {
+    SchedulerFeature::SCHEDULER->queue(RequestPriority::LOW, [this, start, end, now, cb] {
       try {
         RangeIterator<VertexEntry> it = vertexIterator(start, end);
         _storeVertices(_config->globalShardIDs(), it);
@@ -647,7 +647,7 @@ void GraphStore<V, E>::storeResults(WorkerConfig* config,
                                         << (TRI_microtime() - now) << "s";
         cb();
       }
-    }, false);
+    });
     start = end;
     end = end + delta;
     if (total < end + delta) {  // swallow the rest

@@ -84,7 +84,7 @@ enum class RequestLane {
   // AGENCY_CALLBACK`
 };
 
-enum class RequestPriority { HIGH, LOW, V8 };
+enum class RequestPriority { HIGH, LOW };
 
 inline RequestPriority PriorityRequestLane(RequestLane lane) {
   switch (lane) {
@@ -93,7 +93,7 @@ inline RequestPriority PriorityRequestLane(RequestLane lane) {
     case RequestLane::CLIENT_AQL:
       return RequestPriority::LOW;
     case RequestLane::CLIENT_V8:
-      return RequestPriority::V8;
+      return RequestPriority::LOW;
     case RequestLane::CLIENT_SLOW:
       return RequestPriority::LOW;
     case RequestLane::AGENCY_INTERNAL:
@@ -103,13 +103,13 @@ inline RequestPriority PriorityRequestLane(RequestLane lane) {
     case RequestLane::CLUSTER_INTERNAL:
       return RequestPriority::HIGH;
     case RequestLane::CLUSTER_V8:
-      return RequestPriority::V8;
+      return RequestPriority::LOW;
     case RequestLane::CLUSTER_ADMIN:
       return RequestPriority::LOW;
     case RequestLane::SERVER_REPLICATION:
       return RequestPriority::LOW;
     case RequestLane::TASK_V8:
-      return RequestPriority::V8;
+      return RequestPriority::LOW;
   }
   return RequestPriority::LOW;
 }

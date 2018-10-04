@@ -69,6 +69,6 @@ bool SharedQueryState::executeContinueCallback() const {
     // We are shutting down
     return false;
   }
-  scheduler->post(_continueCallback, false);
+  scheduler->queue(RequestPriority::HIGH, _continueCallback);
   return true;
 }
