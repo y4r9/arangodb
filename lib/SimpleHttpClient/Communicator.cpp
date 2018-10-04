@@ -173,6 +173,9 @@ Communicator::~Communicator() {
   ::curl_global_cleanup();
 }
 
+
+static uint64_t count = 0;
+
 Ticket Communicator::addRequest(Destination&& destination,
                                 std::unique_ptr<GeneralRequest> request,
                                 Callbacks callbacks, Options options) {
@@ -220,7 +223,10 @@ int Communicator::work_once() {
         "Invalid curl multi result while performing! Result was " +
         std::to_string(_mc));
   }
-  if (stillRunning > 256) {
+
+  count +=1;
+  if (count > 2048) {
+    fprintf(stderr, "way!!\n");
     TRI_PrintBacktrace();
 
     TRI_LogBacktrace();
