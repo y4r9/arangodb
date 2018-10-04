@@ -137,6 +137,10 @@ Communicator::Communicator() : _curl(nullptr), _mc(CURLM_OK), _enabled(true) {
   curl_global_init(CURL_GLOBAL_ALL);
   _curl = curl_multi_init();
 
+  /// start with unlimited, non-closing connection count.  ConnectionCount object will
+  ///  moderate once requests start
+  curl_multi_setopt(_curl, CURLMOPT_MAXCONNECTS, 0);  //default is -1, want unlimited
+
   if (_curl == nullptr) {
     THROW_ARANGO_EXCEPTION_MESSAGE(TRI_ERROR_OUT_OF_MEMORY, "unable to initialize curl");
   }
