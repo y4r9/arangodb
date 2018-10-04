@@ -438,8 +438,10 @@ function executeAndWait (cmd, args, options, valgrindTest, rootDir, circumventCo
       '-64',
       '-e',
       '1',
+      /*
       '-f',
       'bad_cast',
+*/
       '-ma',
       res.pid,
       fs.join(rootDir, 'core.dmp')
@@ -1238,8 +1240,10 @@ function startArango (protocol, options, addArgs, rootDir, role) {
       '-64',
       '-e',
       '1',
+      /*
       '-f',
       'bad_cast',
+*/
       '-ma',
       instanceInfo.pid,
       fs.join(rootDir, 'core.dmp')
