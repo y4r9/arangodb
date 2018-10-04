@@ -220,6 +220,11 @@ int Communicator::work_once() {
         "Invalid curl multi result while performing! Result was " +
         std::to_string(_mc));
   }
+  if (stillRunning > 256) {
+    TRI_PrintBacktrace();
+
+    TRI_LogBacktrace();
+  }
 
   // handle all messages received
   CURLMsg* msg = nullptr;
