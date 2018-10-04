@@ -187,6 +187,7 @@ describe ArangoDB do
 
         (0...2001).each{|i|
           ArangoDB.post("/_api/document?collection=#{@cid}", :body => "{ \"_key\" : \"test#{i}\" }")
+          $stderr.puts "PUT!"
         }
         $stderr.puts "done setup."
       end
