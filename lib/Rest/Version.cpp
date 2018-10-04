@@ -111,6 +111,10 @@ void Version::initialize() {
 #else
   Values["ndebug"] = "false";
 #endif
+#ifdef ARANGODB_ENABLE_BACKTRACE
+  Values["backtrace"] = "true";
+#endif
+
 #if defined(ARCHITECTURE_OPTIMIZATIONS)
   Values["optimization-flags"] = std::string(ARCHITECTURE_OPTIMIZATIONS);
 #endif
