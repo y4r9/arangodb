@@ -180,6 +180,7 @@ describe ArangoDB do
 
     context "handling a cursor with continuation:" do
       before do
+        $stderr.puts "starting setup."
         @cn = "users"
         ArangoDB.drop_collection(@cn)
         @cid = ArangoDB.create_collection(@cn, false)
@@ -187,6 +188,7 @@ describe ArangoDB do
         (0...2001).each{|i|
           ArangoDB.post("/_api/document?collection=#{@cid}", :body => "{ \"_key\" : \"test#{i}\" }")
         }
+        $stderr.puts "done setup."
       end
 
       after do
@@ -194,10 +196,12 @@ describe ArangoDB do
       end
 
       it "creates a cursor" do
+        $stderr.puts "starting run."
         cmd = api
         body = "{ \"query\" : \"FOR u IN #{@cn} RETURN u\", \"count\" : true }"
         doc = ArangoDB.log_post("#{prefix}-create-batchsize", cmd, :body => body)
         
+        $stderr.puts "have cursor?"
         doc.code.should eq(201)
         doc.headers['content-type'].should eq("application/json; charset=utf-8")
         doc.parsed_response['error'].should eq(false)
@@ -213,7 +217,8 @@ describe ArangoDB do
 
         cmd = api + "/#{id}"
         doc = ArangoDB.log_put("#{prefix}-create-batchsize", cmd)
-        
+        $stderr.puts "have create batch size?"
+
         doc.code.should eq(200)
         doc.headers['content-type'].should eq("application/json; charset=utf-8")
         doc.parsed_response['error'].should eq(false)
@@ -228,6 +233,7 @@ describe ArangoDB do
 
         cmd = api + "/#{id}"
         doc = ArangoDB.log_put("#{prefix}-create-batchsize", cmd)
+        $stderr.puts "have create batch size again?"
         
         doc.code.should eq(200)
         doc.headers['content-type'].should eq("application/json; charset=utf-8")
@@ -241,7 +247,8 @@ describe ArangoDB do
 
         cmd = api + "/#{id}"
         doc = ArangoDB.log_put("#{prefix}-create-batchsize", cmd)
-        
+        $stderr.puts "have create batch size againnnn?"
+
         doc.code.should eq(404)
         doc.headers['content-type'].should eq("application/json; charset=utf-8")
         doc.parsed_response['error'].should eq(true)
