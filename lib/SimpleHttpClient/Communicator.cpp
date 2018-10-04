@@ -226,7 +226,7 @@ int Communicator::work_once() {
 
   count +=1;
   if (count > 2048) {
-    fprintf(stderr, "way!!\n%d", count);
+    fprintf(stderr, "way!!%d - %d \n", count, stillRunning);
     TRI_PrintBacktrace();
 
     TRI_LogBacktrace();
