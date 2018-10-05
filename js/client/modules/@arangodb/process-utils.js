@@ -865,8 +865,10 @@ function shutdownInstance (instanceInfo, options, forceTerminate) {
       .filter(arangod => {
         if (arangod.hasOwnProperty('exitStatus') && 
             (arangod.exitStatus.status !== 'RUNNING')) {
+          runNetCount();
           return false;
         }
+        runNetCount();
         return (arangod.role !== 'agent');
       }).length;
 
@@ -883,6 +885,7 @@ function shutdownInstance (instanceInfo, options, forceTerminate) {
     toShutdown = toShutdown.filter(arangod => {
       if (!arangod.hasOwnProperty('exitStatus')) {
         if ((nonAgenciesCount > 0) && (arangod.role === 'agent')) {
+          runNetCount();
           return true;
         }
         shutdownArangod(arangod, options, false);
@@ -890,6 +893,7 @@ function shutdownInstance (instanceInfo, options, forceTerminate) {
           status: 'RUNNING'
         };
         print("Commanded shut down: " + JSON.stringify(arangod));
+        runNetCount();
         return true;
       }
       if (arangod.exitStatus.status === 'RUNNING') {
@@ -914,8 +918,10 @@ function shutdownInstance (instanceInfo, options, forceTerminate) {
           if (arangod.role !== 'agent') {
             nonAgenciesCount --;
           }
+          runNetCount();
           return false;
         } else {
+          runNetCount();
           return true;
         }
       } else if (arangod.exitStatus.status !== 'TERMINATED') {
@@ -931,6 +937,7 @@ function shutdownInstance (instanceInfo, options, forceTerminate) {
           nonAgenciesCount --;
         }
         print('Server "' + arangod.role + '" shutdown: Success: pid', arangod.pid);
+        runNetCount();
         return false;
       }
     });
@@ -963,6 +970,7 @@ function shutdownInstance (instanceInfo, options, forceTerminate) {
   }
 
   cleanupDirectories.unshift(instanceInfo.rootDir);
+  runNetCount();
 }
 
 // //////////////////////////////////////////////////////////////////////////////
