@@ -117,6 +117,7 @@ function ViewSuite () {
         fail();
       } catch (err) {
         assertEqual(ERRORS.ERROR_ARANGO_DUPLICATE_NAME.code, err.errorNum);
+      } finally {
         var abc = db._collection("abc");
         abc.drop();
       }
@@ -127,6 +128,7 @@ function ViewSuite () {
         fail();
       } catch (err) {
         assertEqual(ERRORS.ERROR_ARANGO_DUPLICATE_NAME.code, err.errorNum);
+      } finally {
         var abc = db._view("abc");
         abc.drop();
       }
@@ -135,7 +137,7 @@ function ViewSuite () {
     ////////////////////////////////////////////////////////////////////////////
     /// @brief rename (duplicate)
     ////////////////////////////////////////////////////////////////////////////
-    testErrorHandlingRenameDuplicate : function () {
+    /*testErrorHandlingRenameDuplicate : function () {
       try {
         db._createView("abc", "arangosearch", {});
         var v = db._createView("def", "arangosearch", {});
@@ -163,7 +165,7 @@ function ViewSuite () {
         var abc = db._view("abc");
         abc.drop();
       }
-    },
+    },*/
 
     ////////////////////////////////////////////////////////////////////////////
     /// @brief get non-existent
@@ -260,7 +262,7 @@ function ViewSuite () {
     ////////////////////////////////////////////////////////////////////////////
     /// @brief rename view
     ////////////////////////////////////////////////////////////////////////////
-    testRename : function () {
+    /*testRename : function () {
       var abc = db._createView("abc", "arangosearch", {});
       assertEqual(abc.name(), "abc");
 
@@ -274,7 +276,7 @@ function ViewSuite () {
       assertEqual(abc.name(), "abc");
 
       abc.drop();
-    }
+    }*/
 
   };
 }
