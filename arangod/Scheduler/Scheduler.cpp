@@ -178,6 +178,7 @@ Scheduler::Scheduler(uint64_t nrMinimum, uint64_t nrMaximum,
       _minThreads(nrMinimum),
       _maxThreads(nrMaximum),
       _lastAllBusyStamp(0.0) {
+  LOG_DEVEL << "Scheduler configuration min: " << nrMinimum << " max: " << nrMaximum << " low-Queue: " << _maxQueuedLowPrio << " high-queue: " << _maxQueuedHighPrio;
   _fifoSize[FIFO1] = 0;
   _fifoSize[FIFO2] = 0;
 
