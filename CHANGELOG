@@ -10,6 +10,7 @@ v3.3.18 (XXXX-XX-XX)
 * fixed internal issue #1983: the Web UI was showing a deletion confirmation
   multiple times.
 
+* randomized order in scheduling of shard synchronisations
 
 v3.3.17 (2018-10-04)
 --------------------

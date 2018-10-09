@@ -425,7 +425,8 @@ function tryLaunchJob () {
       if (shards.length > 0) {
         var done = false;
         while (!done) {
-          var jobInfo = jobs.scheduled[shards[0]];
+          const shard = shards[Math.floor(Math.random()*shards.length)];
+          var jobInfo = jobs.scheduled[shard];
           try {
             registerTask({
               database: jobInfo.database,
@@ -438,7 +439,7 @@ function tryLaunchJob () {
             done = true;
             global.KEY_SET('shardSynchronization', 'running', jobInfo);
             console.topic('heartbeat=debug', 'tryLaunchJob: have launched job', jobInfo);
-            delete jobs.scheduled[shards[0]];
+            delete jobs.scheduled[shard];
             global.KEY_SET('shardSynchronization', 'scheduled', jobs.scheduled);
           } catch (err) {
             if (err.errorNum === errors.ERROR_ARANGO_DATABASE_NOT_FOUND.code) {
