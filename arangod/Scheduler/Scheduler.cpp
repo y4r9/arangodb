@@ -366,6 +366,7 @@ bool Scheduler::canPostDirectly(RequestPriority prio) const noexcept {
 }
 
 bool Scheduler::pushToFifo(int64_t fifo, std::function<void()> const& callback) {
+  LOG_DEVEL << "Push element on fifo: " << fifo;
   TRI_ASSERT(0 <= fifo && fifo < NUMBER_FIFOS);
 
   size_t p = static_cast<size_t>(fifo);
@@ -389,7 +390,10 @@ bool Scheduler::pushToFifo(int64_t fifo, std::function<void()> const& callback) 
     auto nrQueued = numQueued(counters);
 
     if (0 == nrWorking + nrQueued) {
-      post([] { /*wakeup call for scheduler thread*/ });
+      post([] {
+          LOG_DEVEL << "Wakeup alarm";
+          /*wakeup call for scheduler thread*/
+      });
     }
   } catch (...) {
     return false;
@@ -399,6 +403,7 @@ bool Scheduler::pushToFifo(int64_t fifo, std::function<void()> const& callback) 
 }
 
 bool Scheduler::popFifo(int64_t fifo) {
+  LOG_DEVEL << "Popping a job from fifo: " << fifo;
   TRI_ASSERT(0 <= fifo && fifo < NUMBER_FIFOS);
 
   size_t p = static_cast<size_t>(fifo);
