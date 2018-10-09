@@ -178,7 +178,7 @@ Scheduler::Scheduler(uint64_t nrMinimum, uint64_t nrMaximum,
       _minThreads(nrMinimum),
       _maxThreads(nrMaximum),
       _lastAllBusyStamp(0.0) {
-  LOG_DEVEL << "Scheduler configuration min: " << nrMinimum << " max: " << nrMaximum << " low-Queue: " << _maxQueuedLowPrio << " high-queue: " << _maxQueuedHighPrio;
+  LOG_TOPIC(DEBUG, Logger::THREADS) << "Scheduler configuration min: " << nrMinimum << " max: " << nrMaximum << " low-Queue: " << _maxQueuedLowPrio << " high-queue: " << _maxQueuedHighPrio;
   _fifoSize[FIFO1] = 0;
   _fifoSize[FIFO2] = 0;
 
@@ -367,7 +367,7 @@ bool Scheduler::canPostDirectly(RequestPriority prio) const noexcept {
 }
 
 bool Scheduler::pushToFifo(int64_t fifo, std::function<void()> const& callback) {
-  LOG_DEVEL << "Push element on fifo: " << fifo;
+  LOG_TOPIC(DEBUG, Logger::THREADS) << "Push element on fifo: " << fifo;
   TRI_ASSERT(0 <= fifo && fifo < NUMBER_FIFOS);
 
   size_t p = static_cast<size_t>(fifo);
@@ -392,7 +392,7 @@ bool Scheduler::pushToFifo(int64_t fifo, std::function<void()> const& callback) 
 
     if (0 == nrWorking + nrQueued) {
       post([] {
-          LOG_DEVEL << "Wakeup alarm";
+          LOG_TOPIC(DEBUG, Logger::THREADS) << "Wakeup alarm";
           /*wakeup call for scheduler thread*/
       });
     }
@@ -404,7 +404,7 @@ bool Scheduler::pushToFifo(int64_t fifo, std::function<void()> const& callback) 
 }
 
 bool Scheduler::popFifo(int64_t fifo) {
-  LOG_DEVEL << "Popping a job from fifo: " << fifo;
+  LOG_TOPIC(DEBUG, Logger::THREADS) << "Popping a job from fifo: " << fifo;
   TRI_ASSERT(0 <= fifo && fifo < NUMBER_FIFOS);
 
   size_t p = static_cast<size_t>(fifo);
