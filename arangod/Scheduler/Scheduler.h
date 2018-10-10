@@ -155,7 +155,7 @@ class Scheduler : public std::enable_shared_from_this<Scheduler> {
     return (value & (1ULL << 63)) != 0;
   }
 
-  bool canPostDirectly() const noexcept;
+  bool canPostDirectly(RequestPriority prio) const noexcept;
 
   static uint64_t numRunning(uint64_t value) noexcept {
     return value & 0xFFFFULL;
