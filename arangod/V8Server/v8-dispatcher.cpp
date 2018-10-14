@@ -343,7 +343,7 @@ static void JS_CreateQueue(v8::FunctionCallbackInfo<v8::Value> const& args) {
   }
 
   OperationOptions opts;
-  OperationResult result = trx.insert("_queues", doc.slice(), opts);
+  OperationResult result = trx.insert("_queues", doc.slice(), opts).get();
 
   if (result.fail() && result.is(TRI_ERROR_ARANGO_UNIQUE_CONSTRAINT_VIOLATED)) {
     result = trx.replace("_queues", doc.slice(), opts);

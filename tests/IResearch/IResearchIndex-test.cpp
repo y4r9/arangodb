@@ -249,8 +249,8 @@ SECTION("test_analyzer") {
       arangodb::transaction::Options()
     );
     CHECK((trx.begin().ok()));
-    CHECK((trx.insert(collection0->name(), doc0->slice(), arangodb::OperationOptions()).ok()));
-    CHECK((trx.insert(collection1->name(), doc1->slice(), arangodb::OperationOptions()).ok()));
+    CHECK((trx.insert(collection0->name(), doc0->slice(), arangodb::OperationOptions()).get().ok()));
+    CHECK((trx.insert(collection1->name(), doc1->slice(), arangodb::OperationOptions()).get().ok()));
     CHECK((trx.commit().ok()));
   }
 
@@ -533,11 +533,11 @@ SECTION("test_async_index") {
       resThread0 = trx.begin().ok();
       if (!resThread0) return;
 
-      resThread0 = trx.insert(collection0->name(), doc->slice(), arangodb::OperationOptions()).ok();
+      resThread0 = trx.insert(collection0->name(), doc->slice(), arangodb::OperationOptions()).get().ok();
       if (!resThread0) return;
 
       for (arangodb::velocypack::ArrayIterator itr(slice); itr.valid(); ++itr) {
-        auto res = trx.insert(collection0->name(), itr.value(), arangodb::OperationOptions());
+        auto res = trx.insert(collection0->name(), itr.value(), arangodb::OperationOptions()).get();
         resThread0 = res.ok();
         if (!resThread0) return;
       }
@@ -571,11 +571,11 @@ SECTION("test_async_index") {
       resThread1 = trx.begin().ok();
       if (!resThread1) return;
 
-      resThread1 = trx.insert(collection1->name(), doc->slice(), arangodb::OperationOptions()).ok();
+      resThread1 = trx.insert(collection1->name(), doc->slice(), arangodb::OperationOptions()).get().ok();
       if (!resThread1) return;
 
       for (arangodb::velocypack::ArrayIterator itr(slice); itr.valid(); ++itr) {
-        auto res = trx.insert(collection1->name(), itr.value(), arangodb::OperationOptions());
+        auto res = trx.insert(collection1->name(), itr.value(), arangodb::OperationOptions()).get();
         resThread1 = res.ok();
         if (!resThread1) return;
       }
@@ -855,8 +855,8 @@ SECTION("test_fields") {
       arangodb::transaction::Options()
     );
     CHECK((trx.begin().ok()));
-    CHECK((trx.insert(collection0->name(), doc0->slice(), arangodb::OperationOptions()).ok()));
-    CHECK((trx.insert(collection1->name(), doc1->slice(), arangodb::OperationOptions()).ok()));
+    CHECK((trx.insert(collection0->name(), doc0->slice(), arangodb::OperationOptions()).get().ok()));
+    CHECK((trx.insert(collection1->name(), doc1->slice(), arangodb::OperationOptions()).get().ok()));
     CHECK((trx.commit().ok()));
   }
 

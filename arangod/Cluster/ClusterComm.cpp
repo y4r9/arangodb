@@ -1107,7 +1107,6 @@ public:
                                               req.getHeaders(), shared_from_this(), localTimeout, false,
                                               2.0);
           TRI_ASSERT(opId != 0);
-          std::lock_guard<std::mutex> guard(mutex);
           opIDtoIndex.insert(std::make_pair(opId, i));
           
         } else if (dueTime[i] < actionNeeded) {

@@ -48,6 +48,7 @@
 #include "Utils/SingleCollectionTransaction.h"
 #include "VocBase/LogicalCollection.h"
 #include "VocBase/LogicalView.h"
+#include "VocBase/ManagedDocumentResult.h"
 #include "VocBase/voc-types.h"
 #include "VocBase/vocbase.h"
 
@@ -131,11 +132,18 @@ arangodb::Result applyCollectionDumpMarkerInternal(
     options.indexOperationMode = arangodb::Index::OperationMode::internal;
 
     try {
-      // try insert first
-      OperationResult opRes = trx.insert(coll->name(), slice, options);
+      arangodb::ManagedDocumentResult mdr;
+      TRI_voc_tick_t markerResultTick;
+      TRI_voc_rid_t revId;
+      
+      TRI_ASSERT(trx.isLocked(coll, arangodb::AccessMode::Type::WRITE));
+      Result res = coll->insert(&trx, slice, mdr, options, markerResultTick, /*lock*/false, revId);
 
-      if (opRes.is(TRI_ERROR_ARANGO_UNIQUE_CONSTRAINT_VIOLATED)) {
+      if (res.is(TRI_ERROR_ARANGO_UNIQUE_CONSTRAINT_VIOLATED)) {
         bool useReplace = true;
+        
+        arangodb::ManagedDocumentResult prevMdr;
+        TRI_voc_rid_t prevRev;
 
         // conflicting key is contained in opRes.errorMessage() now
         VPackSlice keySlice = slice.get(arangodb::StaticStrings::KeyString);
@@ -143,13 +151,14 @@ arangodb::Result applyCollectionDumpMarkerInternal(
         if (keySlice.isString()) {
           // let's check if the key we have got is the same as the one
           // that we would like to insert
-          if (keySlice.copyString() != opRes.errorMessage()) {
+          if (keySlice.copyString() != res.errorMessage()) {
             // different key
             VPackBuilder tmp;
-            tmp.add(VPackValue(opRes.errorMessage()));
+            tmp.add(VPackValue(res.errorMessage()));
 
-            opRes = trx.remove(coll->name(), tmp.slice(), options);
-            if (opRes.ok() || !opRes.is(TRI_ERROR_ARANGO_DOCUMENT_NOT_FOUND)) {
+            res = coll->remove(&trx, tmp.slice(), options, markerResultTick,
+                               /*lock*/false, prevRev, prevMdr);
+            if (res.ok() || !res.is(TRI_ERROR_ARANGO_DOCUMENT_NOT_FOUND)) {
               useReplace = false;
             }
           }
@@ -159,14 +168,14 @@ arangodb::Result applyCollectionDumpMarkerInternal(
 
         if (useReplace) {
           // perform a replace
-          opRes = trx.replace(coll->name(), slice, options);
+          res = coll->replace(&trx, slice, mdr, options, markerResultTick, /*lock*/false, prevRev, prevMdr);
         } else {
           // perform a re-insert
-          opRes = trx.insert(coll->name(), slice, options);
+          res = coll->insert(&trx, slice, mdr, options, markerResultTick, /*lock*/false, revId);
         }
       }
 
-      return Result(opRes.result);
+      return res;
     } catch (arangodb::basics::Exception const& ex) {
       return Result(ex.code(),
                     std::string("document insert/replace operation failed: ") +

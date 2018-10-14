@@ -668,7 +668,7 @@ SECTION("test_query") {
         );
 
         CHECK((trx.begin().ok()));
-        CHECK((trx.insert(logicalCollection->name(), doc->slice(), arangodb::OperationOptions()).ok()));
+        CHECK((trx.insert(logicalCollection->name(), doc->slice(), arangodb::OperationOptions()).get().ok()));
         CHECK((trx.commit().ok()));
       }
 

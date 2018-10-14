@@ -41,6 +41,8 @@
 #include "Utils/OperationResult.h"
 #include "Utils/SingleCollectionTransaction.h"
 #include "Transaction/StandaloneContext.h"
+#include "VocBase/LogicalCollection.h"
+#include "VocBase/ManagedDocumentResult.h"
 #include "VocBase/ticks.h"
 #include "VocBase/vocbase.h"
 
@@ -138,11 +140,14 @@ void Constituent::termNoLock(term_t t, std::string const& votedFor) {
     options.waitForSync = _agent->config().waitForSync();
     options.silent = true;
 
-    OperationResult result;
+    Result result;
+    LogicalCollection* coll = trx.documentCollection();
 
+    ManagedDocumentResult mdr; // unused, contains on-disk document
+    TRI_voc_tick_t resultTick = 0;
     if (tmp != t) {
       try {
-        result = trx.insert("election", body.slice(), options);
+        result = coll->insert(&trx, body.slice(), mdr, options, resultTick, /*lock*/false);
       } catch (std::exception const& e) {
         LOG_TOPIC(FATAL, Logger::AGENCY)
           << "Failed to insert RAFT election ballot: " << e.what() << ". Bailing out.";
@@ -150,15 +155,21 @@ void Constituent::termNoLock(term_t t, std::string const& votedFor) {
       }
     } else {
       try {
-        result = trx.replace("election", body.slice(), options);
+        TRI_voc_rid_t prevRev;
+        ManagedDocumentResult prevDocument;
+        result = coll->replace(&trx, body.slice(), mdr, options, resultTick,
+                               /*lock*/false, prevRev, prevDocument);
       } catch (std::exception const& e) {
         LOG_TOPIC(FATAL, Logger::AGENCY)
           << "Failed to replace  RAFT election ballot: " << e.what() << ". Bailing out.";
         FATAL_ERROR_EXIT();
       }
     }
+    if (result.ok() && options.waitForSync) {
+      trx.waitForSyncTick(resultTick);
+    }
 
-    res = trx.finish(result.errorNumber());
+    res = trx.finish(result);
   }
 }
 

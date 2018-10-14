@@ -778,7 +778,7 @@ Result handleSyncKeysMMFiles(arangodb::DatabaseInitialSyncer& syncer,
 
             if (!element) {
               // INSERT
-              OperationResult opRes = trx.insert(coll->name(), it, options);
+              OperationResult opRes = trx.insert(coll->name(), it, options).get();
               if (opRes.fail()) {
                 if (opRes.is(TRI_ERROR_ARANGO_UNIQUE_CONSTRAINT_VIOLATED) &&
                     opRes.errorMessage() > keySlice.copyString()) {
@@ -787,7 +787,7 @@ Result handleSyncKeysMMFiles(arangodb::DatabaseInitialSyncer& syncer,
                   if (inner.fail()) {
                     return opRes.result;
                   }
-                  opRes = trx.insert(coll->name(), it, options);
+                  opRes = trx.insert(coll->name(), it, options).get();
                   if (opRes.fail()) {
                     return opRes.result;
                   }

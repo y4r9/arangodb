@@ -900,7 +900,7 @@ Result LogicalCollection::insert(transaction::Methods* trx,
                                  ManagedDocumentResult& result,
                                  OperationOptions& options,
                                  TRI_voc_tick_t& resultMarkerTick, bool lock,
-                                 TRI_voc_tick_t& revisionId) {
+                                 TRI_voc_rid_t& revisionId) {
   TRI_IF_FAILURE("LogicalCollection::insert") {
     return Result(TRI_ERROR_DEBUG);
   }

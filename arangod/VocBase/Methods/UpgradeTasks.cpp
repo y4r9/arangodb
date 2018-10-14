@@ -384,7 +384,7 @@ bool UpgradeTasks::insertRedirections(
     bb.close();
     bb.add("priority", VPackValue(-1000000));
     bb.close();
-    opres = trx.insert("_routing", bb.slice(), opts);
+    opres = trx.insert("_routing", bb.slice(), opts).get();
     if (opres.fail()) {
       THROW_ARANGO_EXCEPTION(opres.result);
     }

@@ -744,7 +744,7 @@ void ClusterInfo::loadPlan() {
             #endif
               {
                 newCollection = std::make_shared<LogicalCollection>(
-                  *vocbase, collectionSlice, true, newPlanVersion
+                  *vocbase, collectionSlice, /*isAStub*/true, newPlanVersion
                 );
               }
 

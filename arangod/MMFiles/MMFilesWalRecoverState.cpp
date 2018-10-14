@@ -47,6 +47,7 @@
 #include "Utils/SingleCollectionTransaction.h"
 #include "VocBase/LogicalCollection.h"
 #include "VocBase/LogicalView.h"
+#include "VocBase/ManagedDocumentResult.h"
 
 #include <velocypack/Collection.h>
 #include <velocypack/Parser.h>
@@ -510,6 +511,9 @@ bool MMFilesWalRecoverState::ReplayMarker(MMFilesMarker const* marker,
                       ->isVolatile()) {
                 return TRI_ERROR_NO_ERROR;
               }
+              
+              LogicalCollection* coll = trx->documentCollection();
+              TRI_ASSERT(trx->isLocked(coll, AccessMode::Type::WRITE));
 
               MMFilesMarker const* marker =
                   static_cast<MMFilesMarker const*>(envelope->mem());
@@ -528,17 +532,19 @@ bool MMFilesWalRecoverState::ReplayMarker(MMFilesMarker const* marker,
 
               // try an insert first
               TRI_ASSERT(VPackSlice(ptr).isObject());
-              OperationResult opRes =
-                  trx->insert(collectionName, VPackSlice(ptr), options);
-              int res = opRes.errorNumber();
+              
+              ManagedDocumentResult mdr;
+              TRI_voc_tick_t resultMarkerTick;
+              TRI_voc_rid_t revId, prevRev;
+              Result res = coll->insert(trx, VPackSlice(ptr), mdr, options, resultMarkerTick, false, revId);
 
-              if (opRes.is(TRI_ERROR_ARANGO_UNIQUE_CONSTRAINT_VIOLATED)) {
+              if (res.is(TRI_ERROR_ARANGO_UNIQUE_CONSTRAINT_VIOLATED)) {
                 // document/edge already exists, now make it a replace
-                opRes = trx->replace(collectionName, VPackSlice(ptr), options);
-                res = opRes.errorNumber();
+                ManagedDocumentResult prev;
+                res = coll->replace(trx, VPackSlice(ptr), mdr, options, resultMarkerTick, /*lock*/false, prevRev, prev);
               }
 
-              return res;
+              return res.errorNumber();
             });
 
         if (res != TRI_ERROR_NO_ERROR && res != TRI_ERROR_ARANGO_CONFLICT &&

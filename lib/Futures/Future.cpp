@@ -25,6 +25,7 @@
 #include "Utils/OperationResult.h"
 
 #include "Futures/Future.h"
+#include "Futures/Utilities.h"
 
 namespace arangodb {
 namespace futures {
@@ -41,4 +42,9 @@ namespace futures {
   // arangodb types
   template class Future<arangodb::Result>;
   template class Future<arangodb::OperationResult>;
+  
+  /// Make a complete void future
+  Future<Unit> makeFuture() {
+    return Future<Unit>(unit);
+  }
 }}

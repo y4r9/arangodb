@@ -36,6 +36,7 @@
 #include "IResearchAnalyzerFeature.h"
 #include "IResearchCommon.h"
 #include "VelocyPackHelper.h"
+
 #include "Aql/AqlFunctionFeature.h"
 #include "Aql/ExpressionContext.h"
 #include "Basics/StaticStrings.h"
@@ -1173,7 +1174,7 @@ bool IResearchAnalyzerFeature::storeConfiguration(AnalyzerPool& pool) {
     builder.close();
     options.waitForSync = true;
 
-    auto result = trx.insert(ANALYZER_COLLECTION_NAME, builder.slice(), options);
+    auto result = trx.insert(ANALYZER_COLLECTION_NAME, builder.slice(), options).get();
 
     if (!result.ok()) {
       LOG_TOPIC(WARN, arangodb::iresearch::TOPIC)

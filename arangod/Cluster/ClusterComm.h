@@ -575,6 +575,7 @@ class ClusterComm {
   ////////////////////////////////////////////////////////////////////////////////
   void fireAndForgetRequests(std::vector<ClusterCommRequest> const& requests);
   
+  /// @brief response called with callback(requests, nrDone, nrGood)
   typedef std::function<void(std::vector<ClusterCommRequest> const&, size_t, size_t)> AsyncCallback;
   void performAsyncRequests(std::vector<ClusterCommRequest>&&, ClusterCommTimeout timeout,
                             bool retryOnCollNotFound, AsyncCallback const&);

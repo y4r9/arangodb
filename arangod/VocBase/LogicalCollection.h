@@ -141,10 +141,14 @@ class LogicalCollection: public LogicalDataSource {
 
   // SECTION: Properties
   TRI_voc_rid_t revision(transaction::Methods*) const;
+  /// is this collection on a coordinator
   bool isLocal() const;
   bool waitForSync() const;
   bool isSmart() const;
+  /// @brief is this a cluster-wide Plan (ClusterInfo) collection
   bool isAStub() const { return _isAStub; }
+  /// @brief is this a cluster-wide Plan (ClusterInfo) collection
+  bool isClusterGlobal() const { return _isAStub; }
 
   void waitForSync(bool value) { _waitForSync = value; }
 
@@ -272,12 +276,12 @@ class LogicalCollection: public LogicalDataSource {
 
   Result insert(transaction::Methods*, velocypack::Slice const,
                 ManagedDocumentResult& result, OperationOptions&,
-                TRI_voc_tick_t&, bool lock, TRI_voc_tick_t& revisionId);
+                TRI_voc_tick_t&, bool lock, TRI_voc_rid_t& revisionId);
   // convenience function for downwards-compatibility
   Result insert(transaction::Methods* trx, velocypack::Slice const slice,
                 ManagedDocumentResult& result, OperationOptions& options,
                 TRI_voc_tick_t& resultMarkerTick, bool lock) {
-    TRI_voc_tick_t unused;
+    TRI_voc_rid_t unused;
     return insert(trx, slice, result, options, resultMarkerTick, lock, unused);
   }
 

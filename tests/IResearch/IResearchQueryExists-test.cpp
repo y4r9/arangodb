@@ -208,7 +208,7 @@ TEST_CASE("IResearchQueryTestExists", "[iresearch][iresearch-query]") {
     CHECK((trx.begin().ok()));
 
     for (auto& entry: docs) {
-      auto res = trx.insert(collection->name(), entry->slice(), options);
+      auto res = trx.insert(collection->name(), entry->slice(), options).get();
       CHECK((res.ok()));
       insertedDocs.emplace_back(res.slice().get("new"));
     }
@@ -240,7 +240,7 @@ TEST_CASE("IResearchQueryTestExists", "[iresearch][iresearch-query]") {
     CHECK((trx.begin().ok()));
 
     for (arangodb::velocypack::ArrayIterator itr(slice); itr.valid(); ++itr) {
-      auto res = trx.insert(collection->name(), itr.value(), options);
+      auto res = trx.insert(collection->name(), itr.value(), options).get();
       CHECK((res.ok()));
       insertedDocs.emplace_back(res.slice().get("new"));
     }
@@ -1466,7 +1466,7 @@ TEST_CASE("IResearchQueryTestExistsStoreMaskPartially", "[iresearch][iresearch-q
     CHECK((trx.begin().ok()));
 
     for (auto& entry: docs) {
-      auto res = trx.insert(collection->name(), entry->slice(), options);
+      auto res = trx.insert(collection->name(), entry->slice(), options).get();
       CHECK((res.ok()));
       insertedDocs.emplace_back(res.slice().get("new"));
     }
@@ -1498,7 +1498,7 @@ TEST_CASE("IResearchQueryTestExistsStoreMaskPartially", "[iresearch][iresearch-q
     CHECK((trx.begin().ok()));
 
     for (arangodb::velocypack::ArrayIterator itr(slice); itr.valid(); ++itr) {
-      auto res = trx.insert(collection->name(), itr.value(), options);
+      auto res = trx.insert(collection->name(), itr.value(), options).get();
       CHECK((res.ok()));
       insertedDocs.emplace_back(res.slice().get("new"));
     }

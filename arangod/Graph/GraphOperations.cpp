@@ -604,8 +604,7 @@ OperationResult GraphOperations::createDocument(
   options.waitForSync = waitForSync;
   options.returnNew = returnNew;
 
-  OperationResult result;
-  result = trx->insert(collectionName, document, options);
+  OperationResult result = trx->insert(collectionName, document, options).get();
 
   if (!result.ok()) {
     trx->finish(result.result);

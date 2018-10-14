@@ -1651,7 +1651,9 @@ bool SingleRemoteOperationBlock::getOne(arangodb::aql::AqlItemBlock* aqlres,
       THROW_ARANGO_EXCEPTION_MESSAGE(TRI_ERROR_QUERY_VARIABLE_NAME_UNKNOWN,
                                      "OLD is only available when using INSERT with the overwrite option");
     }
-    result = _trx->insert(_collection->name(), inSlice, opOptions);
+    futures::Future<OperationResult> f = _trx->insert(_collection->name(), inSlice, opOptions);
+    // FIXME: check for readiness, return ExecutionState::WAITING
+    result = std::move(f).get();
     possibleWrites = 1;
   } else if (node->_mode == ExecutionNode::NodeType::REMOVE) {
     result = _trx->remove(_collection->name(), inSlice , opOptions);

@@ -24,16 +24,16 @@
 #ifndef ARANGOD_CLUSTER_CLUSTER_METHODS_H
 #define ARANGOD_CLUSTER_CLUSTER_METHODS_H 1
 
+#include "Agency/AgencyComm.h"
 #include "Basics/Common.h"
 #include "Basics/StringRef.h"
-#include <velocypack/Slice.h>
-#include <velocypack/velocypack-aliases.h>
-
-#include "Agency/AgencyComm.h"
 #include "Cluster/TraverserEngineRegistry.h"
-#include "Rest/HttpResponse.h"
+#include "Rest/CommonDefines.h"
+#include "Utils/OperationResult.h"
 #include "VocBase/LogicalCollection.h"
 #include "VocBase/voc-types.h"
+
+#include <velocypack/Slice.h>
 
 namespace arangodb {
 namespace velocypack {
@@ -42,6 +42,10 @@ class Buffer;
 class Builder;
 class Slice;
 }
+namespace futures {
+template<typename T>
+class Future;
+};
 
 struct OperationOptions;
 
@@ -58,7 +62,8 @@ std::unordered_map<std::string, std::string> getForwardableRequestHeaders(
 ////////////////////////////////////////////////////////////////////////////////
 
 bool shardKeysChanged(LogicalCollection const& collection,
-                      VPackSlice const& oldValue, VPackSlice const& newValue,
+                      arangodb::velocypack::Slice const& oldValue, 
+                      arangodb::velocypack::Slice const& newValue,
                       bool isPatch);
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -101,13 +106,9 @@ int selectivityEstimatesOnCoordinator(std::string const& dbname, std::string con
 /// @brief creates a document in a coordinator
 ////////////////////////////////////////////////////////////////////////////////
 
-Result createDocumentOnCoordinator(
-    std::string const& dbname, std::string const& collname,
-    transaction::Methods const& trx,
-    OperationOptions const& options, arangodb::velocypack::Slice const& slice,
-    arangodb::rest::ResponseCode& responseCode,
-    std::unordered_map<int, size_t>& errorCounters,
-    std::shared_ptr<arangodb::velocypack::Builder>& resultBody);
+futures::Future<OperationResult> createDocumentOnCoordinator(
+    transaction::Methods const& trx, LogicalCollection&,
+    OperationOptions const& options, arangodb::velocypack::Slice const& slice);
 
 ////////////////////////////////////////////////////////////////////////////////
 /// @brief delete a document in a coordinator
@@ -116,7 +117,8 @@ Result createDocumentOnCoordinator(
 int deleteDocumentOnCoordinator(
     std::string const& dbname, std::string const& collname,
     transaction::Methods const& trx,
-    VPackSlice const slice, OperationOptions const& options,
+    arangodb::velocypack::Slice const slice, 
+    OperationOptions const& options,
     arangodb::rest::ResponseCode& responseCode,
     std::unordered_map<int, size_t>& errorCounters,
     std::shared_ptr<arangodb::velocypack::Builder>& resultBody);
@@ -128,7 +130,8 @@ int deleteDocumentOnCoordinator(
 int getDocumentOnCoordinator(
     std::string const& dbname, std::string const& collname,
     transaction::Methods const& trx,
-    VPackSlice slice, OperationOptions const& options,
+    arangodb::velocypack::Slice slice, 
+    OperationOptions const& options,
     arangodb::rest::ResponseCode& responseCode,
     std::unordered_map<int, size_t>& errorCounter,
     std::shared_ptr<arangodb::velocypack::Builder>& resultBody);
@@ -276,6 +279,17 @@ class ClusterMethods {
       bool waitForSyncReplication,
       bool enforceReplicationFactor
     );
+  
+  static OperationResult errorCodeFromClusterResult(std::shared_ptr<VPackBuilder> const&,
+                                                    int defaultErrorCode);
+  
+  /// @brief Create Cluster Communication result for insert
+  static OperationResult clusterResultInsert(
+     rest::ResponseCode const& responseCode,
+     std::shared_ptr<VPackBuilder> const& resultBody,
+     OperationOptions const& options,
+     std::unordered_map<int, size_t> const& errorCounter
+   );
 
  private:
 

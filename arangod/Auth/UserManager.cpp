@@ -284,7 +284,7 @@ Result auth::UserManager::storeUserInternal(auth::User const& entry, bool replac
 
     OperationResult opres =
         replace ? trx.replace(TRI_COL_NAME_USERS, data.slice(), opts)
-                : trx.insert(TRI_COL_NAME_USERS, data.slice(), opts);
+                : trx.insert(TRI_COL_NAME_USERS, data.slice(), opts).get();
 
     res = trx.finish(opres.result);
 

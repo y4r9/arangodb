@@ -2136,9 +2136,9 @@ static void InsertVocbaseCol(v8::Isolate* isolate,
     TRI_V8_THROW_EXCEPTION(res);
   }
 
-  auto result = trx.insert(collection->name(), builder.slice(), options);
+  auto opRes = trx.insert(collection->name(), builder.slice(), options).get();
 
-  res = trx.finish(result.result);
+  res = trx.finish(opRes.result);
 
   if (!res.ok()) {
     TRI_V8_THROW_EXCEPTION(res);
@@ -2149,7 +2149,7 @@ static void InsertVocbaseCol(v8::Isolate* isolate,
     TRI_V8_RETURN_TRUE();
   }
 
-  VPackSlice resultSlice = result.slice();
+  VPackSlice resultSlice = opRes.slice();
 
   auto v8Result = TRI_VPackToV8(isolate, resultSlice,
                                 transactionContext->getVPackOptions());

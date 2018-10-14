@@ -213,6 +213,7 @@ add_library(${LIB_ARANGO} STATIC
   Basics/exitcodes.cpp
   Basics/voc-mimetypes.cpp
   Basics/xxhash.cpp
+  Encoder/Sorted.cpp
   Endpoint/Endpoint.cpp
   Endpoint/EndpointIp.cpp
   Endpoint/EndpointIpV4.cpp

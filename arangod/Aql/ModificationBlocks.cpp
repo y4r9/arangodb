@@ -565,7 +565,7 @@ std::unique_ptr<AqlItemBlock> InsertBlock::work() {
       continue;
     }
 
-    OperationResult opRes = _trx->insert(_collection->name(), toInsert, options);
+    OperationResult opRes = _trx->insert(_collection->name(), toInsert, options).get();
       
     handleBabyResult(opRes.countErrorCodes,
                      static_cast<size_t>(toInsert.length()),
@@ -1002,7 +1002,7 @@ std::unique_ptr<AqlItemBlock> UpsertBlock::work() {
     VPackSlice resultListInsert = VPackSlice::emptyArraySlice();
 
     if (toInsert.isArray() && toInsert.length() > 0) {
-      opResInsert = _trx->insert(_collection->name(), toInsert, options);
+      opResInsert = _trx->insert(_collection->name(), toInsert, options).get();
     
       if (opResInsert.fail()) {
         THROW_ARANGO_EXCEPTION(opResInsert.result);

@@ -209,7 +209,7 @@ TEST_CASE("IResearchQueryTestNullTerm", "[iresearch][iresearch-query]") {
     CHECK((trx.begin().ok()));
 
     for (auto& entry: docs) {
-      auto res = trx.insert(collection->name(), entry->slice(), options);
+      auto res = trx.insert(collection->name(), entry->slice(), options).get();
       CHECK((res.ok()));
       insertedDocs.emplace_back(res.slice().get("new"));
     }
@@ -243,7 +243,7 @@ TEST_CASE("IResearchQueryTestNullTerm", "[iresearch][iresearch-query]") {
     CHECK((trx.begin().ok()));
 
     for (auto& entry: docs) {
-      auto res = trx.insert(collection->name(), entry->slice(), options);
+      auto res = trx.insert(collection->name(), entry->slice(), options).get();
       CHECK((res.ok()));
       insertedDocs.emplace_back(res.slice().get("new"));
     }

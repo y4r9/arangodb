@@ -468,7 +468,7 @@ OperationResult GraphManager::storeGraph(Graph const& graph, bool waitForSync,
         trx.update(StaticStrings::GraphCollection, builder.slice(), options);
   } else {
     result =
-        trx.insert(StaticStrings::GraphCollection, builder.slice(), options);
+        trx.insert(StaticStrings::GraphCollection, builder.slice(), options).get();
   }
   if (!result.ok()) {
     trx.finish(result.result);

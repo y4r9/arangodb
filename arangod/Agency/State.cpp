@@ -48,6 +48,7 @@
 #include "Utils/OperationResult.h"
 #include "Utils/SingleCollectionTransaction.h"
 #include "VocBase/LogicalCollection.h"
+#include "VocBase/ManagedDocumentResult.h"
 #include "VocBase/vocbase.h"
 
 using namespace arangodb;
@@ -120,7 +121,7 @@ bool State::persist(index_t index, term_t term,
   OperationResult result;
 
   try {
-    result = trx.insert("log", body.slice(), _options);
+    result = trx.insert("log", body.slice(), _options).get();
   } catch (std::exception const& e) {
     LOG_TOPIC(ERR, Logger::AGENCY)
         << "Failed to persist log entry:" << e.what();
@@ -863,7 +864,6 @@ bool State::loadOrPersistConfiguration() {
     SingleCollectionTransaction trx(ctx, "configuration",
                                     AccessMode::Type::WRITE);
     Result res = trx.begin();
-    OperationResult result;
 
     if (!res.ok()) {
       THROW_ARANGO_EXCEPTION(res);
@@ -876,15 +876,23 @@ bool State::loadOrPersistConfiguration() {
       doc.add("cfg", _agent->config().toBuilder()->slice());
     }
 
+    TRI_voc_tick_t resultMarkerTick = 0;
     try {
-      result = trx.insert("configuration", doc.slice(), _options);
+      LogicalCollection* coll = trx.documentCollection();
+      ManagedDocumentResult mdr; // unused on-disc document
+      TRI_voc_rid_t revId;
+      res =  coll->insert(&trx, doc.slice(), mdr, _options, resultMarkerTick, false, revId);
     } catch (std::exception const& e) {
       LOG_TOPIC(ERR, Logger::AGENCY)
           << "Failed to persist configuration entry:" << e.what();
       FATAL_ERROR_EXIT();
     }
+    
+    if (res.ok() && _options.waitForSync) {
+      trx.waitForSyncTick(resultMarkerTick);
+    }
 
-    res = trx.finish(result.result);
+    res = trx.finish(res);
 
     LOG_TOPIC(DEBUG, Logger::AGENCY)
         << "Persisted configuration: " << doc.slice().toJson();
@@ -1183,7 +1191,7 @@ bool State::persistCompactionSnapshot(index_t cind,
       THROW_ARANGO_EXCEPTION(res);
     }
 
-    auto result = trx.insert("compact", store.slice(), _options);
+    auto result = trx.insert("compact", store.slice(), _options).get();
 
     res = trx.finish(result.result);
 

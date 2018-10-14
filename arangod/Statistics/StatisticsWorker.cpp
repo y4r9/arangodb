@@ -975,12 +975,12 @@ void StatisticsWorker::saveSlice(VPackSlice const& slice,
     return;
   }
 
-  arangodb::OperationResult result = trx.insert(collection, slice, opOptions);
+  auto opRes = trx.insert(collection, slice, opOptions).get();
 
   // Will commit if no error occured.
   // or abort if an error occured.
   // result stays valid!
-  res = trx.finish(result.result);
+  res = trx.finish(opRes.result);
   if (res.fail()) {
     LOG_TOPIC(WARN, Logger::STATISTICS) << "could not commit stats to "
                                         << collection << ": " << res.errorMessage();

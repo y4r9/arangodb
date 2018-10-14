@@ -138,7 +138,7 @@ bool RestDocumentHandler::insertDocument() {
   }
 
   arangodb::OperationResult result =
-      trx->insert(collectionName, body, opOptions);
+      trx->insert(collectionName, body, opOptions).get();
 
   // Will commit if no error occured.
   // or abort if an error occured.

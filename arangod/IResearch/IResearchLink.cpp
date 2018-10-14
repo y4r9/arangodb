@@ -235,7 +235,7 @@ bool IResearchLink::init(arangodb::velocypack::Slice const& definition) {
     auto* wiew = LogicalView::cast<IResearchViewDBServer>(logicalWiew.get());
     if (wiew) {
       // FIXME figure out elegant way of testing for cluster wide LogicalCollection
-      if (_collection.id() == _collection.planId() && _collection.isAStub()) {
+      if (_collection.id() == _collection.planId() && _collection.isClusterGlobal()) {
       // this is a cluster-wide collection/index/link (per-cid view links have their corresponding collections in vocbase)
         auto clusterCol = ci->getCollectionCurrent(
           vocbase.name(), std::to_string(_collection.id())

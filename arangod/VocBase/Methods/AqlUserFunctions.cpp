@@ -316,17 +316,16 @@ Result arangodb::registerUserFunction(
       return res;
     }
 
-    arangodb::OperationResult result;
-    result = trx.insert(collectionName, oneFunctionDocument.slice(), opOptions);
+    auto opRes = trx.insert(collectionName, oneFunctionDocument.slice(), opOptions).get();
 
-    if (result.result.is(TRI_ERROR_ARANGO_UNIQUE_CONSTRAINT_VIOLATED)) {
+    if (opRes.result.is(TRI_ERROR_ARANGO_UNIQUE_CONSTRAINT_VIOLATED)) {
       replacedExisting = true;
-      result = trx.replace(collectionName, oneFunctionDocument.slice(), opOptions);
+      opRes = trx.replace(collectionName, oneFunctionDocument.slice(), opOptions);
     }
     // Will commit if no error occured.
     // or abort if an error occured.
     // result stays valid!
-    res = trx.finish(result.result);
+    res = trx.finish(opRes.result);
   }
 
   if (res.ok()) {
