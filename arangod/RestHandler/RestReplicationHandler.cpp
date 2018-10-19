@@ -1406,23 +1406,23 @@ Result RestReplicationHandler::processRestoreDataBatch(
       << oldBuilder.slice().length() << " documents in time: " << duration
       << " seconds.";
     if (opRes.fail()) {
-      LOG_TOPIC(ERROR, arangodb::Logger::FIXME)
+      LOG_TOPIC(ERR, arangodb::Logger::FIXME)
         << "Could not delete documents for restore: "
         << opRes.result.errorMessage();
       return opRes.result;
     }
   } catch (arangodb::basics::Exception const& ex) {
-    LOG_TOPIC(ERROR, arangodb::Logger::FIXME)
+    LOG_TOPIC(ERR, arangodb::Logger::FIXME)
       << "Could not delete documents for restore exception (1): "
       << ex.what();
     return Result(ex.code(), ex.what());
   } catch (std::exception const& ex) {
-    LOG_TOPIC(ERROR, arangodb::Logger::FIXME)
+    LOG_TOPIC(ERR, arangodb::Logger::FIXME)
       << "Could not delete documents for restore exception (2): "
       << ex.what();
     return Result(TRI_ERROR_INTERNAL, ex.what());
   } catch (...) {
-    LOG_TOPIC(ERROR, arangodb::Logger::FIXME)
+    LOG_TOPIC(ERR, arangodb::Logger::FIXME)
       << "Could not delete documents for restore exception (3).";
     return Result(TRI_ERROR_INTERNAL);
   }
@@ -1501,23 +1501,23 @@ Result RestReplicationHandler::processRestoreDataBatch(
       << requestSlice.length() << " documents in time: " << duration
       << " seconds.";
     if (opRes.fail()) {
-      LOG_TOPIC(ERROR, arangodb::Logger::FIXME)
+      LOG_TOPIC(ERR, arangodb::Logger::FIXME)
         << "Could not insert documents for restore: "
         << opRes.result.errorMessage();
       return opRes.result;
     }
   } catch (arangodb::basics::Exception const& ex) {
-    LOG_TOPIC(ERROR, arangodb::Logger::FIXME)
+    LOG_TOPIC(ERR, arangodb::Logger::FIXME)
       << "Could not insert documents for restore exception (1): "
       << ex.what();
     return Result(ex.code(), ex.what());
   } catch (std::exception const& ex) {
-    LOG_TOPIC(ERROR, arangodb::Logger::FIXME)
+    LOG_TOPIC(ERR, arangodb::Logger::FIXME)
       << "Could not insert documents for restore exception (2): "
       << ex.what();
     return Result(TRI_ERROR_INTERNAL, ex.what());
   } catch (...) {
-    LOG_TOPIC(ERROR, arangodb::Logger::FIXME)
+    LOG_TOPIC(ERR, arangodb::Logger::FIXME)
       << "Could not insert documents for restore exception (3).";
     return Result(TRI_ERROR_INTERNAL);
   }
@@ -1566,23 +1566,23 @@ Result RestReplicationHandler::processRestoreDataBatch(
       << replBuilder.slice().length() << " documents in time: " << duration
       << " seconds.";
     if (opRes.fail()) {
-      LOG_TOPIC(ERROR, arangodb::Logger::FIXME)
+      LOG_TOPIC(ERR, arangodb::Logger::FIXME)
         << "Could not replace documents for restore: "
         << opRes.result.errorMessage();
       return opRes.result;
     }
   } catch (arangodb::basics::Exception const& ex) {
-    LOG_TOPIC(ERROR, arangodb::Logger::FIXME)
+    LOG_TOPIC(ERR, arangodb::Logger::FIXME)
       << "Could not replace documents for restore exception (1): "
       << ex.what();
     return Result(ex.code(), ex.what());
   } catch (std::exception const& ex) {
-    LOG_TOPIC(ERROR, arangodb::Logger::FIXME)
+    LOG_TOPIC(ERR, arangodb::Logger::FIXME)
       << "Could not replace documents for restore exception (2): "
       << ex.what();
     return Result(TRI_ERROR_INTERNAL, ex.what());
   } catch (...) {
-    LOG_TOPIC(ERROR, arangodb::Logger::FIXME)
+    LOG_TOPIC(ERR, arangodb::Logger::FIXME)
       << "Could not replace documents for restore exception (3).";
     return Result(TRI_ERROR_INTERNAL);
   }
