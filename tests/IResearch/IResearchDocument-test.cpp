@@ -1537,7 +1537,8 @@ SECTION("test_cid_rid_encoding") {
 
     // insert document
     {
-      auto doc = writer->documents().insert();
+      auto ctx = writer->documents();
+      auto doc = ctx.insert();
       arangodb::iresearch::Field::setCidValue(field, cid, arangodb::iresearch::Field::init_stream_t());
       CHECK((doc.insert(irs::action::index, field)));
       arangodb::iresearch::Field::setRidValue(field, rid);
@@ -1650,7 +1651,8 @@ SECTION("test_appendKnownCollections") {
     arangodb::iresearch::Field::setRidValue(field, rid, arangodb::iresearch::Field::init_stream_t());
 
     {
-      auto doc = writer->documents().insert();
+      auto ctx = writer->documents();
+      auto doc = ctx.insert();
       CHECK(doc.insert(irs::action::index, field));
       CHECK(doc);
     }
@@ -1679,7 +1681,8 @@ SECTION("test_appendKnownCollections") {
 
     arangodb::iresearch::Field::setCidValue(field, cid, arangodb::iresearch::Field::init_stream_t());
     {
-      auto doc = writer->documents().insert();
+      auto ctx = writer->documents();
+      auto doc = ctx.insert();
       CHECK(doc.insert(irs::action::index, field));
       CHECK(doc);
     }
@@ -1735,7 +1738,8 @@ SECTION("test_visitReaderCollections") {
     arangodb::iresearch::Field field;
     arangodb::iresearch::Field::setRidValue(field, rid, arangodb::iresearch::Field::init_stream_t());
     {
-      auto doc = writer->documents().insert();
+      auto ctx = writer->documents();
+      auto doc = ctx.insert();
       CHECK(doc.insert(irs::action::index, field));
       CHECK(doc);
     }
@@ -1765,7 +1769,8 @@ SECTION("test_visitReaderCollections") {
 
     arangodb::iresearch::Field::setCidValue(field, cid, arangodb::iresearch::Field::init_stream_t());
     {
-      auto doc = writer->documents().insert();
+      auto ctx = writer->documents();
+      auto doc = ctx.insert();
       CHECK(doc.insert(irs::action::index, field));
       CHECK(doc);
     }
