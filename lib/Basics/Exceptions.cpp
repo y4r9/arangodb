@@ -103,7 +103,7 @@ char const* Exception::what() const throw() { return _errorMessage.c_str(); }
 
 /// @brief append original error location to message
 void Exception::appendLocation () {
-  if (_code == TRI_ERROR_INTERNAL) {
+  if (_code == TRI_ERROR_INTERNAL || _code == TRI_ERROR_CLUSTER_CONNECTION_LOST) {
     _errorMessage += std::string(" (exception location: ") + _file + ":" + std::to_string(_line) + "). Please report this error to arangodb.com";
   } else if (_code == TRI_ERROR_OUT_OF_MEMORY) {
     _errorMessage += std::string(" (exception location: ") + _file + ":" + std::to_string(_line) + ")";
