@@ -900,6 +900,9 @@ Result RestImportHandler::performImport(SingleCollectionTransaction& trx,
   Result res;
   OperationResult opResult =
       trx.insert(collectionName, babies.slice(), opOptions);
+  if (opResult.fail()) {
+    return opResult.result;
+  }
 
   VPackSlice resultSlice = opResult.slice();
 
