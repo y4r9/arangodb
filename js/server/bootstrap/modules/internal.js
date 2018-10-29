@@ -304,6 +304,7 @@
     const $_RAW_BODY_BUFFER = Symbol.for('@arangodb/request.rawBodyBuffer');
     const getRawBodyBuffer = global.SYS_RAW_REQUEST_BODY;
     exports.rawRequestBody = function (req) {
+      console.log("[DBG] rawRequestBody(req) called: ", {req, trace: (new Error()).toString()});
       return req[$_RAW_BODY_BUFFER] || getRawBodyBuffer(req);
     };
     delete global.SYS_RAW_REQUEST_BODY;

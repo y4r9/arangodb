@@ -553,6 +553,8 @@ global.DEFINE_MODULE('fs', (function () {
   // //////////////////////////////////////////////////////////////////////////////
 
   exports.writeFileSync = function (filename, content) {
+    console.log("[DBG] writeFileSync(filename, content) called: ",
+      {filename, content, trace: (new Error()).toString()});
     return exports.write(filename, content);
   };
 

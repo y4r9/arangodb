@@ -110,8 +110,8 @@
 /// @brief logs a message for debugging during development
 ////////////////////////////////////////////////////////////////////////////////
 
-#define LOG_DEVEL LOG_TOPIC(ERR,Logger::FIXME) << "###### "
-#define LOG_DEVEL_IF(cond) LOG_TOPIC_IF(ERR,Logger::FIXME,(cond)) << "###### "
+#define LOG_DEVEL LOG_TOPIC(ERR,arangodb::Logger::FIXME) << "###### "
+#define LOG_DEVEL_IF(cond) LOG_TOPIC_IF(ERR,arangodb::Logger::FIXME,(cond)) << "###### "
 
 ////////////////////////////////////////////////////////////////////////////////
 /// @brief logs a message every N.the time

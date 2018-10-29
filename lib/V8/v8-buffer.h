@@ -49,6 +49,7 @@
 #ifndef ARANGODB_V8_V8__BUFFER_H
 #define ARANGODB_V8_V8__BUFFER_H 1
 
+#include <lib/Logger/Logger.h>
 #include "Basics/Common.h"
 
 #include "V8/v8-globals.h"
@@ -101,6 +102,7 @@ class V8Buffer : public V8Wrapper<V8Buffer, TRI_V8_BUFFER_CID> {
   //////////////////////////////////////////////////////////////////////////////
 
   static inline char* data(v8::Handle<v8::Value> val) {
+    LOG_DEVEL << "V8Buffer::data()";
     TRI_ASSERT(val->IsObject());
     auto o = val->ToObject();
     int32_t offsetValue = 0;
@@ -127,14 +129,29 @@ class V8Buffer : public V8Wrapper<V8Buffer, TRI_V8_BUFFER_CID> {
     }
 
     V8Buffer* buffer = unwrap(o);
+
+    LOG_DEVEL_IF(buffer == nullptr) << "buffer == nullptr";
+    LOG_DEVEL_IF(offsetValue < 0) << "offsetValue < 0 (== " << offsetValue << ")";
+
     if (buffer == nullptr || offsetValue < 0) {
       return nullptr;
     }
 
     size_t length = buffer->_length;
+    LOG_DEVEL << "buffer->_length == " << length;
+    LOG_DEVEL << "offsetValue == " << offsetValue;
+    LOG_DEVEL << "buffer->_data == " << (buffer->_data == nullptr ? "nullptr" : buffer->_data);
     if (static_cast<size_t>(offsetValue) >= length) {
+      LOG_DEVEL << "OOB, returning nullptr";
       return nullptr; //OOB
     }
+    LOG_DEVEL_IF(static_cast<size_t>(offsetValue) >= length) << "previous OOB";
+
+    TRI_ASSERT(buffer->_data != nullptr);
+
+    LOG_DEVEL << "returning " << (void*)buffer->_data << " + " << offsetValue
+              << " = " << ((void*)(buffer->_data + offsetValue)) << " = "
+              << buffer->_data + offsetValue;
 
     return buffer->_data + offsetValue;
   }
