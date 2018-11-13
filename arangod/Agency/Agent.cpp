@@ -1398,6 +1398,12 @@ bool Agent::prepareLead() {
     MUTEX_LOCKER(tiLocker, _tiLock);
     _earliestPackage.clear();
   }
+  
+  {
+    // Clear transient store
+    MUTEX_LOCKER(ioLocker, _ioLock);
+    _transient.clear();
+  }
 
   // Key value stores
   try {
