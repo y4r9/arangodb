@@ -216,11 +216,11 @@ NS_END
 // -----------------------------------------------------------------------------
 
 struct IResearchOrderSetup {
-  StorageEngineMock engine;
   arangodb::application_features::ApplicationServer server;
+  StorageEngineMock engine;
   std::vector<std::pair<arangodb::application_features::ApplicationFeature*, bool>> features;
 
-  IResearchOrderSetup(): engine(server), server(nullptr, nullptr) {
+  IResearchOrderSetup(): server(nullptr, nullptr), engine(server) {
     arangodb::EngineSelectorFeature::ENGINE = &engine;
 
     arangodb::tests::init();

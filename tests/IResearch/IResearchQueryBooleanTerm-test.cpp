@@ -77,12 +77,12 @@ NS_LOCAL
 // -----------------------------------------------------------------------------
 
 struct IResearchQueryBooleanTermSetup {
-  StorageEngineMock engine;
   arangodb::application_features::ApplicationServer server;
+  StorageEngineMock engine;
   std::unique_ptr<TRI_vocbase_t> system;
   std::vector<std::pair<arangodb::application_features::ApplicationFeature*, bool>> features;
 
-  IResearchQueryBooleanTermSetup(): engine(server), server(nullptr, nullptr) {
+  IResearchQueryBooleanTermSetup(): server(nullptr, nullptr), engine(server) {
     arangodb::EngineSelectorFeature::ENGINE = &engine;
 
     arangodb::tests::init(true);

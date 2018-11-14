@@ -92,13 +92,13 @@ NS_END
 // -----------------------------------------------------------------------------
 
 struct IResearchLinkMetaSetup {
-  StorageEngineMock engine;
   arangodb::application_features::ApplicationServer server;
+  StorageEngineMock engine;
   std::unique_ptr<TRI_vocbase_t> system;
   std::map<std::string, std::pair<arangodb::application_features::ApplicationFeature*, bool>> features;
   std::vector<arangodb::application_features::ApplicationFeature*> orderedFeatures;
 
-  IResearchLinkMetaSetup(): engine(server), server(nullptr, nullptr) {
+  IResearchLinkMetaSetup(): server(nullptr, nullptr), engine(server) {
     arangodb::EngineSelectorFeature::ENGINE = &engine;
 
     arangodb::tests::init();

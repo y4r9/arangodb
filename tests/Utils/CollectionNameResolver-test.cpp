@@ -89,11 +89,11 @@ std::shared_ptr<arangodb::LogicalView> makeTestView(
 // -----------------------------------------------------------------------------
 
 struct CollectionNameResolverSetup {
-  StorageEngineMock engine;
   arangodb::application_features::ApplicationServer server;
+  StorageEngineMock engine;
   std::vector<std::pair<arangodb::application_features::ApplicationFeature*, bool>> features;
 
-  CollectionNameResolverSetup(): engine(server), server(nullptr, nullptr) {
+  CollectionNameResolverSetup(): server(nullptr, nullptr), engine(server) {
     arangodb::EngineSelectorFeature::ENGINE = &engine;
 
     // setup required application features

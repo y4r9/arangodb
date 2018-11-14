@@ -140,12 +140,12 @@ NS_END
 extern const char* ARGV0; // defined in main.cpp
 
 struct IResearchQuerySetup {
-  StorageEngineMock engine;
   arangodb::application_features::ApplicationServer server;
+  StorageEngineMock engine;
   std::unique_ptr<TRI_vocbase_t> system;
   std::vector<std::pair<arangodb::application_features::ApplicationFeature*, bool>> features;
 
-  IResearchQuerySetup(): engine(server), server(nullptr, nullptr) {
+  IResearchQuerySetup(): server(nullptr, nullptr), engine(server) {
     arangodb::EngineSelectorFeature::ENGINE = &engine;
 
     arangodb::tests::init();

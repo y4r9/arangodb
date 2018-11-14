@@ -100,14 +100,14 @@ struct IResearchViewCoordinatorSetup {
 
   arangodb::consensus::Store _agencyStore{nullptr, "arango"};
   GeneralClientConnectionAgencyMock* agency;
-  StorageEngineMock engine;
   arangodb::application_features::ApplicationServer server;
+  StorageEngineMock engine;
   std::unique_ptr<TRI_vocbase_t> system;
   std::map<std::string, std::pair<arangodb::application_features::ApplicationFeature*, bool>> features;
   std::vector<arangodb::application_features::ApplicationFeature*> orderedFeatures;
   std::string testFilesystemPath;
 
-  IResearchViewCoordinatorSetup(): engine(server), server(nullptr, nullptr) {
+  IResearchViewCoordinatorSetup(): server(nullptr, nullptr), engine(server) {
     auto* agencyCommManager = new AgencyCommManagerMock("arango");
     agency = agencyCommManager->addConnection<GeneralClientConnectionAgencyMock>(_agencyStore);
     agency = agencyCommManager->addConnection<GeneralClientConnectionAgencyMock>(_agencyStore); // need 2 connections or Agency callbacks will fail

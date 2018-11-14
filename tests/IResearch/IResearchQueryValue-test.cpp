@@ -76,12 +76,12 @@ NS_LOCAL
 // -----------------------------------------------------------------------------
 
 struct IResearchQueryValueSetup {
-  StorageEngineMock engine;
   arangodb::application_features::ApplicationServer server;
+  StorageEngineMock engine;
   std::unique_ptr<TRI_vocbase_t> system;
   std::vector<std::pair<arangodb::application_features::ApplicationFeature*, bool>> features;
 
-  IResearchQueryValueSetup(): engine(server), server(nullptr, nullptr) {
+  IResearchQueryValueSetup(): server(nullptr, nullptr), engine(server) {
     arangodb::EngineSelectorFeature::ENGINE = &engine;
 
     arangodb::tests::init(true);

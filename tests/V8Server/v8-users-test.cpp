@@ -103,12 +103,12 @@ struct TestView: public arangodb::LogicalView {
 // -----------------------------------------------------------------------------
 
 struct V8UsersSetup {
-  StorageEngineMock engine;
   arangodb::application_features::ApplicationServer server;
+  StorageEngineMock engine;
   std::unique_ptr<TRI_vocbase_t> system;
   std::vector<std::pair<arangodb::application_features::ApplicationFeature*, bool>> features;
 
-  V8UsersSetup(): engine(server), server(nullptr, nullptr) {
+  V8UsersSetup(): server(nullptr, nullptr), engine(server) {
     arangodb::EngineSelectorFeature::ENGINE = &engine;
 
     arangodb::tests::v8Init(); // on-time initialize V8

@@ -84,12 +84,12 @@ struct TestTermAttribute: public irs::term_attribute {
 extern const char* ARGV0; // defined in main.cpp
 
 struct IResearchQueryTokensSetup {
-  StorageEngineMock engine;
   arangodb::application_features::ApplicationServer server;
+  StorageEngineMock engine;
   std::unique_ptr<TRI_vocbase_t> system;
   std::vector<std::pair<arangodb::application_features::ApplicationFeature*, bool>> features;
 
-  IResearchQueryTokensSetup(): engine(server), server(nullptr, nullptr) {
+  IResearchQueryTokensSetup(): server(nullptr, nullptr), engine(server) {
     arangodb::EngineSelectorFeature::ENGINE = &engine;
 
     arangodb::tests::init(true);

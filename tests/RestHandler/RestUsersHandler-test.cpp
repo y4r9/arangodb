@@ -84,12 +84,12 @@ struct TestView: public arangodb::LogicalView {
 // -----------------------------------------------------------------------------
 
 struct RestUsersHandlerSetup {
-  StorageEngineMock engine;
   arangodb::application_features::ApplicationServer server;
+  StorageEngineMock engine;
   std::unique_ptr<TRI_vocbase_t> system;
   std::vector<std::pair<arangodb::application_features::ApplicationFeature*, bool>> features;
 
-  RestUsersHandlerSetup(): engine(server), server(nullptr, nullptr) {
+  RestUsersHandlerSetup(): server(nullptr, nullptr), engine(server) {
     arangodb::EngineSelectorFeature::ENGINE = &engine;
 
     // suppress INFO {authentication} Authentication is turned on (system only), authentication for unix sockets is turned on

@@ -74,11 +74,11 @@ struct TestView: public arangodb::LogicalView {
 // -----------------------------------------------------------------------------
 
 struct RestViewHandlerSetup {
-  StorageEngineMock engine;
   arangodb::application_features::ApplicationServer server;
+  StorageEngineMock engine;
   std::vector<std::pair<arangodb::application_features::ApplicationFeature*, bool>> features;
 
-  RestViewHandlerSetup(): engine(server), server(nullptr, nullptr) {
+  RestViewHandlerSetup(): server(nullptr, nullptr), engine(server) {
     arangodb::EngineSelectorFeature::ENGINE = &engine;
 
     // suppress INFO {authentication} Authentication is turned on (system only), authentication for unix sockets is turned on

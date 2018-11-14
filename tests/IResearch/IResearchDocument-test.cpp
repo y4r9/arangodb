@@ -124,12 +124,12 @@ REGISTER_ANALYZER_JSON(InvalidAnalyzer, InvalidAnalyzer::make);
 // -----------------------------------------------------------------------------
 
 struct IResearchDocumentSetup {
-  StorageEngineMock engine;
   arangodb::application_features::ApplicationServer server;
+  StorageEngineMock engine;
   std::unique_ptr<TRI_vocbase_t> system;
   std::vector<std::pair<arangodb::application_features::ApplicationFeature*, bool>> features;
 
-  IResearchDocumentSetup(): engine(server), server(nullptr, nullptr) {
+  IResearchDocumentSetup(): server(nullptr, nullptr), engine(server) {
     arangodb::EngineSelectorFeature::ENGINE = &engine;
 
     arangodb::tests::init();

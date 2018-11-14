@@ -179,12 +179,12 @@ NS_END
 // -----------------------------------------------------------------------------
 
 struct IResearchAnalyzerFeatureSetup {
+  arangodb::application_features::ApplicationServer server;
   StorageEngineWrapper engine; // can only nullify 'ENGINE' after all TRI_vocbase_t and ApplicationServer have been destroyed
   std::unique_ptr<Vocbase> system; // ensure destruction after 'server'
-  arangodb::application_features::ApplicationServer server;
   std::vector<std::pair<arangodb::application_features::ApplicationFeature*, bool>> features;
 
-  IResearchAnalyzerFeatureSetup(): engine(server), server(nullptr, nullptr) {
+  IResearchAnalyzerFeatureSetup(): server(nullptr, nullptr), engine(server) {
     arangodb::tests::init();
 
     // suppress INFO {authentication} Authentication is turned on (system only), authentication for unix sockets is turned on

@@ -35,11 +35,11 @@
 // -----------------------------------------------------------------------------
 
 struct LogicalDataSourceSetup {
-  StorageEngineMock engine;
   arangodb::application_features::ApplicationServer server;
+  StorageEngineMock engine;
   std::vector<std::pair<arangodb::application_features::ApplicationFeature*, bool>> features;
 
-  LogicalDataSourceSetup(): engine(server), server(nullptr, nullptr) {
+  LogicalDataSourceSetup(): server(nullptr, nullptr), engine(server) {
     arangodb::EngineSelectorFeature::ENGINE = &engine;
 
     // setup required application features

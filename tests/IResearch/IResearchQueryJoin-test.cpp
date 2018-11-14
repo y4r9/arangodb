@@ -177,12 +177,12 @@ REGISTER_SCORER_JSON(CustomScorer, CustomScorer::make);
 // -----------------------------------------------------------------------------
 
 struct IResearchQueryJoinSetup {
-  StorageEngineMock engine;
   arangodb::application_features::ApplicationServer server;
+  StorageEngineMock engine;
   std::unique_ptr<TRI_vocbase_t> system;
   std::vector<std::pair<arangodb::application_features::ApplicationFeature*, bool>> features;
 
-  IResearchQueryJoinSetup(): engine(server), server(nullptr, nullptr) {
+  IResearchQueryJoinSetup(): server(nullptr, nullptr), engine(server) {
     arangodb::EngineSelectorFeature::ENGINE = &engine;
     arangodb::aql::AqlFunctionFeature* functions = nullptr;
 

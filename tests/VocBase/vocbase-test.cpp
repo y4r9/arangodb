@@ -90,11 +90,11 @@ std::shared_ptr<arangodb::LogicalView> makeTestView(
 // -----------------------------------------------------------------------------
 
 struct VocbaseSetup {
-  StorageEngineMock engine;
   arangodb::application_features::ApplicationServer server;
+  StorageEngineMock engine;
   std::vector<std::pair<arangodb::application_features::ApplicationFeature*, bool>> features;
 
-  VocbaseSetup(): engine(server), server(nullptr, nullptr) {
+  VocbaseSetup(): server(nullptr, nullptr), engine(server) {
     arangodb::EngineSelectorFeature::ENGINE = &engine;
 
     // setup required application features
