@@ -47,7 +47,25 @@ function getDBServers() {
   return servers;
 }
 
-const servers = getDBServers();
+var servers = [];
+
+// Wait for 5 db servers to report for duty ...
+var count = 300;
+console.info("Waiting for 5 db servers to report for duty ...");
+
+while (count-- > 0) {
+  servers = getDBServers();
+  if (servers.length === 5) {
+    break;
+  }
+  wait(1);
+  console.error(
+    "Timeout in waiting for 5 db servers to show up. Here's what I have so far: "
+      + servers);
+  return false;
+}
+console.info("... done. Splendid, onwards.");
+
 
 ////////////////////////////////////////////////////////////////////////////////
 /// @brief test suite
