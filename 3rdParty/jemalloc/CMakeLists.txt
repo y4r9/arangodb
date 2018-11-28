@@ -47,6 +47,8 @@ if (LINUX OR DARWIN)
                   CFLAGS=${CMAKE_C_FLAGS}
                   CXXFLAGS=${CMAKE_CXX_FLAGS}
                   --prefix=${CMAKE_CURRENT_BINARY_DIR}
+                  --disable-cxx
+                  --with-jemalloc-prefix=jem51_
                   --with-malloc-conf=${JEMALLOC_CONFIG}
                   --with-version=${JEMALLOC_VERSION}-0-g0
     BUILD_COMMAND

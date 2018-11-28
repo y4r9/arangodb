@@ -34,6 +34,17 @@ endif ()
 ## LIB_ARANGO
 ################################################################################
 
+function(add2_ldflags _target)
+  if(CMAKE_COMPILER_IS_GNUCC)
+    set(link_flags "-Wl,--wrap=malloc -Wl,--wrap=calloc -Wl,--wrap=free -Wl,--wrap=realloc -Wl,--wrap=reallocarray -Wl,--wrap=posix_memalign -Wl,--wrap=posix_memalign -Wl,--wrap=aligned_alloc -Wl,--wrap=memalign -Wl,--wrap=valloc -Wl,--wrap=malloc_usable_size -Wl,--wrap=malloc_trim")
+    get_target_property(previous ${_target} LINK_FLAGS)
+    if (previous)
+      set(link_flags "${previous} ${link_flags}")
+    endif()
+    set_target_properties(${_target} PROPERTIES LINK_FLAGS ${link_flags})
+  endif()
+endfunction()
+
 if (MSVC)
   set(LIB_ARANGO_MSVC
     Basics/locks-win32.cpp
@@ -124,6 +135,15 @@ endif()
 if (USE_LOCAL_CLOCK_GETTIME)
   set(LIB_CLOCK_GETTIME Utilities/clock_gettime.cpp)
 endif ()
+  
+add_library(${LIB_ARANGO_MALLOC} STATIC
+  Basics/malloc-wrapper.cpp
+)
+
+target_link_libraries(${LIB_ARANGO_MALLOC}
+)
+
+add2_ldflags(${LIB_ARANGO_MALLOC})
 
 add_library(${LIB_ARANGO} STATIC
   ${LIB_ARANGO_APPLE}
@@ -270,6 +290,8 @@ target_link_libraries(${LIB_ARANGO}
     boost_system
     boost_boost
 )
+
+add2_ldflags(${LIB_ARANGO})
 
 # Enterprise
 if (USE_ENTERPRISE)

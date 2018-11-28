@@ -290,7 +290,22 @@ add_executable(${BIN_ARANGOSH}
   V8Client/ArangoClientHelper.cpp
 )
 
+function(add_ldflags _target)
+  if(CMAKE_COMPILER_IS_GNUCC)
+    set(link_flags "-Wl,--wrap=malloc -Wl,--wrap=calloc -Wl,--wrap=free -Wl,--wrap=realloc -Wl,--wrap=reallocarray -Wl,--wrap=posix_memalign -Wl,--wrap=posix_memalign -Wl,--wrap=aligned_alloc -Wl,--wrap=memalign -Wl,--wrap=valloc -Wl,--wrap=malloc_usable_size -Wl,--wrap=malloc_trim")
+    get_target_property(previous ${_target} LINK_FLAGS)
+    if (previous)
+      set(link_flags "${previous} ${link_flags}")
+    endif()
+    set_target_properties(${_target} PROPERTIES LINK_FLAGS ${link_flags})
+  endif()
+endfunction()
+
+add_ldflags(${BIN_ARANGOSH})
+
+
 target_link_libraries(${BIN_ARANGOSH}
+  ${LIB_ARANGO_MALLOC}
   ${LIB_ARANGO_V8}
   ${LIB_ARANGO}
   ${LINENOISE_LIBS}
@@ -299,6 +314,8 @@ target_link_libraries(${BIN_ARANGOSH}
   ${SYSTEM_LIBRARIES}
   boost_system
   boost_boost
+  ${LIB_ARANGO_MALLOC}
+  ${SYS_LIB_JEMALLOC}
 )
 
 install(

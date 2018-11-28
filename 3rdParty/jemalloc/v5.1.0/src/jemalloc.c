@@ -212,7 +212,7 @@ malloc_init_a0(void) {
 	return false;
 }
 
-JEMALLOC_ALWAYS_INLINE bool
+/*JEMALLOC_ALWAYS_INLINE*/ bool
 malloc_init(void) {
 	if (unlikely(!malloc_initialized()) && malloc_init_hard()) {
 		return true;
@@ -3181,7 +3181,7 @@ je_malloc_usable_size(JEMALLOC_USABLE_SIZE_CONST void *ptr) {
 JEMALLOC_ATTR(constructor)
 static void
 jemalloc_constructor(void) {
-	malloc_init();
+//	malloc_init();
 }
 #endif
 

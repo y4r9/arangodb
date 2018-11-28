@@ -304,6 +304,7 @@ set(ARANGOSH_FRIENDLY_STRING       "arangosh - commandline client")
 set(ARANGO_VPACK_FRIENDLY_STRING   "arangovpack - vpack printer")
 
 # libraries
+set(LIB_ARANGO_MALLOC arango_malloc)
 set(LIB_ARANGO        arango)
 set(LIB_ARANGO_GEO    arango_geo)
 set(LIB_ARANGO_V8     arango_v8)
