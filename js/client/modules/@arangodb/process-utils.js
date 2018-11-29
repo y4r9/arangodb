@@ -461,7 +461,7 @@ function makeArgsArangod (options, appDir, role, tmpDir) {
 
 function runProcdump (options, instanceInfo, rootDir, pid) {
   let procdumpArgs = [ ];
-  let dumpFile = fs.join(rootDir, 'core_' + pid + '.dmp');
+  let dumpFile = fs.join(rootDir, `core_${pid}.dmp`);
   if (options.exceptionFilter != null) {
     procdumpArgs = [
       '-accepteula',
