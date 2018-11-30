@@ -619,7 +619,7 @@
               self.renderGraph(data, toFocus);
             } else {
               if (data.settings) {
-                if (data.settings.startVertex && self.graphConfig.startNode === undefined) {
+                if (data.settings.startVertex && (!self.graphConfig || self.graphConfig.startNode === undefined)) {
                   if (self.tmpStartNode === undefined) {
                     self.tmpStartNode = data.settings.startVertex._id;
                   }
@@ -642,7 +642,7 @@
                 message = e.responseJSON.exception;
                 var found = e.responseJSON.exception.search('1205');
                 if (found !== -1) {
-                  var string = 'Starting point: <span style="font-weight: 400">' + self.graphConfig.nodeStart + '</span> is invalid';
+                  var string = 'Starting point: <span style="font-weight: 400">' + ((self.graphConfig || {}).nodeStart) + '</span> is invalid';
                   $('#calculatingGraph').html(
                     '<div style="font-weight: 300; font-size: 10.5pt"><span style="font-weight: 400">Stopped. </span></br></br>' +
                     string +
@@ -1076,10 +1076,8 @@
           self.currentGraph.graph.addEdge(edge);
 
           // rerender graph
-          if (self.graphConfig) {
-            if (self.graphConfig.edgeType === 'curve') {
-              sigma.canvas.edges.autoCurve(self.currentGraph);
-            }
+          if (self.graphConfig && self.graphConfig.edgeType === 'curve') {
+            sigma.canvas.edges.autoCurve(self.currentGraph);
           }
           self.currentGraph.refresh();
         } else {
@@ -1718,7 +1716,7 @@
             }
           };
 
-          if (self.graphConfig === undefined) {
+          if (self.graphConfig === undefined || self.graphConfig === null) {
             self.graphSettingsView.setDefaults(true, true);
             self.userConfig.fetch({
               success: function (data) {
@@ -1748,7 +1746,7 @@
     updateNodeLabel: function (data) {
       var id = data[0]._id;
 
-      if (this.graphConfig.nodeLabel) {
+      if (this.graphConfig && this.graphConfig.nodeLabel) {
         var oldLabel = this.currentGraph.graph.nodes(id).label;
         if (oldLabel !== data[0][this.graphConfig.nodeLabel]) {
           var newLabel = data[0]['new'][this.graphConfig.nodeLabel];
@@ -1772,7 +1770,7 @@
     updateEdgeLabel: function (data) {
       var id = data[0]._id;
 
-      if (this.graphConfig.edgeLabel) {
+      if (this.graphConfig && this.graphConfig.edgeLabel) {
         var oldLabel = this.currentGraph.graph.edges(id).label;
         if (oldLabel !== data[0][this.graphConfig.edgeLabel]) {
           var newLabel = data[0]['new'][this.graphConfig.edgeLabel];
@@ -1973,10 +1971,8 @@
         }
       }
 
-      if (this.graphConfig) {
-        if (this.graphConfig.edgeType) {
-          settings.defaultEdgeType = this.graphConfig.edgeType;
-        }
+      if (this.graphConfig && this.graphConfig.edgeType) {
+        settings.defaultEdgeType = this.graphConfig.edgeType;
       }
 
       if (edgeType) {
@@ -2195,10 +2191,8 @@
 
       if (self.renderer === 'canvas') {
         // render parallel edges
-        if (this.graphConfig) {
-          if (this.graphConfig.edgeType === 'curve') {
-            sigma.canvas.edges.autoCurve(s);
-          }
+        if (this.graphConfig && this.graphConfig.edgeType === 'curve') {
+          sigma.canvas.edges.autoCurve(s);
         }
 
         s.bind('clickEdge', function (e) {
@@ -2261,13 +2255,11 @@
           }
         });
 
-        if (this.graphConfig) {
-          if (this.graphConfig.edgeEditable) {
-            s.bind('clickEdge', function (e) {
-              var edgeId = e.data.edge.id;
-              self.createEdgeContextMenu(edgeId, e);
-            });
-          }
+        if (this.graphConfig && this.graphConfig.edgeEditable) {
+          s.bind('clickEdge', function (e) {
+            var edgeId = e.data.edge.id;
+            self.createEdgeContextMenu(edgeId, e);
+          });
         }
       }
 
@@ -2368,24 +2360,6 @@
 
       // clear up info div
       $('#calculatingGraph').fadeOut('slow');
-
-      if (!aqlMode) {
-        if (self.graphConfig) {
-          if (self.graphConfig.nodeSizeByEdges === 'false') {
-            // make nodes a bit bigger
-            // var maxNodeSize = s.settings('maxNodeSize');
-            // var factor = 1;
-            // var length = s.graph.nodes().length;
-
-            /*
-               factor = 0.35;
-               maxNodeSize = maxNodeSize * factor;
-               s.settings('maxNodeSize', maxNodeSize);
-               s.refresh({});
-               */
-          }
-        }
-      }
 
       self.calcFinished = new Date();
       // console.log('Client side calculation took ' + Math.abs(self.calcFinished.getTime() - self.calcStart.getTime()) + ' ms');
