@@ -2218,6 +2218,9 @@ struct SortToIndexNode final : public WalkerWorker<ExecutionNode> {
       case EN::TRAVERSAL:
       case EN::SHORTEST_PATH:
       case EN::ENUMERATE_LIST:
+        // found some other FOR loop
+        return true;
+
       case EN::SUBQUERY:
       case EN::FILTER:
         return false;  // skip. we don't care.
