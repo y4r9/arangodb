@@ -805,6 +805,7 @@ Result RocksDBCollection::insert(
 
   VPackSlice newSlice = builder->slice();
 
+#if 0
   if (options.overwrite) {
     // special optimization for the overwrite case:
     // in case the operation is a RepSert, we will first check if the specified
@@ -830,6 +831,7 @@ Result RocksDBCollection::insert(
       }
     }
   }
+#endif
 
   RocksDBSavePoint guard(trx, TRI_VOC_DOCUMENT_OPERATION_INSERT);
 
@@ -1256,7 +1258,7 @@ static arangodb::Result fillIndex(transaction::Methods* trx,
   auto cb = [&](LocalDocumentId const& documentId, VPackSlice slice) {
     if (res.ok()) {
       res = ridx->insertInternal(trx, &batched, documentId, slice,
-                                 Index::OperationMode::normal);
+                                 Index::OperationMode::normal, false);
       if (res.ok()) {
         numDocsWritten++;
       }
@@ -1359,7 +1361,8 @@ Result RocksDBCollection::insertDocument(
   for (std::shared_ptr<Index> const& idx : _indexes) {
     RocksDBIndex* rIdx = static_cast<RocksDBIndex*>(idx.get());
     Result tmpres = rIdx->insertInternal(trx, mthds, documentId, doc,
-                                         options.indexOperationMode);
+                                         options.indexOperationMode,
+                                         options.overwrite);
     if (!tmpres.ok()) {
       if (tmpres.is(TRI_ERROR_OUT_OF_MEMORY)) {
         // in case of OOM return immediately

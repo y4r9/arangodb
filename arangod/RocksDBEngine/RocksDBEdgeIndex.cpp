@@ -608,7 +608,8 @@ Result RocksDBEdgeIndex::insertInternal(transaction::Methods* trx,
                                         RocksDBMethods* mthd,
                                         LocalDocumentId const& documentId,
                                         VPackSlice const& doc,
-                                        OperationMode mode) {
+                                        OperationMode mode,
+                                        bool) {
   VPackSlice fromTo = doc.get(_directionAttr);
   TRI_ASSERT(fromTo.isString());
   auto fromToRef = StringRef(fromTo);

@@ -403,7 +403,7 @@ Result RocksDBGeoIndex::insertInternal(transaction::Methods* trx,
                                          RocksDBMethods* mthd,
                                          LocalDocumentId const& documentId,
                                          velocypack::Slice const& doc,
-                                         OperationMode mode) {
+                                         OperationMode mode, bool) {
   Result res;
   
   // covering and centroid of coordinate / polygon / ...

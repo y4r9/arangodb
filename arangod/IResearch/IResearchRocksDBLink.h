@@ -73,7 +73,8 @@ class IResearchRocksDBLink final
       arangodb::RocksDBMethods*,
       LocalDocumentId const& documentId,
       const arangodb::velocypack::Slice& doc,
-      OperationMode mode
+      OperationMode mode,
+      bool
   ) override {
     return IResearchLink::insert(trx, documentId, doc, mode);
   }

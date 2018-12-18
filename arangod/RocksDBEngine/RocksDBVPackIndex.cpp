@@ -636,7 +636,7 @@ Result RocksDBVPackIndex::insertInternal(transaction::Methods* trx,
                                          RocksDBMethods* mthds,
                                          LocalDocumentId const& documentId,
                                          VPackSlice const& doc,
-                                         OperationMode mode) {
+                                         OperationMode mode, bool) {
   SmallVector<RocksDBKey>::allocator_type::arena_type elementsArena;
   SmallVector<RocksDBKey> elements{elementsArena};
   SmallVector<uint64_t>::allocator_type::arena_type hashesArena;

@@ -211,7 +211,7 @@ class RocksDBVPackIndex : public RocksDBIndex {
   Result insertInternal(transaction::Methods*, RocksDBMethods*,
                         LocalDocumentId const& documentId,
                         arangodb::velocypack::Slice const&,
-                        OperationMode mode) override;
+                        OperationMode mode, bool overwrite) override;
 
   Result updateInternal(transaction::Methods* trx, RocksDBMethods*,
                         LocalDocumentId const& oldDocumentId,

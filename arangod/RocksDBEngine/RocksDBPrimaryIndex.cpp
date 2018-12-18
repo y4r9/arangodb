@@ -340,7 +340,8 @@ Result RocksDBPrimaryIndex::insertInternal(transaction::Methods* trx,
                                            RocksDBMethods* mthd,
                                            LocalDocumentId const& documentId,
                                            VPackSlice const& slice,
-                                           OperationMode mode) {
+                                           OperationMode mode,
+                                           bool overwrite) {
   IndexResult res;
   
   VPackSlice keySlice = transaction::helpers::extractKeyFromDocument(slice);
@@ -352,7 +353,7 @@ Result RocksDBPrimaryIndex::insertInternal(transaction::Methods* trx,
   TRI_voc_rid_t revision = transaction::helpers::extractRevFromDocument(slice);
   auto value = RocksDBValue::PrimaryIndexValue(documentId, revision);
 
-  if (mthd->Exists(_cf, key.ref())) {
+  if (!overwrite && mthd->Exists(_cf, key.ref())) {
     std::string existingId(slice.get(StaticStrings::KeyString).copyString());
     if (mode == OperationMode::internal) {
       return res.reset(TRI_ERROR_ARANGO_UNIQUE_CONSTRAINT_VIOLATED, std::move(existingId));

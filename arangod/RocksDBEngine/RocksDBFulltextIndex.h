@@ -114,7 +114,7 @@ class RocksDBFulltextIndex final : public RocksDBIndex {
   Result insertInternal(transaction::Methods* trx, RocksDBMethods*,
                         LocalDocumentId const& documentId,
                         arangodb::velocypack::Slice const&,
-                        OperationMode mode) override;
+                        OperationMode mode, bool overwrite) override;
 
   /// remove index elements and put it in the specified write batch.
   Result removeInternal(transaction::Methods*, RocksDBMethods*,

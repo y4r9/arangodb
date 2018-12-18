@@ -181,7 +181,7 @@ class RocksDBEdgeIndex final : public RocksDBIndex {
   Result insertInternal(transaction::Methods*, RocksDBMethods*,
                         LocalDocumentId const& documentId,
                         arangodb::velocypack::Slice const&,
-                        OperationMode mode) override;
+                        OperationMode mode, bool overwrite) override;
 
   Result removeInternal(transaction::Methods*, RocksDBMethods*,
                         LocalDocumentId const& documentId,

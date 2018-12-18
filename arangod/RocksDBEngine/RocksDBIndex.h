@@ -84,7 +84,7 @@ class RocksDBIndex : public Index {
   Result insert(transaction::Methods* trx, LocalDocumentId const& documentId,
                 velocypack::Slice const& doc, OperationMode mode) override {
     auto mthds = RocksDBTransactionState::toMethods(trx);
-    return insertInternal(trx, mthds, documentId, doc, mode);
+    return insertInternal(trx, mthds, documentId, doc, mode, false);
   }
 
   Result remove(transaction::Methods* trx, LocalDocumentId const& documentId,
@@ -105,7 +105,7 @@ class RocksDBIndex : public Index {
   virtual Result insertInternal(transaction::Methods* trx, RocksDBMethods*,
                                 LocalDocumentId const& documentId,
                                 arangodb::velocypack::Slice const&,
-                                OperationMode mode) = 0;
+                                OperationMode mode, bool overwrite) = 0;
 
   virtual Result updateInternal(transaction::Methods* trx, RocksDBMethods*,
                                 LocalDocumentId const& oldDocumentId,

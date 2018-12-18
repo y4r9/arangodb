@@ -190,7 +190,8 @@ Result RocksDBFulltextIndex::insertInternal(transaction::Methods* trx,
                                             RocksDBMethods* mthd,
                                             LocalDocumentId const& documentId,
                                             VPackSlice const& doc,
-                                            OperationMode mode) {
+                                            OperationMode mode,
+                                            bool) {
   std::set<std::string> words = wordlist(doc);
   if (words.empty()) {
     return TRI_ERROR_NO_ERROR;

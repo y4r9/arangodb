@@ -261,7 +261,7 @@ Result RocksDBIndex::updateInternal(transaction::Methods* trx, RocksDBMethods* m
   if (!res.ok()) {
     return res;
   }
-  return insertInternal(trx, mthd, newDocumentId, newDoc, mode);
+  return insertInternal(trx, mthd, newDocumentId, newDoc, mode, false);
 }
 
 /// @brief return the memory usage of the index
