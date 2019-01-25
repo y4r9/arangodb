@@ -31,6 +31,7 @@
 #include "Aql/ConstFetcher.h"
 #include "Aql/ExecutionBlock.h"
 #include "Aql/ExecutionState.h"
+#include "Aql/MultiDependencySingleRowFetcher.h"
 #include "Aql/ResourceUsage.h"
 #include "Aql/SingleRowFetcher.h"
 
@@ -86,6 +87,51 @@ class SingleRowFetcherHelper
   arangodb::aql::AqlItemBlockManager _itemBlockManager;
   std::shared_ptr<arangodb::aql::AqlItemBlockShell> _itemBlock;
   arangodb::aql::InputAqlItemRow _lastReturnedRow;
+};
+
+/**
+ * @brief Mock for SingleRowFetcher with Multiple dependencies
+ */
+class MultiDependencySingleRowFetcherHelper
+    : public ::arangodb::aql::MultiDependencySingleRowFetcher {
+ public:
+  MultiDependencySingleRowFetcherHelper(
+      std::vector<std::shared_ptr<arangodb::velocypack::Buffer<uint8_t>>> vPackBufferList,
+      bool returnsWaiting);
+  virtual ~MultiDependencySingleRowFetcherHelper();
+
+  std::pair<::arangodb::aql::ExecutionState, ::arangodb::aql::InputAqlItemRow> fetchRowForDependency(
+      size_t depIndex) override;
+  uint64_t nrCalled(size_t depIndex) {
+    TRI_ASSERT(depIndex < _dependencies.size());
+    return _dependencies[depIndex]._nrCalled;
+  }
+
+  uint64_t nrCalled(size_t depIndex) const {
+    TRI_ASSERT(depIndex < _dependencies.size());
+    return _dependencies[depIndex]._nrCalled;
+  }
+
+  bool isDone(size_t depIndex) const {
+    TRI_ASSERT(depIndex < _dependencies.size());
+    return _dependencies[depIndex]._returnedDone;
+  }
+
+ private:
+  struct BlockInfo {
+    std::shared_ptr<arangodb::velocypack::Buffer<uint8_t>> _vPackBuffer;
+    arangodb::velocypack::Slice _data;
+    bool _returnedDone;
+    uint64_t _nrItems;
+    uint64_t _nrCalled;
+    bool _didWait;
+    std::shared_ptr<arangodb::aql::InputAqlItemBlockShell> _itemBlock;
+    arangodb::aql::InputAqlItemRow _lastReturnedRow;
+  };
+  std::vector<BlockInfo> _dependencies;
+  bool _returnsWaiting;
+  arangodb::aql::ResourceMonitor _resourceMonitor;
+  arangodb::aql::AqlItemBlockManager _itemBlockManager;
 };
 
 /**

@@ -87,6 +87,10 @@ class BlockFetcher {
   // TODO enable_if<allowBlockPassthrough>
   std::pair<ExecutionState, std::shared_ptr<AqlItemBlockShell>> fetchBlockForPassthrough(size_t atMost);
 
+  TEST_VIRTUAL
+  std::pair<ExecutionState, std::shared_ptr<InputAqlItemBlockShell>> fetchBlockOfDependency(
+      size_t dependencyIndex, size_t atMost);
+
   TEST_VIRTUAL inline RegisterId getNrInputRegisters() const {
     return _nrInputRegisters;
   }
@@ -97,6 +101,8 @@ class BlockFetcher {
   //  - upstream returned WAITING - then so does prefetchBlock().
   //  - or upstream returned a nullptr with DONE - then so does prefetchBlock().
   ExecutionState prefetchBlock(size_t atMost = ExecutionBlock::DefaultBatchSize());
+
+  size_t numberDependencies() const { return _dependencies.size(); }
 
  protected:
   AqlItemBlockManager& itemBlockManager() { return _itemBlockManager; }

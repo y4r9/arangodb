@@ -50,7 +50,13 @@ class BlockFetcher;
 template <bool passBlocksThrough>
 class SingleRowFetcher {
  public:
-  explicit SingleRowFetcher(BlockFetcher<passBlocksThrough>& executionBlock);
+  /**
+   * @brief Create a new Fetcher.
+   * @param executionBlock is the upstream where we get new AQLItemBlocks.
+   * @param sourceDependency is the index of dependency this Block should pull from.
+   */
+  explicit SingleRowFetcher(BlockFetcher<passBlocksThrough>& executionBlock,
+                            size_t sourceDependency = 0);
   TEST_VIRTUAL ~SingleRowFetcher() = default;
 
  protected:
@@ -58,7 +64,6 @@ class SingleRowFetcher {
   SingleRowFetcher();
 
  public:
-
   /**
    * @brief Fetch one new AqlItemRow from upstream.
    *        **Guarantee**: the pointer returned is valid only
@@ -117,17 +122,23 @@ class SingleRowFetcher {
   size_t _rowIndex;
 
   /**
-  * @brief The current row, as returned last by fetchRow(). Must stay valid
-  *        until the next fetchRow() call.
-  */
+   * @brief The current row, as returned last by fetchRow(). Must stay valid
+   *        until the next fetchRow() call.
+   */
   InputAqlItemRow _currentRow;
+
+  /**
+   * @brief The index in the ExecutionBlock fetcher
+   *        this fetcher pulls data from.
+   *        In most cases this is 0. (one dependency)
+   */
+  size_t _sourceDependency;
 
  private:
   /**
    * @brief Delegates to ExecutionBlock::fetchBlock()
    */
-  std::pair<ExecutionState, std::shared_ptr<AqlItemBlockShell>>
-    fetchBlock(size_t atMost);
+  std::pair<ExecutionState, std::shared_ptr<AqlItemBlockShell>> fetchBlock(size_t atMost);
 
   /**
    * @brief Delegates to ExecutionBlock::getNrInputRegisters()
@@ -147,6 +158,7 @@ class SingleRowFetcher {
     return _rowIndex;
   }
 
+  bool isLastRowInBlock();
 };
 
 template <bool passBlocksThrough>

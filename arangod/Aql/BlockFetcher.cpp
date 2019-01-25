@@ -30,9 +30,9 @@ ExecutionState BlockFetcher<passBlocksThrough>::prefetchBlock(size_t atMost) {
   ExecutionState state;
   std::unique_ptr<AqlItemBlock> block;
   std::tie(state, block) = upstreamBlock().getSome(atMost);
-    TRI_IF_FAILURE("ExecutionBlock::getBlock") {
-      THROW_ARANGO_EXCEPTION(TRI_ERROR_DEBUG);
-    }
+  TRI_IF_FAILURE("ExecutionBlock::getBlock") {
+    THROW_ARANGO_EXCEPTION(TRI_ERROR_DEBUG);
+  }
 
   if (state == ExecutionState::WAITING) {
     TRI_ASSERT(block == nullptr);
@@ -79,7 +79,34 @@ BlockFetcher<passBlocksThrough>::fetchBlock(size_t atMost) {
   std::tie(state, blockShell) = _blockShellQueue.front();
   _blockShellQueue.pop();
 
-  //auto inputBlockShell =
+  // auto inputBlockShell =
+  //    std::make_shared<InputAqlItemBlockShell>(blockShell, _inputRegisters);
+  return {state, blockShell};
+}
+
+std::pair<ExecutionState, std::shared_ptr<InputAqlItemBlockShell>> BlockFetcher::fetchBlockFromDependency(
+    size_t dependencyIndex, size_t atMost) {
+  ExecutionState state;
+  std::unique_ptr<AqlItemBlock> block;
+  TRI_ASSERT(dependencyIndex < _dependencies.size());
+  std::tie(state, block) = _dependencies[dependencyIndex]->getSome(atMost);
+  if (block != nullptr) {
+    TRI_IF_FAILURE("ExecutionBlock::getBlock") {
+      THROW_ARANGO_EXCEPTION(TRI_ERROR_DEBUG);
+    }
+    auto shell = std::make_shared<InputAqlItemBlockShell>(itemBlockManager(),
+                                                          std::move(block), _inputRegisters);
+    return {state, shell};
+  } else {
+    return {state, nullptr};
+  }
+
+  ExecutionState state;
+  std::shared_ptr<AqlItemBlockShell> blockShell;
+  std::tie(state, blockShell) = _blockShellQueue.front();
+  _blockShellQueue.pop();
+
+  // auto inputBlockShell =
   //    std::make_shared<InputAqlItemBlockShell>(blockShell, _inputRegisters);
   return {state, blockShell};
 }
