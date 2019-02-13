@@ -288,14 +288,14 @@ void OptimizerRulesFeature::addRules() {
                  substituteClusterSingleDocumentOperations,
                  OptimizerRule::substituteSingleDocumentOperations,
                  DoesNotCreateAdditionalPlans, CanBeDisabled);
-
+    
 #if 0
     registerRule("optimize-cluster-single-shard", optimizeClusterSingleShardRule,
                  OptimizerRule::optimizeClusterSingleShardRule, DoesNotCreateAdditionalPlans, CanBeDisabled);
+#endif
 
     registerRule("optimize-cluster-joins", optimizeClusterJoinsRule,
                  OptimizerRule::optimizeClusterJoinsRule, DoesNotCreateAdditionalPlans, CanBeDisabled);
-#endif
 
     // distribute operations in cluster
     registerRule("scatter-in-cluster", scatterInClusterRule, OptimizerRule::scatterInClusterRule,
@@ -304,7 +304,7 @@ void OptimizerRulesFeature::addRules() {
     registerRule("distribute-in-cluster", distributeInClusterRule,
                  OptimizerRule::distributeInClusterRule,
                  DoesNotCreateAdditionalPlans, CanNotBeDisabled);
-
+    
     registerRule("collect-in-cluster", collectInClusterRule, OptimizerRule::collectInClusterRule,
                  DoesNotCreateAdditionalPlans, CanBeDisabled);
 
@@ -387,6 +387,14 @@ char const* OptimizerRulesFeature::translateRule(int rule) {
 /// @brief look up the ids of all disabled rules
 std::unordered_set<int> OptimizerRulesFeature::getDisabledRuleIds(std::vector<std::string> const& names) {
   std::unordered_set<int> disabled;
+  
+  {
+    auto it = _ruleLookup.find("optimize-cluster-joins");
+    if (it != _ruleLookup.end()) {
+      TRI_ASSERT(it != _ruleLookup.end());
+      disabled.emplace((*it).second.first);
+    }
+  }
 
   // lookup ids of all disabled rules
   for (auto const& name : names) {

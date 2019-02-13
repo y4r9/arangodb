@@ -3535,6 +3535,8 @@ void arangodb::aql::optimizeClusterJoinsRule(Optimizer* opt,
   plan->findNodesOfType(nodes, types, true);
 
   for (auto& n : nodes) {
+    std::unordered_map<std::string, std::string> shardMap;
+
     ExecutionNode* current = n->getFirstDependency();
     while (current != nullptr) {
       if (current->getType() == ExecutionNode::ENUMERATE_COLLECTION ||
@@ -3692,6 +3694,16 @@ void arangodb::aql::optimizeClusterJoinsRule(Optimizer* opt,
                   }
 
                   qualifies = (found > 0 && found == numAnds);
+
+                  if (qualifies) {
+                    shardMap.clear();
+                    auto s1 = c1->shardIds();
+                    auto s2 = c2->shardIds();
+
+                    for (size_t i = 0; i < s1->size(); ++i) {
+                      shardMap.emplace(s1->at(i), s2->at(i));
+                    }
+                  }
                 }
               }
             }
@@ -3703,6 +3715,9 @@ void arangodb::aql::optimizeClusterJoinsRule(Optimizer* opt,
           wasModified = true;
 
           plan->excludeFromScatterGather(current);
+          std::unordered_map<std::string, std::string> dsl;
+
+          dynamic_cast<CollectionAccessingNode*>(current)->distributeShardsLike = shardMap;
           break;  // done for this pair
         }
 
