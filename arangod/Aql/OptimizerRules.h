@@ -155,6 +155,10 @@ ExecutionNode* distributeInClusterRuleSmartEdgeCollection(ExecutionPlan*, Subque
 /// @brief remove scatter/gather and remote nodes for satellite collections
 void removeSatelliteJoinsRule(Optimizer*, std::unique_ptr<ExecutionPlan>,
                               OptimizerRule const*);
+
+/// @brief remove scatter/gather and remote nodes for smart joins
+void smartJoinsRule(Optimizer*, std::unique_ptr<ExecutionPlan>,
+                    OptimizerRule const*);
 #endif
 
 /// @brief try to restrict fragments to a single shard if possible

@@ -329,6 +329,10 @@ void OptimizerRulesFeature::addRules() {
     registerRule("remove-satellite-joins", removeSatelliteJoinsRule,
                  OptimizerRule::removeSatelliteJoinsRule,
                  DoesNotCreateAdditionalPlans, CanBeDisabled);
+
+    registerRule("smart-joins", smartJoinsRule,
+                 OptimizerRule::smartJoinsRule,
+                 DoesNotCreateAdditionalPlans, CanBeDisabled);
 #endif
 
 #ifdef USE_IRESEARCH

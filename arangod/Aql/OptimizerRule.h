@@ -231,6 +231,11 @@ struct OptimizerRule {
     // put it after Scatter rule because we would do
     // the work twice otherwise
     removeSatelliteJoinsRule,
+
+    // remove any superflous scatter/gather in case of smart joins...
+    // put it after Scatter rule because we would do
+    // the work twice otherwise
+    smartJoinsRule,
 #endif
 
     // recognize that a RemoveNode can be moved to the shards

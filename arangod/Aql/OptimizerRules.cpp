@@ -3490,6 +3490,7 @@ void arangodb::aql::optimizeClusterSingleShardRule(Optimizer* opt,
     opt->disableRule(OptimizerRule::removeUnnecessaryRemoteScatterRule);
 #ifdef USE_ENTERPRISE
     opt->disableRule(OptimizerRule::removeSatelliteJoinsRule);
+    opt->disableRule(OptimizerRule::smartJoinsRule);
 #endif
     opt->disableRule(OptimizerRule::undistributeRemoveAfterEnumCollRule);
 
