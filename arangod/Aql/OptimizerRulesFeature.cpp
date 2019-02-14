@@ -394,6 +394,11 @@ std::unordered_set<int> OptimizerRulesFeature::getDisabledRuleIds(std::vector<st
       TRI_ASSERT(it != _ruleLookup.end());
       disabled.emplace((*it).second.first);
     }
+    it = _ruleLookup.find("smart-joins");
+    if (it != _ruleLookup.end()) {
+      TRI_ASSERT(it != _ruleLookup.end());
+      disabled.emplace((*it).second.first);
+    }
   }
 
   // lookup ids of all disabled rules

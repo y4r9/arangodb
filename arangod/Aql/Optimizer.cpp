@@ -112,9 +112,7 @@ int Optimizer::createPlans(std::unique_ptr<ExecutionPlan> plan,
   TRI_ASSERT(!_rules.empty());
 
   // which optimizer rules are disabled?
-  std::vector<std::string> ruleOptions = queryOptions.optimizerRules;
-  ruleOptions.insert(ruleOptions.begin(), "-smart-joins");
-  for (auto rule : OptimizerRulesFeature::getDisabledRuleIds(ruleOptions)) {
+  for (auto rule : OptimizerRulesFeature::getDisabledRuleIds(queryOptions.optimizerRules)) {
     disableRule(rule);
   }
 
