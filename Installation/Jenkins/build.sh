@@ -267,6 +267,7 @@ while [ $# -gt 0 ];  do
 
         --msvc)
              shift
+	     USE_JEMALLOC=1
              MSVC=1
              CC=""
              CXX=""

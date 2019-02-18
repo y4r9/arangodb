@@ -449,15 +449,11 @@ endif ()
 # user options
 # ------------------------------------------------------------------------------
 
-if (WINDOWS)
-  SET(USE_JEMALLOC OFF)
-else ()
-  option(
+option(
     USE_JEMALLOC
     "use jemalloc memory allocator"
     ON
   )
-endif ()
 
 if (CROSS_COMPILING)
 # curently off, need additional params to configure like --hoast=triple <params>
