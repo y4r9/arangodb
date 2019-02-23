@@ -40,18 +40,20 @@ namespace aql {
 
 class InputAqlItemRow;
 class ExecutorInfos;
+
 template <bool>
 class SingleRowFetcher;
 
 class EnumerateCollectionExecutorInfos : public ExecutorInfos {
  public:
   EnumerateCollectionExecutorInfos(
-      RegisterId outputRegister, RegisterId nrInputRegisters, RegisterId nrOutputRegisters,
-      std::unordered_set<RegisterId> registersToClear, ExecutionEngine* engine,
+      RegisterId outputRegister, RegisterId nrInputRegisters,
+      RegisterId nrOutputRegisters, std::unordered_set<RegisterId> registersToClear,
+      std::unordered_set<RegisterId> registersToKeep, ExecutionEngine* engine,
       Collection const* collection, Variable const* outVariable, bool produceResult,
       std::vector<std::string> const& projections, transaction::Methods* trxPtr,
       std::vector<size_t> const& coveringIndexAttributePositions,
-      bool allowCoveringIndexOptimization, bool useRawDocumentPointers, bool random);
+      bool useRawDocumentPointers, bool random);
 
   EnumerateCollectionExecutorInfos() = delete;
   EnumerateCollectionExecutorInfos(EnumerateCollectionExecutorInfos&&) = default;
@@ -67,9 +69,6 @@ class EnumerateCollectionExecutorInfos : public ExecutorInfos {
     return _coveringIndexAttributePositions;
   };
   bool getProduceResult() { return _produceResult; };
-  bool getAllowCoveringIndexOptimization() {
-    return _allowCoveringIndexOptimization;
-  };
   bool getUseRawDocumentPointers() { return _useRawDocumentPointers; };
   bool getRandom() { return _random; };
   RegisterId getOutputRegisterId() { return _outputRegisterId; };
@@ -83,7 +82,6 @@ class EnumerateCollectionExecutorInfos : public ExecutorInfos {
   transaction::Methods* _trxPtr;
 
   std::vector<size_t> const& _coveringIndexAttributePositions;
-  bool _allowCoveringIndexOptimization;
   bool _useRawDocumentPointers;
   bool _produceResult;
   bool _random;
@@ -117,7 +115,7 @@ class EnumerateCollectionExecutor {
 
   typedef std::function<void(InputAqlItemRow&, OutputAqlItemRow&, arangodb::velocypack::Slice, RegisterId)> DocumentProducingFunction;
 
-  void setProducingFunction(DocumentProducingFunction documentProducer) {
+  void setProducingFunction(DocumentProducingFunction const& documentProducer) {
     _documentProducer = documentProducer;
   };
 
@@ -131,6 +129,7 @@ class EnumerateCollectionExecutor {
   ExecutionState _state;
   InputAqlItemRow _input;
   std::unique_ptr<OperationCursor> _cursor;
+  bool _allowCoveringIndexOptimization;
   bool _cursorHasMore;
 };
 

@@ -251,7 +251,7 @@ std::unique_ptr<ExecutionBlock> ShortestPathNode::createBlock(
   }
 
   auto outputRegisters = std::make_shared<std::unordered_set<RegisterId>>();
-  std::unordered_map<ShortestPathExecutorInfos::OutputName, RegisterId> outputRegisterMapping;
+  std::unordered_map<ShortestPathExecutorInfos::OutputName, RegisterId, ShortestPathExecutorInfos::OutputNameHash> outputRegisterMapping;
   if (usesVertexOutVariable()) {
     auto it = varInfo.find(vertexOutVariable()->id);
     TRI_ASSERT(it != varInfo.end());
@@ -283,8 +283,8 @@ std::unique_ptr<ExecutionBlock> ShortestPathNode::createBlock(
   ShortestPathExecutorInfos infos(inputRegisters, outputRegisters,
                                   getRegisterPlan()->nrRegs[previousNode->getDepth()],
                                   getRegisterPlan()->nrRegs[getDepth()],
-                                  getRegsToClear(), std::move(finder),
-                                  std::move(outputRegisterMapping),
+                                  getRegsToClear(), calcRegsToKeep(),
+                                  std::move(finder), std::move(outputRegisterMapping),
                                   std::move(sourceInput), std::move(targetInput));
   return std::make_unique<ExecutionBlockImpl<ShortestPathExecutor>>(
       &engine, this, std::move(infos));

@@ -45,14 +45,16 @@ class SingleRowFetcher;
 class TraversalExecutorInfos : public ExecutorInfos {
  public:
   enum OutputName { VERTEX, EDGE, PATH };
+  struct OutputNameHash { size_t operator()(OutputName v) const noexcept { return size_t(v); } };
 
   TraversalExecutorInfos(std::shared_ptr<std::unordered_set<RegisterId>> inputRegisters,
                          std::shared_ptr<std::unordered_set<RegisterId>> outputRegisters,
                          RegisterId nrInputRegisters, RegisterId nrOutputRegisters,
                          std::unordered_set<RegisterId> registersToClear,
+                         std::unordered_set<RegisterId> registersToKeep,
                          std::unique_ptr<traverser::Traverser>&& traverser,
-                         std::unordered_map<OutputName, RegisterId> registerMapping,
-                         std::string const& fixedSource, RegisterId inputRegister,
+    std::unordered_map<OutputName, RegisterId, OutputNameHash> registerMapping,
+                         std::string fixedSource, RegisterId inputRegister,
                          std::vector<std::pair<Variable const*, RegisterId>> filterConditionVariables);
 
   TraversalExecutorInfos() = delete;
@@ -85,7 +87,7 @@ class TraversalExecutorInfos : public ExecutorInfos {
 
  private:
   std::unique_ptr<traverser::Traverser> _traverser;
-  std::unordered_map<OutputName, RegisterId> _registerMapping;
+  std::unordered_map<OutputName, RegisterId, OutputNameHash> _registerMapping;
   std::string const _fixedSource;
   RegisterId _inputRegister;
   std::vector<std::pair<Variable const*, RegisterId>> _filterConditionVariables;

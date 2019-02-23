@@ -94,6 +94,12 @@ class SingleRowFetcher {
   // TODO enable_if<passBlocksThrough>
   std::pair<ExecutionState, std::shared_ptr<AqlItemBlockShell>> fetchBlockForPassthrough(size_t atMost);
 
+  std::pair<ExecutionState, size_t> preFetchNumberOfRows() {
+    // This is not implemented for this fetcher
+    TRI_ASSERT(false);
+    THROW_ARANGO_EXCEPTION(TRI_ERROR_INTERNAL);
+  }
+
  private:
   BlockFetcher<passBlocksThrough>* _blockFetcher;
 
