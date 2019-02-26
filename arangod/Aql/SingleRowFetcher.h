@@ -163,8 +163,6 @@ class SingleRowFetcher {
     TRI_ASSERT(indexIsValid());
     return _rowIndex;
   }
-
-  bool isLastRowInBlock();
 };
 
 template <bool passBlocksThrough>

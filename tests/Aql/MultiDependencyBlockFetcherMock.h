@@ -34,11 +34,11 @@ namespace arangodb {
 namespace tests {
 namespace aql {
 
-class MultiDependencyBlockFetcherMock : public ::arangodb::aql::BlockFetcher {
+class MultiDependencyBlockFetcherMock : public ::arangodb::aql::BlockFetcher<false> {
  private:
   using AqlItemBlockPtr = uintptr_t;
   using FetchBlockReturnItem =
-      std::pair<arangodb::aql::ExecutionState, std::shared_ptr<arangodb::aql::InputAqlItemBlockShell>>;
+      std::pair<arangodb::aql::ExecutionState, std::shared_ptr<arangodb::aql::AqlItemBlockShell>>;
   struct DepInfo {
     std::deque<FetchBlockReturnItem> _itemsToReturn;
     std::unordered_set<AqlItemBlockPtr> _fetchedBlocks;
@@ -48,14 +48,14 @@ class MultiDependencyBlockFetcherMock : public ::arangodb::aql::BlockFetcher {
 
  public:
   // NOTE dependencies are allowed to be nullptr, but the size needs to be correct
-  explicit MultiDependencyBlockFetcherMock(std::vector<ExecutionBlock*> const& dependencies,
+  explicit MultiDependencyBlockFetcherMock(std::vector<arangodb::aql::ExecutionBlock*> const& dependencies,
                                            arangodb::aql::ResourceMonitor& monitor,
                                            arangodb::aql::RegisterId nrRegisters);
 
  public:
   // mock methods
-  std::pair<arangodb::aql::ExecutionState, std::shared_ptr<arangodb::aql::InputAqlItemBlockShell>>
-  fetchBlockFromDependency(size_t dependencyIndex) override;
+  std::pair<arangodb::aql::ExecutionState, std::shared_ptr<arangodb::aql::AqlItemBlockShell>> fetchBlockFromDependency(
+      size_t dependencyIndex, size_t atMost) override;
 
  private:
   DepInfo const& getDep(size_t i) const;

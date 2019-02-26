@@ -50,23 +50,23 @@ MultiDependencyBlockFetcherMock::MultiDependencyBlockFetcherMock(
       _itemBlockManager(&_monitor),
       _nrDependencies(dependencies.size()) {
   _deps.reserve(_nrDependencies);
-  for (size_t i = 0; i < nrDependencies; ++i) {
+  for (size_t i = 0; i < _nrDependencies; ++i) {
     _deps.emplace_back(DepInfo{});
   }
 }  // namespace aql
 
 MultiDependencyBlockFetcherMock::DepInfo const& MultiDependencyBlockFetcherMock::getDep(size_t i) const {
-  TRI_ASSERT(i < _nrDependencies);
+  REQUIRE(i < _nrDependencies);
   return _deps.at(i);
 }
 
 MultiDependencyBlockFetcherMock::DepInfo& MultiDependencyBlockFetcherMock::getDep(size_t i) {
-  TRI_ASSERT(i < _nrDependencies);
+  REQUIRE(i < _nrDependencies);
   return _deps.at(i);
 }
 
-std::pair<ExecutionState, std::shared_ptr<InputAqlItemBlockShell>>
-MultiDependencyBlockFetcherMock::fetchBlockFromDependency(size_t i) {
+std::pair<ExecutionState, std::shared_ptr<AqlItemBlockShell>>
+MultiDependencyBlockFetcherMock::fetchBlockFromDependency(size_t i, size_t atMost) {
   auto& dep = getDep(i);
   dep._numFetchBlockCalls++;
 
@@ -74,7 +74,7 @@ MultiDependencyBlockFetcherMock::fetchBlockFromDependency(size_t i) {
     return {ExecutionState::DONE, nullptr};
   }
 
-  std::pair<ExecutionState, std::shared_ptr<InputAqlItemBlockShell>> returnValue =
+  std::pair<ExecutionState, std::shared_ptr<AqlItemBlockShell>> returnValue =
       std::move(dep._itemsToReturn.front());
   dep._itemsToReturn.pop_front();
 
@@ -103,20 +103,19 @@ MultiDependencyBlockFetcherMock& MultiDependencyBlockFetcherMock::shouldReturn(
 }
 
 MultiDependencyBlockFetcherMock& MultiDependencyBlockFetcherMock::shouldReturn(
-    size_t i, std::pair<ExecutionState, std::shared_ptr<InputAqlItemBlockShell>> firstReturnValue) {
+    size_t i, std::pair<ExecutionState, std::shared_ptr<AqlItemBlockShell>> firstReturnValue) {
   auto& dep = getDep(i);
   // Should only be called once on each instance
-  TRI_ASSERT(dep._itemsToReturn.empty());
+  REQUIRE(dep._itemsToReturn.empty());
 
   return andThenReturn(i, std::move(firstReturnValue));
 }
 
 MultiDependencyBlockFetcherMock& MultiDependencyBlockFetcherMock::shouldReturn(
-    size_t i,
-    std::vector<std::pair<ExecutionState, std::shared_ptr<InputAqlItemBlockShell>>> firstReturnValues) {
+    size_t i, std::vector<std::pair<ExecutionState, std::shared_ptr<AqlItemBlockShell>>> firstReturnValues) {
   auto& dep = getDep(i);
   // Should only be called once on each instance
-  TRI_ASSERT(dep._itemsToReturn.empty());
+  REQUIRE(dep._itemsToReturn.empty());
 
   return andThenReturn(i, std::move(firstReturnValues));
 }
@@ -128,16 +127,15 @@ MultiDependencyBlockFetcherMock& MultiDependencyBlockFetcherMock::andThenReturn(
   for (RegisterId i = 0; i < getNrInputRegisters(); i++) {
     inputRegisters->emplace(i);
   }
-  std::shared_ptr<InputAqlItemBlockShell> blockShell;
+  std::shared_ptr<AqlItemBlockShell> blockShell;
   if (block != nullptr) {
-    blockShell = std::make_shared<InputAqlItemBlockShell>(_itemBlockManager,
-                                                          std::move(block), inputRegisters);
+    blockShell = std::make_shared<AqlItemBlockShell>(_itemBlockManager, std::move(block));
   }
   return andThenReturn(i, {state, std::move(blockShell)});
 }
 
 MultiDependencyBlockFetcherMock& MultiDependencyBlockFetcherMock::andThenReturn(
-    size_t i, std::pair<ExecutionState, std::shared_ptr<InputAqlItemBlockShell>> additionalReturnValue) {
+    size_t i, std::pair<ExecutionState, std::shared_ptr<AqlItemBlockShell>> additionalReturnValue) {
   auto& dep = getDep(i);
   dep._itemsToReturn.emplace_back(std::move(additionalReturnValue));
 
@@ -145,8 +143,7 @@ MultiDependencyBlockFetcherMock& MultiDependencyBlockFetcherMock::andThenReturn(
 }
 
 MultiDependencyBlockFetcherMock& MultiDependencyBlockFetcherMock::andThenReturn(
-    size_t i,
-    std::vector<std::pair<ExecutionState, std::shared_ptr<InputAqlItemBlockShell>>> additionalReturnValues) {
+    size_t i, std::vector<std::pair<ExecutionState, std::shared_ptr<AqlItemBlockShell>>> additionalReturnValues) {
   for (auto& it : additionalReturnValues) {
     andThenReturn(i, std::move(it));
   }

@@ -50,6 +50,7 @@ namespace aql {
 // TODO check that blocks are not returned to early (e.g. not before the next row
 //      is fetched)
 SCENARIO("MultiDependencySingleRowFetcher", "[AQL][EXECUTOR][FETCHER]") {
+  size_t atMost = 1000;
   ResourceMonitor monitor;
   ExecutionState state;
   InputAqlItemRow row{CreateInvalidInputRowHint{}};
@@ -67,7 +68,7 @@ SCENARIO("MultiDependencySingleRowFetcher", "[AQL][EXECUTOR][FETCHER]") {
         MultiDependencySingleRowFetcher testee(blockFetcherMock);
 
         THEN("the fetcher should return DONE with nullptr") {
-          std::tie(state, row) = testee.fetchRowForDependency(0);
+          std::tie(state, row) = testee.fetchRowForDependency(0, atMost);
           REQUIRE(state == ExecutionState::DONE);
           REQUIRE(!row);
         }
@@ -86,12 +87,12 @@ SCENARIO("MultiDependencySingleRowFetcher", "[AQL][EXECUTOR][FETCHER]") {
         MultiDependencySingleRowFetcher testee(blockFetcherMock);
 
         THEN("the fetcher should first return WAIT with nullptr") {
-          std::tie(state, row) = testee.fetchRowForDependency(0);
+          std::tie(state, row) = testee.fetchRowForDependency(0, atMost);
           REQUIRE(state == ExecutionState::WAITING);
           REQUIRE(!row);
 
           AND_THEN("the fetcher should return DONE with nullptr") {
-            std::tie(state, row) = testee.fetchRowForDependency(0);
+            std::tie(state, row) = testee.fetchRowForDependency(0, atMost);
             REQUIRE(state == ExecutionState::DONE);
             REQUIRE(!row);
           }
@@ -119,7 +120,7 @@ SCENARIO("MultiDependencySingleRowFetcher", "[AQL][EXECUTOR][FETCHER]") {
         MultiDependencySingleRowFetcher testee(blockFetcherMock);
 
         THEN("the fetcher should return the row with DONE") {
-          std::tie(state, row) = testee.fetchRowForDependency(0);
+          std::tie(state, row) = testee.fetchRowForDependency(0, atMost);
           REQUIRE(state == ExecutionState::DONE);
           REQUIRE(row);
           REQUIRE(row.getNrRegisters() == 1);
@@ -141,14 +142,14 @@ SCENARIO("MultiDependencySingleRowFetcher", "[AQL][EXECUTOR][FETCHER]") {
         MultiDependencySingleRowFetcher testee(blockFetcherMock);
 
         THEN("the fetcher should return the row with HASMORE") {
-          std::tie(state, row) = testee.fetchRowForDependency(0);
+          std::tie(state, row) = testee.fetchRowForDependency(0, atMost);
           REQUIRE(state == ExecutionState::HASMORE);
           REQUIRE(row);
           REQUIRE(row.getNrRegisters() == 1);
           REQUIRE(row.getValue(0).slice().getInt() == 42);
 
           AND_THEN("the fetcher shall return DONE") {
-            std::tie(state, row) = testee.fetchRowForDependency(0);
+            std::tie(state, row) = testee.fetchRowForDependency(0, atMost);
             REQUIRE(state == ExecutionState::DONE);
             REQUIRE(!row);
           }
@@ -168,12 +169,12 @@ SCENARIO("MultiDependencySingleRowFetcher", "[AQL][EXECUTOR][FETCHER]") {
         MultiDependencySingleRowFetcher testee(blockFetcherMock);
 
         THEN("the fetcher should first return WAIT with nullptr") {
-          std::tie(state, row) = testee.fetchRowForDependency(0);
+          std::tie(state, row) = testee.fetchRowForDependency(0, atMost);
           REQUIRE(state == ExecutionState::WAITING);
           REQUIRE(!row);
 
           AND_THEN("the fetcher should return the row with DONE") {
-            std::tie(state, row) = testee.fetchRowForDependency(0);
+            std::tie(state, row) = testee.fetchRowForDependency(0, atMost);
             REQUIRE(state == ExecutionState::DONE);
             REQUIRE(row);
             REQUIRE(row.getNrRegisters() == 1);
@@ -196,19 +197,19 @@ SCENARIO("MultiDependencySingleRowFetcher", "[AQL][EXECUTOR][FETCHER]") {
         MultiDependencySingleRowFetcher testee(blockFetcherMock);
 
         THEN("the fetcher should first return WAIT with nullptr") {
-          std::tie(state, row) = testee.fetchRowForDependency(0);
+          std::tie(state, row) = testee.fetchRowForDependency(0, atMost);
           REQUIRE(state == ExecutionState::WAITING);
           REQUIRE(!row);
 
           AND_THEN("the fetcher should return the row with HASMORE") {
-            std::tie(state, row) = testee.fetchRowForDependency(0);
+            std::tie(state, row) = testee.fetchRowForDependency(0, atMost);
             REQUIRE(state == ExecutionState::HASMORE);
             REQUIRE(row);
             REQUIRE(row.getNrRegisters() == 1);
             REQUIRE(row.getValue(0).slice().getInt() == 42);
 
             AND_THEN("the fetcher shall return DONE") {
-              std::tie(state, row) = testee.fetchRowForDependency(0);
+              std::tie(state, row) = testee.fetchRowForDependency(0, atMost);
               REQUIRE(state == ExecutionState::DONE);
               REQUIRE(!row);
             }
@@ -247,14 +248,14 @@ SCENARIO("MultiDependencySingleRowFetcher", "[AQL][EXECUTOR][FETCHER]") {
         THEN("the fetcher should return all rows and DONE with the last") {
           int64_t rowIdxAndValue;
           for (rowIdxAndValue = 1; rowIdxAndValue <= 5; rowIdxAndValue++) {
-            std::tie(state, row) = testee.fetchRowForDependency(0);
+            std::tie(state, row) = testee.fetchRowForDependency(0, atMost);
             REQUIRE(state == ExecutionState::HASMORE);
             REQUIRE(row);
             REQUIRE(row.getNrRegisters() == 1);
             REQUIRE(row.getValue(0).slice().getInt() == rowIdxAndValue);
           }
           rowIdxAndValue = 6;
-          std::tie(state, row) = testee.fetchRowForDependency(0);
+          std::tie(state, row) = testee.fetchRowForDependency(0, atMost);
           REQUIRE(state == ExecutionState::DONE);
           REQUIRE(row);
           REQUIRE(row.getNrRegisters() == 1);
@@ -283,11 +284,11 @@ SCENARIO("MultiDependencySingleRowFetcher", "[AQL][EXECUTOR][FETCHER]") {
           for (rowIdxAndValue = 1; rowIdxAndValue <= 5; rowIdxAndValue++) {
             if (rowIdxAndValue == 1 || rowIdxAndValue == 4) {
               // wait at the beginning of the 1st and 2nd block
-              std::tie(state, row) = testee.fetchRowForDependency(0);
+              std::tie(state, row) = testee.fetchRowForDependency(0, atMost);
               REQUIRE(state == ExecutionState::WAITING);
               REQUIRE(!row);
             }
-            std::tie(state, row) = testee.fetchRowForDependency(0);
+            std::tie(state, row) = testee.fetchRowForDependency(0, atMost);
             REQUIRE(state == ExecutionState::HASMORE);
             REQUIRE(row);
             REQUIRE(row.getNrRegisters() == 1);
@@ -295,11 +296,11 @@ SCENARIO("MultiDependencySingleRowFetcher", "[AQL][EXECUTOR][FETCHER]") {
           }
           rowIdxAndValue = 6;
           // wait at the beginning of the 3rd block
-          std::tie(state, row) = testee.fetchRowForDependency(0);
+          std::tie(state, row) = testee.fetchRowForDependency(0, atMost);
           REQUIRE(state == ExecutionState::WAITING);
           REQUIRE(!row);
           // last row and DONE
-          std::tie(state, row) = testee.fetchRowForDependency(0);
+          std::tie(state, row) = testee.fetchRowForDependency(0, atMost);
           REQUIRE(state == ExecutionState::DONE);
           REQUIRE(row);
           REQUIRE(row.getNrRegisters() == 1);
@@ -328,17 +329,17 @@ SCENARIO("MultiDependencySingleRowFetcher", "[AQL][EXECUTOR][FETCHER]") {
           for (size_t rowIdxAndValue = 1; rowIdxAndValue <= 6; rowIdxAndValue++) {
             if (rowIdxAndValue == 1 || rowIdxAndValue == 4 || rowIdxAndValue == 6) {
               // wait at the beginning of the 1st, 2nd and 3rd block
-              std::tie(state, row) = testee.fetchRowForDependency(0);
+              std::tie(state, row) = testee.fetchRowForDependency(0, atMost);
               REQUIRE(state == ExecutionState::WAITING);
               REQUIRE(!row);
             }
-            std::tie(state, row) = testee.fetchRowForDependency(0);
+            std::tie(state, row) = testee.fetchRowForDependency(0, atMost);
             REQUIRE(state == ExecutionState::HASMORE);
             REQUIRE(row);
             REQUIRE(row.getNrRegisters() == 1);
             REQUIRE(static_cast<size_t>(row.getValue(0).slice().getInt()) == rowIdxAndValue);
           }
-          std::tie(state, row) = testee.fetchRowForDependency(0);
+          std::tie(state, row) = testee.fetchRowForDependency(0, atMost);
           REQUIRE(state == ExecutionState::DONE);
           REQUIRE(!row);
         }

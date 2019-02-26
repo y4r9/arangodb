@@ -101,7 +101,7 @@ class MultiDependencySingleRowFetcherHelper
   virtual ~MultiDependencySingleRowFetcherHelper();
 
   std::pair<::arangodb::aql::ExecutionState, ::arangodb::aql::InputAqlItemRow> fetchRowForDependency(
-      size_t depIndex) override;
+      size_t depIndex, size_t atMost) override;
   uint64_t nrCalled(size_t depIndex) {
     TRI_ASSERT(depIndex < _dependencies.size());
     return _dependencies[depIndex]._nrCalled;
@@ -125,7 +125,7 @@ class MultiDependencySingleRowFetcherHelper
     uint64_t _nrItems;
     uint64_t _nrCalled;
     bool _didWait;
-    std::shared_ptr<arangodb::aql::InputAqlItemBlockShell> _itemBlock;
+    std::shared_ptr<arangodb::aql::AqlItemBlockShell> _itemBlock;
     arangodb::aql::InputAqlItemRow _lastReturnedRow;
   };
   std::vector<BlockInfo> _dependencies;

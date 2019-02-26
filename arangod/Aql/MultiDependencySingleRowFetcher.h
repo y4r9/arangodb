@@ -35,7 +35,9 @@ namespace arangodb {
 namespace aql {
 
 class AqlItemBlock;
+template <bool>
 class BlockFetcher;
+template <bool>
 class SingleRowFetcher;
 
 /**
@@ -48,7 +50,7 @@ class SingleRowFetcher;
  */
 class MultiDependencySingleRowFetcher {
  public:
-  explicit MultiDependencySingleRowFetcher(BlockFetcher& executionBlock);
+  explicit MultiDependencySingleRowFetcher(BlockFetcher<false>& executionBlock);
   TEST_VIRTUAL ~MultiDependencySingleRowFetcher() = default;
 
  protected:
@@ -73,15 +75,16 @@ class MultiDependencySingleRowFetcher {
    *           If HASMORE => The Row is guaranteed to not be a nullptr.
    *           If DONE => Row can be a nullptr (nothing received) or valid.
    */
-  TEST_VIRTUAL std::pair<ExecutionState, InputAqlItemRow> fetchRowForDependency(size_t depIndex);
+  TEST_VIRTUAL std::pair<ExecutionState, InputAqlItemRow> fetchRowForDependency(size_t depIndex,
+                                                                                size_t atMost);
 
  private:
-  BlockFetcher* _blockFetcher;
+  BlockFetcher<false>& _blockFetcher;
 
   /**
    * @brief Holds the state for all dependencies.
    */
-  std::vector<SingleRowFetcher> _upstream;
+  std::vector<SingleRowFetcher<false>> _upstream;
 
   /**
    * @brief Number of dependencies.
@@ -94,7 +97,7 @@ class MultiDependencySingleRowFetcher {
    */
   RegisterId getNrInputRegisters() const;
 
-  SingleRowFetcher& getUpstream(size_t depIndex);
+  SingleRowFetcher<false>& getUpstream(size_t depIndex);
 };
 
 }  // namespace aql

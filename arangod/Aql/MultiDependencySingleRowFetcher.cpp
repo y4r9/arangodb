@@ -31,25 +31,26 @@
 using namespace arangodb;
 using namespace arangodb::aql;
 
-MultiDependencySingleRowFetcher::MultiDependencySingleRowFetcher(BlockFetcher& executionBlock)
-    : _blockFetcher(&executionBlock),
-      _nrDependencies(_blockFetcher->numberDependencies()) {
+MultiDependencySingleRowFetcher::MultiDependencySingleRowFetcher(BlockFetcher<false>& executionBlock)
+    : _blockFetcher(executionBlock),
+      _nrDependencies(_blockFetcher.numberDependencies()) {
   _upstream.reserve(_nrDependencies);
   for (size_t i = 0; i < _nrDependencies; ++i) {
-    _upstream.emplace_back(SingleRowFetcher{executionBlock, i});
+    _upstream.emplace_back(SingleRowFetcher<false>{executionBlock, i});
   }
 }
 
-std::pair<ExecutionState, InputAqlItemRow> MultiDependencySingleRowFetcher::fetchRowForDependency(size_t depIndex) {
-  SingleRowFetcher& fetcher = getUpstream(depIndex);
-  return fetcher.fetchRow();
+std::pair<ExecutionState, InputAqlItemRow> MultiDependencySingleRowFetcher::fetchRowForDependency(
+    size_t depIndex, size_t atMost) {
+  SingleRowFetcher<false>& fetcher = getUpstream(depIndex);
+  return fetcher.fetchRow(atMost);
 }
 
 RegisterId MultiDependencySingleRowFetcher::getNrInputRegisters() const {
-  return _blockFetcher->getNrInputRegisters();
+  return _blockFetcher.getNrInputRegisters();
 }
 
-SingleRowFetcher& MultiDependencySingleRowFetcher::getUpstream(size_t dep) {
+SingleRowFetcher<false>& MultiDependencySingleRowFetcher::getUpstream(size_t dep) {
   TRI_ASSERT(dep < _nrDependencies);
   TRI_ASSERT(_nrDependencies == _upstream.size());
   return _upstream.at(dep);

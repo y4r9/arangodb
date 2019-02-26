@@ -75,7 +75,9 @@ class BlockFetcher {
         _inputRegisters(std::move(inputRegisters)),
         _nrInputRegisters(nrInputRegisters),
         _blockShellQueue(),
-        _blockShellPassThroughQueue() {}
+        _blockShellPassThroughQueue() {
+          TRI_ASSERT(!_dependencies.empty());
+  }
 
   TEST_VIRTUAL ~BlockFetcher() = default;
 
@@ -88,7 +90,7 @@ class BlockFetcher {
   std::pair<ExecutionState, std::shared_ptr<AqlItemBlockShell>> fetchBlockForPassthrough(size_t atMost);
 
   TEST_VIRTUAL
-  std::pair<ExecutionState, std::shared_ptr<InputAqlItemBlockShell>> fetchBlockOfDependency(
+  std::pair<ExecutionState, std::shared_ptr<AqlItemBlockShell>> fetchBlockFromDependency(
       size_t dependencyIndex, size_t atMost);
 
   TEST_VIRTUAL inline RegisterId getNrInputRegisters() const {

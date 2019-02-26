@@ -84,7 +84,8 @@ BlockFetcher<passBlocksThrough>::fetchBlock(size_t atMost) {
   return {state, blockShell};
 }
 
-std::pair<ExecutionState, std::shared_ptr<InputAqlItemBlockShell>> BlockFetcher::fetchBlockFromDependency(
+template <bool passBlocksThrough>
+std::pair<ExecutionState, std::shared_ptr<AqlItemBlockShell>> BlockFetcher<passBlocksThrough>::fetchBlockFromDependency(
     size_t dependencyIndex, size_t atMost) {
   ExecutionState state;
   std::unique_ptr<AqlItemBlock> block;
@@ -94,21 +95,12 @@ std::pair<ExecutionState, std::shared_ptr<InputAqlItemBlockShell>> BlockFetcher:
     TRI_IF_FAILURE("ExecutionBlock::getBlock") {
       THROW_ARANGO_EXCEPTION(TRI_ERROR_DEBUG);
     }
-    auto shell = std::make_shared<InputAqlItemBlockShell>(itemBlockManager(),
-                                                          std::move(block), _inputRegisters);
+    auto shell =
+        std::make_shared<AqlItemBlockShell>(itemBlockManager(), std::move(block));
     return {state, shell};
   } else {
     return {state, nullptr};
   }
-
-  ExecutionState state;
-  std::shared_ptr<AqlItemBlockShell> blockShell;
-  std::tie(state, blockShell) = _blockShellQueue.front();
-  _blockShellQueue.pop();
-
-  // auto inputBlockShell =
-  //    std::make_shared<InputAqlItemBlockShell>(blockShell, _inputRegisters);
-  return {state, blockShell};
 }
 
 template <bool allowBlockPassthrough>
