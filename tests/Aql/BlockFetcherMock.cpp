@@ -42,7 +42,7 @@ using namespace arangodb::aql;
 template <bool passBlocksThrough>
 BlockFetcherMock<passBlocksThrough>::BlockFetcherMock(arangodb::aql::ResourceMonitor& monitor,
                                                       ::arangodb::aql::RegisterId nrRegisters)
-    : BlockFetcher<passBlocksThrough>({}, _itemBlockManager,
+    : BlockFetcher<passBlocksThrough>({nullptr}, _itemBlockManager,
                                       std::shared_ptr<std::unordered_set<RegisterId>>(),
                                       nrRegisters),
       _itemsToReturn(),
@@ -74,6 +74,16 @@ BlockFetcherMock<passBlocksThrough>::fetchBlock(size_t) {
   }
 
   return returnValue;
+}
+
+template <bool passBlocksThrough>
+std::pair<ExecutionState, std::shared_ptr<AqlItemBlockShell>>
+// NOLINTNEXTLINE google-default-arguments
+BlockFetcherMock<passBlocksThrough>::fetchBlockFromDependency(size_t dependencyIndex,
+                                                              size_t atMost) {
+  // Not implemented so we only allow for index 0 the default
+  REQUIRE(dependencyIndex == 0);
+  return fetchBlock(atMost);
 }
 
 /* * * * * * * * * * * * *
@@ -123,8 +133,7 @@ BlockFetcherMock<passBlocksThrough>& BlockFetcherMock<passBlocksThrough>::andThe
   }
   std::shared_ptr<AqlItemBlockShell> blockShell;
   if (block != nullptr) {
-    blockShell =
-        std::make_shared<AqlItemBlockShell>(_itemBlockManager, std::move(block));
+    blockShell = std::make_shared<AqlItemBlockShell>(_itemBlockManager, std::move(block));
   }
   return andThenReturn({state, std::move(blockShell)});
 }

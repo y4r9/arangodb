@@ -34,6 +34,7 @@ using namespace arangodb::aql;
 MultiDependencySingleRowFetcher::MultiDependencySingleRowFetcher(BlockFetcher<false>& executionBlock)
     : _blockFetcher(executionBlock),
       _nrDependencies(_blockFetcher.numberDependencies()) {
+  TRI_ASSERT(_nrDependencies > 0);
   _upstream.reserve(_nrDependencies);
   for (size_t i = 0; i < _nrDependencies; ++i) {
     _upstream.emplace_back(SingleRowFetcher<false>{executionBlock, i});

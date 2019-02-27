@@ -35,6 +35,7 @@ using namespace arangodb::aql;
 
 #ifdef ARANGODB_ENABLE_MAINTAINER_MODE
 bool InputAqlItemRow::internalBlockIs(AqlItemBlockShell const& other) const {
+  LOG_DEVEL << "Internal " << &blockShell() << " external " << &other;
   return &blockShell() == &other;
 }
 #endif

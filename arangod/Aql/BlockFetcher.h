@@ -75,9 +75,7 @@ class BlockFetcher {
         _inputRegisters(std::move(inputRegisters)),
         _nrInputRegisters(nrInputRegisters),
         _blockShellQueue(),
-        _blockShellPassThroughQueue() {
-          TRI_ASSERT(!_dependencies.empty());
-  }
+        _blockShellPassThroughQueue() {}
 
   TEST_VIRTUAL ~BlockFetcher() = default;
 
