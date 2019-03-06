@@ -472,7 +472,7 @@ void Agent::sendAppendEntriesRPC() {
 
       index_t commitIndex;
       {
-        READ_LOCKER(oLocker, _outputLock);
+        READ_LOCKER(oLocker, _outputLock, this);
         commitIndex = _commitIndex;
       }
 
@@ -673,7 +673,7 @@ void Agent::sendEmptyAppendEntriesRPC(std::string followerId) {
 
   index_t commitIndex;
   {
-    READ_LOCKER(oLocker, _outputLock);
+    READ_LOCKER(oLocker, _outputLock, this);
     commitIndex = _commitIndex;
   }
 
@@ -828,7 +828,7 @@ void Agent::load() {
     _inception->start();
   } else {
     MUTEX_LOCKER(guard, _ioLock);  // need this for callback to set _spearhead
-    READ_LOCKER(guard2, _outputLock);
+    READ_LOCKER(guard2, _outputLock, this);
     _spearhead = _readDB;
     activateAgency();
   }
@@ -1193,7 +1193,7 @@ read_ret_t Agent::read(query_t const& query) {
   }
 
   std::string leaderId = _constituent.leaderID();
-  READ_LOCKER(oLocker, _outputLock);
+  READ_LOCKER(oLocker, _outputLock, this);
 
   // Retrieve data from readDB
   auto result = std::make_shared<arangodb::velocypack::Builder>();
@@ -1259,7 +1259,7 @@ void Agent::run() {
 
       bool commenceService = false;
       {
-        READ_LOCKER(oLocker, _outputLock);
+        READ_LOCKER(oLocker, _outputLock, this);
         if (leading() && getPrepareLeadership() == 2 && _commitIndex == _state.lastIndex()) {
           commenceService = true;
         }
@@ -1268,7 +1268,7 @@ void Agent::run() {
       if (commenceService) {
         _tiLock.assertNotLockedByCurrentThread();
         MUTEX_LOCKER(ioLocker, _ioLock);
-        READ_LOCKER(oLocker, _outputLock);
+        READ_LOCKER(oLocker, _outputLock, this);
         _spearhead = _readDB;
         endPrepareLeadership();  // finally service can commence
       }
@@ -1396,7 +1396,7 @@ void Agent::lead() {
     // DO NOT EDIT without understanding the consequences for sendAppendEntries!
     index_t commitIndex;
     {
-      READ_LOCKER(oLocker, _outputLock);
+      READ_LOCKER(oLocker, _outputLock, this);
       commitIndex = _commitIndex;
     }
 
@@ -1550,7 +1550,7 @@ void Agent::compact() {
   // anyway.
   index_t commitIndex;
   {
-    READ_LOCKER(guard, _outputLock);
+    READ_LOCKER(guard, _outputLock, this);
     commitIndex = _commitIndex;
   }
 
@@ -1568,7 +1568,7 @@ void Agent::compact() {
 
 /// Last commit index
 arangodb::consensus::index_t Agent::lastCommitted() const {
-  READ_LOCKER(oLocker, _outputLock);
+  READ_LOCKER(oLocker, _outputLock, this);
   return _commitIndex;
 }
 
@@ -1584,7 +1584,7 @@ Store const& Agent::readDB() const { return _readDB; }
 
 /// Get readdb
 arangodb::consensus::index_t Agent::readDB(Node& node) const {
-  READ_LOCKER(oLocker, _outputLock);
+  READ_LOCKER(oLocker, _outputLock, this);
   node = _readDB.get();
   return _commitIndex;
 }
@@ -1595,7 +1595,7 @@ arangodb::consensus::index_t Agent::readDB(VPackBuilder& builder) const {
 
   uint64_t commitIndex = 0;
    
-  { READ_LOCKER(oLocker, _outputLock);
+  { READ_LOCKER(oLocker, _outputLock, this);
 
     commitIndex = _commitIndex;
     // commit index
@@ -1615,7 +1615,7 @@ arangodb::consensus::index_t Agent::readDB(VPackBuilder& builder) const {
 void Agent::executeLockedRead(std::function<void()> const& cb) {
   _tiLock.assertNotLockedByCurrentThread();
   MUTEX_LOCKER(ioLocker, _ioLock);
-  READ_LOCKER(oLocker, _outputLock);
+  READ_LOCKER(oLocker, _outputLock, this);
   cb();
 }
 
@@ -1881,7 +1881,7 @@ query_t Agent::buildDB(arangodb::consensus::index_t index) {
   }
 
   {
-    READ_LOCKER(oLocker, _outputLock);
+    READ_LOCKER(oLocker, _outputLock, this);
     if (index > _commitIndex) {
       LOG_TOPIC(INFO, Logger::AGENCY)
           << "Cannot snapshot beyond leaderCommitIndex: " << _commitIndex;

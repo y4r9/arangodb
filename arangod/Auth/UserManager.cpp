@@ -487,7 +487,7 @@ Result auth::UserManager::enumerateUsers(std::function<bool(auth::User&)>&& func
 
   std::vector<auth::User> toUpdate;
   {  // users are later updated with rev ID for consistency
-    READ_LOCKER(readGuard, _userCacheLock);
+    READ_LOCKER(readGuard, _userCacheLock, this);
     for (UserMap::value_type& it : _userCache) {
       if (it.second.source() != auth::Source::Local) {
         continue;
@@ -560,7 +560,7 @@ Result auth::UserManager::accessUser(std::string const& user, ConstUserCallback&
 
   loadFromDB();
 
-  READ_LOCKER(readGuard, _userCacheLock);
+  READ_LOCKER(readGuard, _userCacheLock, this);
   UserMap::iterator const& it = _userCache.find(user);
   if (it != _userCache.end()) {
     return func(it->second);
@@ -574,7 +574,7 @@ bool auth::UserManager::userExists(std::string const& user) {
   }
 
   loadFromDB();
-  READ_LOCKER(readGuard, _userCacheLock);
+  READ_LOCKER(readGuard, _userCacheLock, this);
   UserMap::iterator const& it = _userCache.find(user);
   return it != _userCache.end();
 }
@@ -582,7 +582,7 @@ bool auth::UserManager::userExists(std::string const& user) {
 VPackBuilder auth::UserManager::serializeUser(std::string const& user) {
   loadFromDB();
 
-  READ_LOCKER(readGuard, _userCacheLock);
+  READ_LOCKER(readGuard, _userCacheLock, this);
 
   UserMap::iterator const& it = _userCache.find(user);
   if (it != _userCache.end()) {
@@ -698,7 +698,7 @@ bool auth::UserManager::checkPassword(std::string const& username, std::string c
 
   loadFromDB();
 
-  READ_LOCKER(readGuard, _userCacheLock);
+  READ_LOCKER(readGuard, _userCacheLock, this);
   UserMap::iterator it = _userCache.find(username);
 
   // using local users might be forbidden
@@ -736,7 +736,7 @@ auth::Level auth::UserManager::databaseAuthLevel(std::string const& user,
   }
 
   loadFromDB();
-  READ_LOCKER(readGuard, _userCacheLock);
+  READ_LOCKER(readGuard, _userCacheLock, this);
 
   UserMap::iterator const& it = _userCache.find(user);
   if (it == _userCache.end()) {
@@ -762,7 +762,7 @@ auth::Level auth::UserManager::collectionAuthLevel(std::string const& user,
   }
 
   loadFromDB();
-  READ_LOCKER(readGuard, _userCacheLock);
+  READ_LOCKER(readGuard, _userCacheLock, this);
 
   UserMap::iterator const& it = _userCache.find(user);
   if (it == _userCache.end()) {

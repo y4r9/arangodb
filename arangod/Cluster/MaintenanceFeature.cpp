@@ -350,7 +350,7 @@ std::shared_ptr<Action> MaintenanceFeature::findAction(std::shared_ptr<ActionDes
 }
 
 std::shared_ptr<Action> MaintenanceFeature::findActionHash(size_t hash) {
-  READ_LOCKER(rLock, _actionRegistryLock);
+  READ_LOCKER(rLock, _actionRegistryLock, this);
 
   return findActionHashNoLock(hash);
 }  // MaintenanceFeature::findActionHash
@@ -372,7 +372,7 @@ std::shared_ptr<Action> MaintenanceFeature::findActionHashNoLock(size_t hash) {
 }  // MaintenanceFeature::findActionHashNoLock
 
 std::shared_ptr<Action> MaintenanceFeature::findActionId(uint64_t id) {
-  READ_LOCKER(rLock, _actionRegistryLock);
+  READ_LOCKER(rLock, _actionRegistryLock, this);
 
   return findActionIdNoLock(id);
 }  // MaintenanceFeature::findActionId
@@ -435,7 +435,7 @@ VPackBuilder MaintenanceFeature::toVelocyPack() const {
 }
 
 void MaintenanceFeature::toVelocyPack(VPackBuilder& vb) const {
-  READ_LOCKER(rLock, _actionRegistryLock);
+  READ_LOCKER(rLock, _actionRegistryLock, this);
 
   {
     VPackArrayBuilder ab(&vb);

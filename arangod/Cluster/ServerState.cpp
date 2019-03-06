@@ -683,7 +683,7 @@ void ServerState::setRole(ServerState::RoleEnum role) {
 ////////////////////////////////////////////////////////////////////////////////
 
 std::string ServerState::getId() const {
-  READ_LOCKER(readLocker, _lock);
+  READ_LOCKER(readLocker, _lock, this);
   return _id;
 }
 
@@ -725,7 +725,7 @@ void ServerState::setShortId(uint32_t id) {
 ////////////////////////////////////////////////////////////////////////////////
 
 std::string ServerState::getEndpoint() {
-  READ_LOCKER(readLocker, _lock);
+  READ_LOCKER(readLocker, _lock, this);
   return _myEndpoint;
 }
 
@@ -734,7 +734,7 @@ std::string ServerState::getEndpoint() {
 ////////////////////////////////////////////////////////////////////////////////
 
 std::string ServerState::getAdvertisedEndpoint() {
-  READ_LOCKER(readLocker, _lock);
+  READ_LOCKER(readLocker, _lock, this);
   return _advertisedEndpoint;
 }
 
@@ -743,7 +743,7 @@ std::string ServerState::getAdvertisedEndpoint() {
 ////////////////////////////////////////////////////////////////////////////////
 
 ServerState::StateEnum ServerState::getState() {
-  READ_LOCKER(readLocker, _lock);
+  READ_LOCKER(readLocker, _lock, this);
   return _state;
 }
 
@@ -789,7 +789,7 @@ void ServerState::setState(StateEnum state) {
 ////////////////////////////////////////////////////////////////////////////////
 
 std::string ServerState::getJavaScriptPath() {
-  READ_LOCKER(readLocker, _lock);
+  READ_LOCKER(readLocker, _lock, this);
   return _javaScriptStartupPath;
 }
 

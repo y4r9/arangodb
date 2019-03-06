@@ -571,7 +571,7 @@ arangodb::Result Indexes::drop(LogicalCollection* collection, VPackSlice const& 
     return Result(r, errorMsg);
 #endif
   } else {
-    READ_LOCKER(readLocker, collection->vocbase()._inventoryLock);
+    READ_LOCKER(readLocker, collection->vocbase()._inventoryLock, collection);
 
     SingleCollectionTransaction trx(
         transaction::V8Context::CreateWhenRequired(collection->vocbase(), false),

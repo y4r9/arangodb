@@ -668,7 +668,7 @@ int MMFilesCollection::close() {
     // We also have to unload the indexes.
     WRITE_LOCKER(writeLocker, _dataLock, this);
 
-    READ_LOCKER_EVENTUAL(guard, _indexesLock); 
+    READ_LOCKER_EVENTUAL(guard, _indexesLock, this); 
 
     for (auto& idx : _indexes) {
       idx->unload();
@@ -1221,7 +1221,7 @@ bool MMFilesCollection::removeDatafile(MMFilesDatafile* df) {
 /// @brief iterates over a collection
 bool MMFilesCollection::iterateDatafiles(
     std::function<bool(MMFilesMarker const*, MMFilesDatafile*)> const& cb) {
-  READ_LOCKER(readLocker, _filesLock);
+  READ_LOCKER(readLocker, _filesLock, this);
 
   if (!iterateDatafilesVector(_datafiles, cb) || !iterateDatafilesVector(_compactors, cb) ||
       !iterateDatafilesVector(_journals, cb)) {
@@ -1347,7 +1347,7 @@ void MMFilesCollection::figuresSpecific(std::shared_ptr<arangodb::velocypack::Bu
   }
 
   // add file statistics
-  READ_LOCKER(readLocker, _filesLock);
+  READ_LOCKER(readLocker, _filesLock, this);
 
   size_t sizeDatafiles = 0;
   builder->add("datafiles", VPackValue(VPackValueType::Object));
@@ -1421,7 +1421,7 @@ std::vector<MMFilesCollection::DatafileDescription> MMFilesCollection::datafiles
     result.emplace_back(entry);
   };
 
-  READ_LOCKER(readLocker, _filesLock);
+  READ_LOCKER(readLocker, _filesLock, this);
 
   for (auto& it : _datafiles) {
     apply(it, false);
@@ -1450,7 +1450,7 @@ bool MMFilesCollection::applyForTickRange(
 
     // we are reading from a journal that might be modified in parallel
     // so we must read-lock it
-    CONDITIONAL_READ_LOCKER(readLocker, _filesLock, e._isJournal);
+    CONDITIONAL_READ_LOCKER(readLocker, _filesLock, e._isJournal, this);
 
     if (!e._isJournal) {
       TRI_ASSERT(datafile->isSealed());
@@ -1614,7 +1614,7 @@ void MMFilesCollection::fillIndex(
 uint32_t MMFilesCollection::indexBuckets() const { return _indexBuckets; }
 
 int MMFilesCollection::fillAllIndexes(transaction::Methods* trx) {
-  READ_LOCKER(guard, _indexesLock);
+  READ_LOCKER(guard, _indexesLock, this);
   return fillIndexes(trx, _indexes);
 }
 
@@ -2051,7 +2051,7 @@ void MMFilesCollection::prepareIndexes(VPackSlice indexesSlice) {
   }
 
   {
-    READ_LOCKER(guard, _indexesLock);
+    READ_LOCKER(guard, _indexesLock, this);
     for (auto const& idx : _indexes) {
       if (idx->type() == Index::IndexType::TRI_IDX_TYPE_PRIMARY_INDEX) {
         foundPrimary = true;
@@ -2081,7 +2081,7 @@ void MMFilesCollection::prepareIndexes(VPackSlice indexesSlice) {
   }
 
   {
-    READ_LOCKER(guard, _indexesLock);
+    READ_LOCKER(guard, _indexesLock, this);
     TRI_ASSERT(!_indexes.empty());
     if (_indexes[0]->type() != Index::IndexType::TRI_IDX_TYPE_PRIMARY_INDEX ||
         (TRI_COL_TYPE_EDGE == _logicalCollection.type() &&
@@ -2449,7 +2449,7 @@ int MMFilesCollection::lockRead(bool useDeadlockDetector,
   double startTime = 0.0;
 
   while (true) {
-    TRY_READ_LOCKER(locker, _dataLock);
+    TRY_READ_LOCKER(locker, _dataLock, this);
 
     if (locker.isLocked()) {
       // when we are here, we've got the read lock
@@ -2757,7 +2757,7 @@ Result MMFilesCollection::truncate(transaction::Methods* trx, OperationOptions& 
     return Result(TRI_ERROR_INTERNAL, "unknown error during truncate");
   }
 
-  READ_LOCKER(guard, _indexesLock);
+  READ_LOCKER(guard, _indexesLock, this);
   auto indexes = _indexes;
   size_t const n = indexes.size();
 
@@ -3108,7 +3108,7 @@ Result MMFilesCollection::persistLocalDocumentIds() {
 
   // now handle datafiles
   {
-    READ_LOCKER(locker, _filesLock);
+    READ_LOCKER(locker, _filesLock, this);
     for (auto file : _datafiles) {
       Result result = persistLocalDocumentIdsForDatafile(*this, *file);
       if (result.fail()) {
@@ -3178,7 +3178,7 @@ Result MMFilesCollection::insertSecondaryIndexes(arangodb::transaction::Methods*
 
   Result result;
 
-  READ_LOCKER(guard, _indexesLock);
+  READ_LOCKER(guard, _indexesLock, this);
 
   auto indexes = _indexes;
   size_t const n = indexes.size();
@@ -3226,7 +3226,7 @@ Result MMFilesCollection::deleteSecondaryIndexes(arangodb::transaction::Methods*
 
   Result result;
 
-  READ_LOCKER(guard, _indexesLock);
+  READ_LOCKER(guard, _indexesLock, this);
   auto indexes = _indexes;
   size_t const n = indexes.size();
 
