@@ -625,7 +625,7 @@ void QueryCache::store(TRI_vocbase_t* vocbase, std::shared_ptr<QueryCacheResultE
 
   // get the right part of the cache to store the result in
   auto const part = getPart(vocbase);
-  WRITE_LOCKER(writeLocker, _entriesLock[part]);
+  WRITE_LOCKER(writeLocker, _entriesLock[part], this);
 
   auto it = _entries[part].find(vocbase);
 
@@ -642,7 +642,7 @@ void QueryCache::store(TRI_vocbase_t* vocbase, std::shared_ptr<QueryCacheResultE
 /// @brief invalidate all queries for the given data sources
 void QueryCache::invalidate(TRI_vocbase_t* vocbase, std::vector<std::string> const& dataSources) {
   auto const part = getPart(vocbase);
-  WRITE_LOCKER(writeLocker, _entriesLock[part]);
+  WRITE_LOCKER(writeLocker, _entriesLock[part], this);
 
   auto it = _entries[part].find(vocbase);
 
@@ -657,7 +657,7 @@ void QueryCache::invalidate(TRI_vocbase_t* vocbase, std::vector<std::string> con
 /// @brief invalidate all queries for a particular data source
 void QueryCache::invalidate(TRI_vocbase_t* vocbase, std::string const& dataSource) {
   auto const part = getPart(vocbase);
-  WRITE_LOCKER(writeLocker, _entriesLock[part]);
+  WRITE_LOCKER(writeLocker, _entriesLock[part], this);
 
   auto it = _entries[part].find(vocbase);
 
@@ -675,7 +675,7 @@ void QueryCache::invalidate(TRI_vocbase_t* vocbase) {
 
   {
     auto const part = getPart(vocbase);
-    WRITE_LOCKER(writeLocker, _entriesLock[part]);
+    WRITE_LOCKER(writeLocker, _entriesLock[part], this);
 
     auto it = _entries[part].find(vocbase);
 
@@ -694,7 +694,7 @@ void QueryCache::invalidate(TRI_vocbase_t* vocbase) {
 /// @brief invalidate all queries
 void QueryCache::invalidate() {
   for (unsigned int i = 0; i < numberOfParts; ++i) {
-    WRITE_LOCKER(writeLocker, _entriesLock[i]);
+    WRITE_LOCKER(writeLocker, _entriesLock[i], this);
 
     // must invalidate all entries now because disabling the cache will turn off
     // cache invalidation when modifying data. turning on the cache later would
@@ -730,7 +730,7 @@ QueryCache* QueryCache::instance() { return &::instance; }
 /// @brief enforce maximum number of elements in each database-specific cache
 void QueryCache::enforceMaxResults(size_t numResults, size_t sizeResults) {
   for (unsigned int i = 0; i < numberOfParts; ++i) {
-    WRITE_LOCKER(writeLocker, _entriesLock[i]);
+    WRITE_LOCKER(writeLocker, _entriesLock[i], this);
 
     for (auto& it : _entries[i]) {
       it.second->enforceMaxResults(numResults, sizeResults);
@@ -741,7 +741,7 @@ void QueryCache::enforceMaxResults(size_t numResults, size_t sizeResults) {
 /// @brief enforce maximum size of individual elements in each database-specific cache
 void QueryCache::enforceMaxEntrySize(size_t value) {
   for (unsigned int i = 0; i < numberOfParts; ++i) {
-    WRITE_LOCKER(writeLocker, _entriesLock[i]);
+    WRITE_LOCKER(writeLocker, _entriesLock[i], this);
 
     for (auto& it : _entries[i]) {
       it.second->enforceMaxEntrySize(value);
@@ -752,7 +752,7 @@ void QueryCache::enforceMaxEntrySize(size_t value) {
 /// @brief exclude all data from system collections
 void QueryCache::excludeSystem() {
   for (unsigned int i = 0; i < numberOfParts; ++i) {
-    WRITE_LOCKER(writeLocker, _entriesLock[i]);
+    WRITE_LOCKER(writeLocker, _entriesLock[i], this);
 
     for (auto& it : _entries[i]) {
       it.second->excludeSystem();

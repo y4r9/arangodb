@@ -56,17 +56,17 @@ auth::TokenCache::TokenCache(auth::UserManager* um, double timeout)
 auth::TokenCache::~TokenCache() {
   // properly clear structs while using the appropriate locks
   {
-    WRITE_LOCKER(readLocker, _basicLock);
+    WRITE_LOCKER(readLocker, _basicLock, this);
     _basicCache.clear();
   }
   {
-    WRITE_LOCKER(writeLocker, _jwtLock);
+    WRITE_LOCKER(writeLocker, _jwtLock, this);
     _jwtCache.clear();
   }
 }
 
 void auth::TokenCache::setJwtSecret(std::string const& jwtSecret) {
-  WRITE_LOCKER(writeLocker, _jwtLock);
+  WRITE_LOCKER(writeLocker, _jwtLock, this);
   LOG_TOPIC(DEBUG, Logger::AUTHENTICATION)
       << "Setting jwt secret " << Logger::BINARY(jwtSecret.data(), jwtSecret.size());
   _jwtSecret = jwtSecret;
@@ -97,7 +97,7 @@ auth::TokenCache::Entry auth::TokenCache::checkAuthentication(AuthenticationMeth
 }
 
 void auth::TokenCache::invalidateBasicCache() {
-  WRITE_LOCKER(guard, _basicLock);
+  WRITE_LOCKER(guard, _basicLock, this);
   _basicCache.clear();
 }
 
@@ -110,7 +110,7 @@ auth::TokenCache::Entry auth::TokenCache::checkAuthenticationBasic(std::string c
 
   uint64_t version = _userManager->globalVersion();
   if (_basicCacheVersion.load(std::memory_order_acquire) != version) {
-    WRITE_LOCKER(guard, _basicLock);
+    WRITE_LOCKER(guard, _basicLock, this);
     _basicCache.clear();
     _basicCacheVersion.store(version, std::memory_order_release);
   }
@@ -153,7 +153,7 @@ auth::TokenCache::Entry auth::TokenCache::checkAuthenticationBasic(std::string c
 
   auth::TokenCache::Entry entry(username, authorized, expiry);
   {
-    WRITE_LOCKER(guard, _basicLock);
+    WRITE_LOCKER(guard, _basicLock, this);
     if (authorized) {
       if (!_basicCache.emplace(secret, entry).second) {
         // insertion did not work - probably another thread did insert the
@@ -176,7 +176,7 @@ auth::TokenCache::Entry auth::TokenCache::checkAuthenticationJWT(std::string con
   // the cache's linked list. so acquiring just a read-lock is
   // insufficient!!
   {
-    WRITE_LOCKER(writeLocker, _jwtLock);
+    WRITE_LOCKER(writeLocker, _jwtLock, this);
     // intentionally copy the entry from the cache
     auth::TokenCache::Entry const* entry = _jwtCache.get(jwt);
     if (entry != nullptr) {
@@ -224,7 +224,7 @@ auth::TokenCache::Entry auth::TokenCache::checkAuthenticationJWT(std::string con
     return auth::TokenCache::Entry::Unauthenticated();
   }
 
-  WRITE_LOCKER(writeLocker, _jwtLock);
+  WRITE_LOCKER(writeLocker, _jwtLock, this);
   _jwtCache.put(jwt, newEntry);
   return newEntry;
 }

@@ -666,7 +666,7 @@ int MMFilesCollection::close() {
 
   {
     // We also have to unload the indexes.
-    WRITE_LOCKER(writeLocker, _dataLock);
+    WRITE_LOCKER(writeLocker, _dataLock, this);
 
     READ_LOCKER_EVENTUAL(guard, _indexesLock); 
 
@@ -710,7 +710,7 @@ int MMFilesCollection::close() {
   }
 
   {
-    WRITE_LOCKER(writeLocker, _filesLock);
+    WRITE_LOCKER(writeLocker, _filesLock, this);
 
     // close compactor files
     closeDatafiles(_compactors);
@@ -786,7 +786,7 @@ int MMFilesCollection::sealDatafile(MMFilesDatafile* datafile, bool isCompactor)
 void MMFilesCollection::setInitialFiles(std::vector<MMFilesDatafile*>&& datafiles,
                                         std::vector<MMFilesDatafile*>&& journals,
                                         std::vector<MMFilesDatafile*>&& compactors) {
-  WRITE_LOCKER(writeLocker, _filesLock);
+  WRITE_LOCKER(writeLocker, _filesLock, this);
 
   _datafiles = std::move(datafiles);
   _journals = std::move(journals);
@@ -797,7 +797,7 @@ void MMFilesCollection::setInitialFiles(std::vector<MMFilesDatafile*>&& datafile
 
 /// @brief rotate the active journal - will do nothing if there is no journal
 int MMFilesCollection::rotateActiveJournal() {
-  WRITE_LOCKER(writeLocker, _filesLock);
+  WRITE_LOCKER(writeLocker, _filesLock, this);
 
   // note: only journals need to be handled here as the journal is the
   // only place that's ever written to. if a journal is full, it will have been
@@ -845,7 +845,7 @@ int MMFilesCollection::rotateActiveJournal() {
 /// @brief sync the active journal - will do nothing if there is no journal
 /// or if the journal is volatile
 int MMFilesCollection::syncActiveJournal() {
-  WRITE_LOCKER(writeLocker, _filesLock);
+  WRITE_LOCKER(writeLocker, _filesLock, this);
 
   // note: only journals need to be handled here as the journal is the
   // only place that's ever written to. if a journal is full, it will have been
@@ -881,7 +881,7 @@ int MMFilesCollection::reserveJournalSpace(TRI_voc_tick_t tick, uint32_t size,
     targetSize *= 2;
   }
 
-  WRITE_LOCKER(writeLocker, _filesLock);
+  WRITE_LOCKER(writeLocker, _filesLock, this);
   TRI_ASSERT(_journals.size() <= 1);
 
   while (true) {
@@ -974,7 +974,7 @@ int MMFilesCollection::reserveJournalSpace(TRI_voc_tick_t tick, uint32_t size,
 
 /// @brief create compactor file
 MMFilesDatafile* MMFilesCollection::createCompactor(TRI_voc_fid_t fid, uint32_t maximalSize) {
-  WRITE_LOCKER(writeLocker, _filesLock);
+  WRITE_LOCKER(writeLocker, _filesLock, this);
 
   TRI_ASSERT(_compactors.empty());
   // reserve enough space for the later addition
@@ -991,7 +991,7 @@ MMFilesDatafile* MMFilesCollection::createCompactor(TRI_voc_fid_t fid, uint32_t 
 
 /// @brief close an existing compactor
 int MMFilesCollection::closeCompactor(MMFilesDatafile* datafile) {
-  WRITE_LOCKER(writeLocker, _filesLock);
+  WRITE_LOCKER(writeLocker, _filesLock, this);
 
   if (_compactors.size() != 1) {
     return TRI_ERROR_ARANGO_NO_JOURNAL;
@@ -1013,7 +1013,7 @@ int MMFilesCollection::replaceDatafileWithCompactor(MMFilesDatafile* datafile,
   TRI_ASSERT(datafile != nullptr);
   TRI_ASSERT(compactor != nullptr);
 
-  WRITE_LOCKER(writeLocker, _filesLock);
+  WRITE_LOCKER(writeLocker, _filesLock, this);
 
   TRI_ASSERT(!_compactors.empty());
 
@@ -1186,7 +1186,7 @@ MMFilesDatafile* MMFilesCollection::createDatafile(TRI_voc_fid_t fid, uint32_t j
 bool MMFilesCollection::removeCompactor(MMFilesDatafile* df) {
   TRI_ASSERT(df != nullptr);
 
-  WRITE_LOCKER(writeLocker, _filesLock);
+  WRITE_LOCKER(writeLocker, _filesLock, this);
 
   for (auto it = _compactors.begin(); it != _compactors.end(); ++it) {
     if ((*it) == df) {
@@ -1204,7 +1204,7 @@ bool MMFilesCollection::removeCompactor(MMFilesDatafile* df) {
 bool MMFilesCollection::removeDatafile(MMFilesDatafile* df) {
   TRI_ASSERT(df != nullptr);
 
-  WRITE_LOCKER(writeLocker, _filesLock);
+  WRITE_LOCKER(writeLocker, _filesLock, this);
 
   for (auto it = _datafiles.begin(); it != _datafiles.end(); ++it) {
     if ((*it) == df) {
@@ -2302,7 +2302,7 @@ int MMFilesCollection::saveIndex(transaction::Methods* trx,
 }
 
 bool MMFilesCollection::addIndex(std::shared_ptr<arangodb::Index> idx) {
-  WRITE_LOCKER(guard, _indexesLock);
+  WRITE_LOCKER(guard, _indexesLock, this);
 
   auto const id = idx->id();
   for (auto const& it : _indexes) {
@@ -2386,7 +2386,7 @@ bool MMFilesCollection::dropIndex(TRI_idx_iid_t iid) {
 
 /// @brief removes an index by id
 bool MMFilesCollection::removeIndex(TRI_idx_iid_t iid) {
-  WRITE_LOCKER(guard, _indexesLock);
+  WRITE_LOCKER(guard, _indexesLock, this);
 
   size_t const n = _indexes.size();
 
@@ -2568,7 +2568,7 @@ int MMFilesCollection::lockWrite(bool useDeadlockDetector,
   double startTime = 0.0;
 
   while (true) {
-    TRY_WRITE_LOCKER(locker, _dataLock);
+    TRY_WRITE_LOCKER(locker, _dataLock, this);
 
     if (locker.isLocked()) {
       // register writer
@@ -3097,7 +3097,7 @@ Result MMFilesCollection::persistLocalDocumentIds() {
     return Result();
   }
 
-  WRITE_LOCKER(dataLocker, _dataLock);
+  WRITE_LOCKER(dataLocker, _dataLock, this);
   TRI_ASSERT(_compactors.empty());
 
   // convert journal to datafile first

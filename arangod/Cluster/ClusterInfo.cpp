@@ -857,7 +857,7 @@ void ClusterInfo::loadPlan() {
         }
       }
 
-      WRITE_LOCKER(writeLocker, _planProt.lock);
+      WRITE_LOCKER(writeLocker, _planProt.lock, this);
       _plan = planBuilder;
       _planVersion = newPlanVersion;
       if (swapDatabases) {
@@ -1004,7 +1004,7 @@ void ClusterInfo::loadCurrent() {
       }
 
       // Now set the new value:
-      WRITE_LOCKER(writeLocker, _currentProt.lock);
+      WRITE_LOCKER(writeLocker, _currentProt.lock, this);
       _current = currentBuilder;
       _currentVersion = newCurrentVersion;
       if (swapDatabases) {
@@ -2944,7 +2944,7 @@ void ClusterInfo::loadServers() {
 
       // Now set the new value:
       {
-        WRITE_LOCKER(writeLocker, _serversProt.lock);
+        WRITE_LOCKER(writeLocker, _serversProt.lock, this);
         _servers.swap(newServers);
         _serverAliases.swap(newAliases);
         _serverAdvertisedEndpoints.swap(newAdvertisedEndpoints);
@@ -3132,7 +3132,7 @@ void ClusterInfo::loadCurrentCoordinators() {
 
       // Now set the new value:
       {
-        WRITE_LOCKER(writeLocker, _coordinatorsProt.lock);
+        WRITE_LOCKER(writeLocker, _coordinatorsProt.lock, this);
         _coordinators.swap(newCoordinators);
         _coordinatorsProt.doneVersion = storedVersion;
         _coordinatorsProt.isValid = true;
@@ -3189,7 +3189,7 @@ void ClusterInfo::loadCurrentMappings() {
 
       // Now set the new value:
       {
-        WRITE_LOCKER(writeLocker, _mappingsProt.lock);
+        WRITE_LOCKER(writeLocker, _mappingsProt.lock, this);
         _coordinatorIdMap.swap(newCoordinatorIdMap);
         _mappingsProt.doneVersion = storedVersion;
         _mappingsProt.isValid = true;
@@ -3294,7 +3294,7 @@ void ClusterInfo::loadCurrentDBServers() {
 
       // Now set the new value:
       {
-        WRITE_LOCKER(writeLocker, _DBServersProt.lock);
+        WRITE_LOCKER(writeLocker, _DBServersProt.lock, this);
         _DBServers.swap(newDBServers);
         _DBServersProt.doneVersion = storedVersion;
         _DBServersProt.isValid = true;
@@ -3463,7 +3463,7 @@ ServerID ClusterInfo::getCoordinatorByShortID(ServerShortID shortId) {
 
 void ClusterInfo::invalidatePlan() {
   {
-    WRITE_LOCKER(writeLocker, _planProt.lock);
+    WRITE_LOCKER(writeLocker, _planProt.lock, this);
     _planProt.isValid = false;
   }
 }
@@ -3474,7 +3474,7 @@ void ClusterInfo::invalidatePlan() {
 
 void ClusterInfo::invalidateCurrentCoordinators() {
   {
-    WRITE_LOCKER(writeLocker, _coordinatorsProt.lock);
+    WRITE_LOCKER(writeLocker, _coordinatorsProt.lock, this);
     _coordinatorsProt.isValid = false;
   }
 }
@@ -3485,7 +3485,7 @@ void ClusterInfo::invalidateCurrentCoordinators() {
 
 void ClusterInfo::invalidateCurrentMappings() {
   {
-    WRITE_LOCKER(writeLocker, _mappingsProt.lock);
+    WRITE_LOCKER(writeLocker, _mappingsProt.lock, this);
     _mappingsProt.isValid = false;
   }
 }
@@ -3496,15 +3496,15 @@ void ClusterInfo::invalidateCurrentMappings() {
 
 void ClusterInfo::invalidateCurrent() {
   {
-    WRITE_LOCKER(writeLocker, _serversProt.lock);
+    WRITE_LOCKER(writeLocker, _serversProt.lock, this);
     _serversProt.isValid = false;
   }
   {
-    WRITE_LOCKER(writeLocker, _DBServersProt.lock);
+    WRITE_LOCKER(writeLocker, _DBServersProt.lock, this);
     _DBServersProt.isValid = false;
   }
   {
-    WRITE_LOCKER(writeLocker, _currentProt.lock);
+    WRITE_LOCKER(writeLocker, _currentProt.lock, this);
     _currentProt.isValid = false;
   }
   invalidateCurrentCoordinators();

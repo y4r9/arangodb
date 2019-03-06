@@ -113,18 +113,18 @@ void FlushFeature::stop() {
 }
 
 void FlushFeature::unprepare() {
-  WRITE_LOCKER(locker, _callbacksLock);
+  WRITE_LOCKER(locker, _callbacksLock, this);
   _callbacks.clear();
 }
 
 void FlushFeature::registerCallback(void* ptr, FlushFeature::FlushCallback const& cb) {
-  WRITE_LOCKER(locker, _callbacksLock);
+  WRITE_LOCKER(locker, _callbacksLock, this);
   _callbacks.emplace(ptr, std::move(cb));
   LOG_TOPIC(TRACE, arangodb::Logger::FLUSH) << "registered new flush callback";
 }
 
 bool FlushFeature::unregisterCallback(void* ptr) {
-  WRITE_LOCKER(locker, _callbacksLock);
+  WRITE_LOCKER(locker, _callbacksLock, this);
 
   auto it = _callbacks.find(ptr);
   if (it == _callbacks.end()) {

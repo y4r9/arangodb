@@ -360,7 +360,7 @@ bool MMFilesLogfileManager::open() {
 
   {
     // set every open logfile to a status of sealed
-    WRITE_LOCKER(writeLocker, _logfilesLock);
+    WRITE_LOCKER(writeLocker, _logfilesLock, this);
 
     for (auto& it : _logfiles) {
       MMFilesWalLogfile* logfile = it.second;
@@ -529,7 +529,7 @@ void MMFilesLogfileManager::unprepare() {
   }
 
   {
-    WRITE_LOCKER(locker, _collectorThreadLock);
+    WRITE_LOCKER(locker, _collectorThreadLock, this);
 
     if (_collectorThread != nullptr) {
       LOG_TOPIC(TRACE, arangodb::Logger::ENGINES)
@@ -965,7 +965,7 @@ bool MMFilesLogfileManager::waitForSync(double maxWait) {
 void MMFilesLogfileManager::relinkLogfile(MMFilesWalLogfile* logfile) {
   MMFilesWalLogfile::IdType const id = logfile->id();
 
-  WRITE_LOCKER(writeLocker, _logfilesLock);
+  WRITE_LOCKER(writeLocker, _logfilesLock, this);
   _logfiles.emplace(id, logfile);
 }
 
@@ -992,7 +992,7 @@ bool MMFilesLogfileManager::removeLogfiles() {
 void MMFilesLogfileManager::setLogfileOpen(MMFilesWalLogfile* logfile) {
   TRI_ASSERT(logfile != nullptr);
 
-  WRITE_LOCKER(writeLocker, _logfilesLock);
+  WRITE_LOCKER(writeLocker, _logfilesLock, this);
   logfile->setStatus(MMFilesWalLogfile::StatusType::OPEN);
 }
 
@@ -1001,7 +1001,7 @@ void MMFilesLogfileManager::setLogfileSealRequested(MMFilesWalLogfile* logfile) 
   TRI_ASSERT(logfile != nullptr);
 
   {
-    WRITE_LOCKER(writeLocker, _logfilesLock);
+    WRITE_LOCKER(writeLocker, _logfilesLock, this);
     logfile->setStatus(MMFilesWalLogfile::StatusType::SEAL_REQUESTED);
   }
 
@@ -1018,7 +1018,7 @@ void MMFilesLogfileManager::setLogfileSealed(MMFilesWalLogfile* logfile) {
 // sets the status of a logfile to sealed
 void MMFilesLogfileManager::setLogfileSealed(MMFilesWalLogfile::IdType id) {
   {
-    WRITE_LOCKER(writeLocker, _logfilesLock);
+    WRITE_LOCKER(writeLocker, _logfilesLock, this);
 
     auto it = _logfiles.find(id);
 
@@ -1077,7 +1077,7 @@ void MMFilesLogfileManager::getActiveLogfileRegion(MMFilesWalLogfile* logfile,
 void MMFilesLogfileManager::collectLogfileBarriers() {
   auto now = TRI_microtime();
 
-  WRITE_LOCKER(barrierLock, _barriersLock);
+  WRITE_LOCKER(barrierLock, _barriersLock, this);
 
   for (auto it = _barriers.begin(); it != _barriers.end(); /* no hoisting */) {
     auto logfileBarrier = (*it).second;
@@ -1096,7 +1096,7 @@ void MMFilesLogfileManager::collectLogfileBarriers() {
 
 // drop barriers for a specific database
 void MMFilesLogfileManager::dropLogfileBarriers(TRI_voc_tick_t databaseId) {
-  WRITE_LOCKER(barrierLock, _barriersLock);
+  WRITE_LOCKER(barrierLock, _barriersLock, this);
 
   for (auto it = _barriers.begin(); it != _barriers.end(); /* no hoisting */) {
     auto logfileBarrier = (*it).second;
@@ -1131,7 +1131,7 @@ bool MMFilesLogfileManager::removeLogfileBarrier(TRI_voc_tick_t id) {
   LogfileBarrier* logfileBarrier = nullptr;
 
   {
-    WRITE_LOCKER(barrierLock, _barriersLock);
+    WRITE_LOCKER(barrierLock, _barriersLock, this);
 
     auto it = _barriers.find(id);
 
@@ -1163,7 +1163,7 @@ TRI_voc_tick_t MMFilesLogfileManager::addLogfileBarrier(TRI_voc_tick_t databaseI
       << "adding WAL logfile barrier " << logfileBarrier->id << ", minTick: " << minTick;
 
   {
-    WRITE_LOCKER(barrierLock, _barriersLock);
+    WRITE_LOCKER(barrierLock, _barriersLock, this);
     _barriers.emplace(id, logfileBarrier.get());
   }
 
@@ -1175,7 +1175,7 @@ TRI_voc_tick_t MMFilesLogfileManager::addLogfileBarrier(TRI_voc_tick_t databaseI
 // extend the lifetime of a logfile barrier
 bool MMFilesLogfileManager::extendLogfileBarrier(TRI_voc_tick_t id, double ttl,
                                                  TRI_voc_tick_t tick) {
-  WRITE_LOCKER(barrierLock, _barriersLock);
+  WRITE_LOCKER(barrierLock, _barriersLock, this);
 
   auto it = _barriers.find(id);
 
@@ -1338,7 +1338,7 @@ int MMFilesLogfileManager::getWriteableLogfile(uint32_t size,
 
   while (true) {
     {
-      WRITE_LOCKER(writeLocker, _logfilesLock);
+      WRITE_LOCKER(writeLocker, _logfilesLock, this);
       auto it = _logfiles.begin();
 
       while (it != _logfiles.end()) {
@@ -1491,7 +1491,7 @@ MMFilesWalLogfile* MMFilesLogfileManager::getRemovableLogfile() {
     uint32_t const minHistoricLogfiles = historicLogfiles();
     MMFilesWalLogfile* first = nullptr;
 
-    WRITE_LOCKER(writeLocker, _logfilesLock);
+    WRITE_LOCKER(writeLocker, _logfilesLock, this);
 
     for (auto& it : _logfiles) {
       MMFilesWalLogfile* logfile = it.second;
@@ -1542,7 +1542,7 @@ void MMFilesLogfileManager::setCollectionRequested(MMFilesWalLogfile* logfile) {
   TRI_ASSERT(logfile != nullptr);
 
   {
-    WRITE_LOCKER(writeLocker, _logfilesLock);
+    WRITE_LOCKER(writeLocker, _logfilesLock, this);
 
     if (logfile->status() == MMFilesWalLogfile::StatusType::COLLECTION_REQUESTED) {
       // the collector already asked for this file, but couldn't process it
@@ -1572,7 +1572,7 @@ void MMFilesLogfileManager::setCollectionDone(MMFilesWalLogfile* logfile) {
 
   // LOG_TOPIC(ERR, arangodb::Logger::ENGINES) << "setCollectionDone setting lastCollectedId to " << id
   {
-    WRITE_LOCKER(writeLocker, _logfilesLock);
+    WRITE_LOCKER(writeLocker, _logfilesLock, this);
     logfile->setStatus(MMFilesWalLogfile::StatusType::COLLECTED);
 
     if (_useMLock) {
@@ -1603,7 +1603,7 @@ void MMFilesLogfileManager::forceStatus(MMFilesWalLogfile* logfile,
   TRI_ASSERT(logfile != nullptr);
 
   {
-    WRITE_LOCKER(writeLocker, _logfilesLock);
+    WRITE_LOCKER(writeLocker, _logfilesLock, this);
     logfile->forceStatus(status);
   }
 }
@@ -1865,7 +1865,7 @@ int MMFilesLogfileManager::runRecovery() {
 
 // closes all logfiles
 void MMFilesLogfileManager::closeLogfiles() {
-  WRITE_LOCKER(writeLocker, _logfilesLock);
+  WRITE_LOCKER(writeLocker, _logfilesLock, this);
 
   for (auto& it : _logfiles) {
     MMFilesWalLogfile* logfile = it.second;
@@ -2056,7 +2056,7 @@ void MMFilesLogfileManager::stopMMFilesAllocatorThread() {
 
 // start the collector thread
 int MMFilesLogfileManager::startMMFilesCollectorThread() {
-  WRITE_LOCKER(locker, _collectorThreadLock);
+  WRITE_LOCKER(locker, _collectorThreadLock, this);
 
   _collectorThread = new MMFilesCollectorThread(this);
 
@@ -2163,7 +2163,7 @@ int MMFilesLogfileManager::inventory() {
         // update global tick
         TRI_UpdateTickServer(static_cast<TRI_voc_tick_t>(id));
 
-        WRITE_LOCKER(writeLocker, _logfilesLock);
+        WRITE_LOCKER(writeLocker, _logfilesLock, this);
         _logfiles.emplace(id, nullptr);
       }
     }
@@ -2176,7 +2176,7 @@ int MMFilesLogfileManager::inventory() {
 int MMFilesLogfileManager::inspectLogfiles() {
   LOG_TOPIC(TRACE, arangodb::Logger::ENGINES) << "inspecting WAL logfiles";
 
-  WRITE_LOCKER(writeLocker, _logfilesLock);
+  WRITE_LOCKER(writeLocker, _logfilesLock, this);
 
 #ifdef ARANGODB_ENABLE_MAINTAINER_MODE
   // print an inventory
@@ -2327,7 +2327,7 @@ int MMFilesLogfileManager::createReserveLogfile(uint32_t size) {
   }
 
   {
-    WRITE_LOCKER(writeLocker, _logfilesLock);
+    WRITE_LOCKER(writeLocker, _logfilesLock, this);
     _logfiles.emplace(id, logfile.get());
   }
   logfile.release();

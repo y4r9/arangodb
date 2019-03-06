@@ -2830,7 +2830,7 @@ void RestReplicationHandler::timeoutTombstones() const {
     // nothing todo
     return;
   }
-  WRITE_LOCKER(writeLocker, RestReplicationHandler::_tombLock);
+  WRITE_LOCKER(writeLocker, RestReplicationHandler::_tombLock, this);
   for (auto const& it : toDelete) {
     try {
       RestReplicationHandler::_tombstones.erase(it);
@@ -2851,7 +2851,7 @@ bool RestReplicationHandler::isTombstoned(aql::QueryId id) const {
   }
   if (!isDead) {
     // Clear Tombstone
-    WRITE_LOCKER(writeLocker, RestReplicationHandler::_tombLock);
+    WRITE_LOCKER(writeLocker, RestReplicationHandler::_tombLock, this);
     try {
       RestReplicationHandler::_tombstones.erase(key);
     } catch (...) {
@@ -2865,7 +2865,7 @@ bool RestReplicationHandler::isTombstoned(aql::QueryId id) const {
 void RestReplicationHandler::registerTombstone(aql::QueryId id) const {
   std::string key = IdToTombstoneKey(_vocbase, id);
   {
-    WRITE_LOCKER(writeLocker, RestReplicationHandler::_tombLock);
+    WRITE_LOCKER(writeLocker, RestReplicationHandler::_tombLock, this);
     RestReplicationHandler::_tombstones.emplace(key, std::chrono::steady_clock::now() +
                                                          RestReplicationHandler::_tombstoneTimeout);
   }

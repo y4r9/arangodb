@@ -378,7 +378,7 @@ priv_rpc_ret_t Agent::recvAppendEntriesRPC(term_t term, std::string const& leade
           << "Finished empty AppendEntriesRPC from " << leaderId
           << " with term " << term;
       {
-        WRITE_LOCKER(oLocker, _outputLock);
+        WRITE_LOCKER(oLocker, _outputLock, this);
         _commitIndex = std::max(_commitIndex, std::min(leaderCommitIndex, lastIndex));
       }
       return priv_rpc_ret_t(true, t);
@@ -402,7 +402,7 @@ priv_rpc_ret_t Agent::recvAppendEntriesRPC(term_t term, std::string const& leade
   }
 
   {
-    WRITE_LOCKER(oLocker, _outputLock);
+    WRITE_LOCKER(oLocker, _outputLock, this);
     CONDITION_LOCKER(guard, _waitForCV);
     _commitIndex = std::max(_commitIndex, std::min(leaderCommitIndex, lastIndex));
     _waitForCV.broadcast();
@@ -735,7 +735,7 @@ void Agent::advanceCommitIndex() {
 
   term_t t = _constituent.term();
   {
-    WRITE_LOCKER(oLocker, _outputLock);
+    WRITE_LOCKER(oLocker, _outputLock, this);
     if (index > _commitIndex) {
       CONDITION_LOCKER(guard, _waitForCV);
       LOG_TOPIC(TRACE, Logger::AGENCY)
@@ -1510,7 +1510,7 @@ void Agent::rebuildDBs() {
 
   _tiLock.assertNotLockedByCurrentThread();
   MUTEX_LOCKER(ioLocker, _ioLock);
-  WRITE_LOCKER(oLocker, _outputLock);
+  WRITE_LOCKER(oLocker, _outputLock, this);
   CONDITION_LOCKER(guard, _waitForCV);
 
   index_t lastCompactionIndex;
@@ -1622,7 +1622,7 @@ void Agent::executeLockedRead(std::function<void()> const& cb) {
 void Agent::executeLockedWrite(std::function<void()> const& cb) {
   _tiLock.assertNotLockedByCurrentThread();
   MUTEX_LOCKER(ioLocker, _ioLock);
-  WRITE_LOCKER(oLocker, _outputLock);
+  WRITE_LOCKER(oLocker, _outputLock, this);
   CONDITION_LOCKER(guard, _waitForCV);
   cb();
 }
@@ -1643,7 +1643,7 @@ void Agent::setPersistedState(VPackSlice const& compaction) {
 
   // Catch up with commit
   try {
-    WRITE_LOCKER(oLocker, _outputLock);
+    WRITE_LOCKER(oLocker, _outputLock, this);
     CONDITION_LOCKER(guard, _waitForCV);
     _readDB = compaction.get("readDB");
     _commitIndex =

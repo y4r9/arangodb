@@ -250,7 +250,7 @@ void RocksDBCollection::open(bool /*ignoreErrors*/) {
 }
 
 void RocksDBCollection::prepareIndexes(arangodb::velocypack::Slice indexesSlice) {
-  WRITE_LOCKER(guard, _indexesLock);
+  WRITE_LOCKER(guard, _indexesLock, this);
   TRI_ASSERT(indexesSlice.isArray());
 
   StorageEngine* engine = EngineSelectorFeature::ENGINE;
@@ -379,7 +379,7 @@ std::shared_ptr<Index> RocksDBCollection::createIndex(arangodb::velocypack::Slic
   // Until here no harm is done if something fails. The shared_ptr will
   // clean up, if left before
   {
-    WRITE_LOCKER(guard, _indexesLock);
+    WRITE_LOCKER(guard, _indexesLock, this);
     addIndex(idx);
   }
 
@@ -399,7 +399,7 @@ std::shared_ptr<Index> RocksDBCollection::createIndex(arangodb::velocypack::Slic
     // We could not persist the index creation. Better abort
     // Remove the Index in the local list again.
     size_t i = 0;
-    WRITE_LOCKER(guard, _indexesLock);
+    WRITE_LOCKER(guard, _indexesLock, this);
     for (auto index : _indexes) {
       if (index == idx) {
         _indexes.erase(_indexes.begin() + i);
@@ -430,7 +430,7 @@ bool RocksDBCollection::dropIndex(TRI_idx_iid_t iid) {
   }
 
   size_t i = 0;
-  WRITE_LOCKER(guard, _indexesLock);
+  WRITE_LOCKER(guard, _indexesLock, this);
   for (std::shared_ptr<Index> index : _indexes) {
     RocksDBIndex* cindex = static_cast<RocksDBIndex*>(index.get());
     TRI_ASSERT(cindex != nullptr);
@@ -1568,7 +1568,7 @@ int RocksDBCollection::lockWrite(double timeout) {
   double startTime = 0.0;
 
   while (true) {
-    TRY_WRITE_LOCKER(locker, _exclusiveLock);
+    TRY_WRITE_LOCKER(locker, _exclusiveLock, this);
 
     if (locker.isLocked()) {
       // keep lock and exit loop

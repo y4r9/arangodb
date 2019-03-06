@@ -66,7 +66,7 @@ TRI_action_t* TRI_DefineActionVocBase(std::string const& name, TRI_action_t* act
 
   std::unordered_map<std::string, TRI_action_t*>* which;
 
-  WRITE_LOCKER(writeLocker, ActionsLock);
+  WRITE_LOCKER(writeLocker, ActionsLock, which);
 
   // create a new action and store the callback function
   if (action->_isPrefix) {
@@ -141,7 +141,7 @@ TRI_action_t* TRI_LookupActionVocBase(arangodb::GeneralRequest* request) {
 ////////////////////////////////////////////////////////////////////////////////
 
 void TRI_CleanupActions() {
-  WRITE_LOCKER(writeLocker, ActionsLock);
+  WRITE_LOCKER(writeLocker, ActionsLock, (void*) 0x567);
 
   for (auto& it : Actions) {
     delete it.second;

@@ -1211,7 +1211,7 @@ arangodb::Result RocksDBEngine::dropCollection(TRI_vocbase_t& vocbase,
 
   // remove from map
   {
-    WRITE_LOCKER(guard, _mapLock);
+    WRITE_LOCKER(guard, _mapLock, this);
     _collectionMap.erase(coll->objectId());
   }
 
@@ -1451,7 +1451,7 @@ void RocksDBEngine::addRestHandlers(rest::RestHandlerFactory& handlerFactory) {
 void RocksDBEngine::addCollectionMapping(uint64_t objectId, TRI_voc_tick_t did,
                                          TRI_voc_cid_t cid) {
   if (objectId != 0) {
-    WRITE_LOCKER(guard, _mapLock);
+    WRITE_LOCKER(guard, _mapLock, this);
 #ifdef ARANGODB_ENABLE_MAINTAINER_MODE
     auto it = _collectionMap.find(objectId);
     if (it != _collectionMap.end()) {
@@ -1475,7 +1475,7 @@ std::vector<std::pair<TRI_voc_tick_t, TRI_voc_cid_t>> RocksDBEngine::collectionM
 void RocksDBEngine::addIndexMapping(uint64_t objectId, TRI_voc_tick_t did,
                                     TRI_voc_cid_t cid, TRI_idx_iid_t iid) {
   if (objectId != 0) {
-    WRITE_LOCKER(guard, _mapLock);
+    WRITE_LOCKER(guard, _mapLock, this);
 #ifdef ARANGODB_ENABLE_MAINTAINER_MODE
     auto it = _indexMap.find(objectId);
     if (it != _indexMap.end()) {
@@ -1490,7 +1490,7 @@ void RocksDBEngine::addIndexMapping(uint64_t objectId, TRI_voc_tick_t did,
 
 void RocksDBEngine::removeIndexMapping(uint64_t objectId) {
   if (objectId != 0) {
-    WRITE_LOCKER(guard, _mapLock);
+    WRITE_LOCKER(guard, _mapLock, this);
     _indexMap.erase(objectId);
   }
 }
@@ -1584,7 +1584,7 @@ std::vector<std::shared_ptr<RocksDBRecoveryHelper>> const& RocksDBEngine::recove
 }
 
 void RocksDBEngine::determinePrunableWalFiles(TRI_voc_tick_t minTickExternal) {
-  WRITE_LOCKER(lock, _walFileLock);
+  WRITE_LOCKER(lock, _walFileLock, this);
   rocksdb::VectorLogPtr files;
 
   TRI_voc_tick_t minTickToKeep = std::min(_releasedTick, minTickExternal);
@@ -1622,7 +1622,7 @@ void RocksDBEngine::determinePrunableWalFiles(TRI_voc_tick_t minTickExternal) {
 }
 
 void RocksDBEngine::pruneWalFiles() {
-  WRITE_LOCKER(lock, _walFileLock);
+  WRITE_LOCKER(lock, _walFileLock, this);
 
   // go through the map of WAL files that we have already and check if they are
   // "expired"
@@ -2175,7 +2175,7 @@ TRI_voc_tick_t RocksDBEngine::releasedTick() const {
 }
 
 void RocksDBEngine::releaseTick(TRI_voc_tick_t tick) {
-  WRITE_LOCKER(lock, _walFileLock);
+  WRITE_LOCKER(lock, _walFileLock, this);
   if (tick > _releasedTick) {
     _releasedTick = tick;
   }

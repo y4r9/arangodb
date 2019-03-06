@@ -908,7 +908,7 @@ class KeySpace {
   v8::Handle<v8::Value> keyspaceRemove(v8::Isolate* isolate) {
     v8::EscapableHandleScope scope(isolate);
 
-    WRITE_LOCKER(writeLocker, _lock);
+    WRITE_LOCKER(writeLocker, _lock, this);
     uint32_t deleted = 0;
 
     for (auto& it : _hash) {
@@ -926,7 +926,7 @@ class KeySpace {
 
   v8::Handle<v8::Value> keyspaceRemove(v8::Isolate* isolate, std::string const& prefix) {
     v8::EscapableHandleScope scope(isolate);
-    WRITE_LOCKER(writeLocker, _lock);
+    WRITE_LOCKER(writeLocker, _lock, this);
 
     uint32_t deleted = 0;
 
@@ -1076,7 +1076,7 @@ class KeySpace {
     auto element = new KeySpaceElement(key.c_str(), key.size(),
                                        TRI_ObjectToJson(isolate, value));
     {
-      WRITE_LOCKER(writeLocker, _lock);
+      WRITE_LOCKER(writeLocker, _lock, this);
 
       if (replace) {
         // delete previous entry
@@ -1107,7 +1107,7 @@ class KeySpace {
     }
     auto element = std::make_unique<KeySpaceElement>(key.c_str(), key.size(), json);
     {
-      WRITE_LOCKER(writeLocker, _lock);
+      WRITE_LOCKER(writeLocker, _lock, this);
       auto it = _hash.find(key);
       if (it != _hash.end()) {
         it->second->json->_value._number = val;
@@ -1129,7 +1129,7 @@ class KeySpace {
     auto element = new KeySpaceElement(key.c_str(), key.size(),
                                        TRI_ObjectToJson(isolate, value));
 
-    WRITE_LOCKER(writeLocker, _lock);
+    WRITE_LOCKER(writeLocker, _lock, this);
 
     auto it = _hash.emplace(key, element);
     if (it.second) {
@@ -1187,7 +1187,7 @@ class KeySpace {
     KeySpaceElement* found = nullptr;
 
     {
-      WRITE_LOCKER(writeLocker, _lock);
+      WRITE_LOCKER(writeLocker, _lock, this);
 
       auto it = _hash.find(key);
       if (it != _hash.end()) {
@@ -1211,7 +1211,7 @@ class KeySpace {
   }
 
   int keyIncr(std::string const& key, double value, double& result) {
-    WRITE_LOCKER(writeLocker, _lock);
+    WRITE_LOCKER(writeLocker, _lock, this);
 
     KeySpaceElement* found = nullptr;
     auto it = _hash.find(key);
@@ -1240,7 +1240,7 @@ class KeySpace {
 
   int keyPush(v8::Isolate* isolate, std::string const& key,
               v8::Handle<v8::Value> const& value) {
-    WRITE_LOCKER(writeLocker, _lock);
+    WRITE_LOCKER(writeLocker, _lock, this);
 
     KeySpaceElement* found = nullptr;
     auto it = _hash.find(key);
@@ -1281,7 +1281,7 @@ class KeySpace {
   void keyPop(v8::FunctionCallbackInfo<v8::Value> const& args, std::string const& key) {
     v8::Isolate* isolate = args.GetIsolate();
     v8::HandleScope scope(isolate);
-    WRITE_LOCKER(writeLocker, _lock);
+    WRITE_LOCKER(writeLocker, _lock, this);
 
     KeySpaceElement* found = nullptr;
     auto it = _hash.find(key);
@@ -1322,7 +1322,7 @@ class KeySpace {
     v8::Isolate* isolate = args.GetIsolate();
     v8::HandleScope scope(isolate);
 
-    WRITE_LOCKER(writeLocker, _lock);
+    WRITE_LOCKER(writeLocker, _lock, this);
 
     KeySpaceElement* source = nullptr;
     auto it = _hash.find(keyFrom);
@@ -1466,7 +1466,7 @@ class KeySpace {
 
   bool keySetAt(v8::Isolate* isolate, std::string const& key, int64_t index,
                 v8::Handle<v8::Value> const& value) {
-    WRITE_LOCKER(writeLocker, _lock);
+    WRITE_LOCKER(writeLocker, _lock, this);
 
     auto it = _hash.find(key);
 
@@ -1549,7 +1549,7 @@ class KeySpace {
       TRI_V8_THROW_EXCEPTION(TRI_ERROR_INTERNAL);
     }
 
-    WRITE_LOCKER(writeLocker, _lock);
+    WRITE_LOCKER(writeLocker, _lock, this);
 
     auto it = _hash.find(key);
     if (it == _hash.end()) {
@@ -1657,7 +1657,7 @@ static void JS_KeyspaceCreate(v8::FunctionCallbackInfo<v8::Value> const& args) {
   auto h = &(static_cast<UserStructures*>(vocbase._userStructures)->hashes);
 
   {
-    WRITE_LOCKER(writeLocker, h->lock);
+    WRITE_LOCKER(writeLocker, h->lock, &ptr);
     auto hash = GetKeySpace(&vocbase, name);
 
     if (hash != nullptr) {
@@ -1697,7 +1697,7 @@ static void JS_KeyspaceDrop(v8::FunctionCallbackInfo<v8::Value> const& args) {
   auto h = &(static_cast<UserStructures*>(vocbase._userStructures)->hashes);
 
   {
-    WRITE_LOCKER(writeLocker, h->lock);
+    WRITE_LOCKER(writeLocker, h->lock, &vocbase);
     auto it = h->data.find(name);
 
     if (it == h->data.end()) {
