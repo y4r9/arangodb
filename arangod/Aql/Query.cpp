@@ -401,6 +401,9 @@ void Query::prepare(QueryRegistry* registry) {
 
   TRI_ASSERT(_engine == nullptr);
   TRI_ASSERT(_trx != nullptr);
+
+  enterState(QueryExecutionState::ValueType::PLAN_INSTANTIATION);
+
   // note that the engine returned here may already be present in our
   // own _engine attribute (the instanciation procedure may modify us
   // by calling our engine(ExecutionEngine*) function
