@@ -202,24 +202,23 @@ std::pair<ExecutionState, Result> TraversalBlock::shutdown(int errorCode) {
       std::string const url(
           "/_db/" + arangodb::basics::StringUtils::urlEncode(_trx->vocbase().name()) +
           "/_internal/traverser/");
-
+      // Shutdown of engines does not require any specific order, so we send async requests
+      std::vector<ClusterCommRequest> requests;
       for (auto const& it : *_engines) {
-        arangodb::CoordTransactionID coordTransactionID = TRI_NewTickServer();
-        std::unordered_map<std::string, std::string> headers;
-        auto res = cc->syncRequest("", coordTransactionID, "server:" + it.first,
-                                   RequestType::DELETE_REQ,
-                                   url + arangodb::basics::StringUtils::itoa(it.second),
-                                   "", headers, 30.0);
-
-        if (res->status != CL_COMM_SENT) {
-          // Note If there was an error on server side we do not have CL_COMM_SENT
-          std::string message("Could not destroy all traversal engines");
-
-          if (!res->errorMessage.empty()) {
-            message += std::string(": ") + res->errorMessage;
+        requests.emplace_back("server:" + it.first, RequestType::DELETE_REQ,
+                              url + arangodb::basics::StringUtils::itoa(it.second),
+                              ClusterCommRequest::sharedNoBody);
+      }
+      size_t nrDone = 0;
+      size_t nrGood = cc->performRequests(requests, 30.0, nrDone, Logger::AQL, false);
+      if (nrGood != requests.size()) {
+        for (auto const& req : requests) {
+          auto& res = req.result;
+          if (res.errorCode != TRI_ERROR_NO_ERROR) {
+            LOG_TOPIC(ERR, arangodb::Logger::AQL)
+                << "Could not destroy all traversal engines: "
+                << res.stringifyErrorMessage();
           }
-
-          LOG_TOPIC(ERR, arangodb::Logger::FIXME) << message;
         }
       }
     }
