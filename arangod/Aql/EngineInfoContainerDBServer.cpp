@@ -45,6 +45,10 @@
 #include "IResearch/IResearchViewNode.h"
 #endif
 
+
+#include "StorageEngine/EngineSelectorFeature.h"
+#include "ClusterEngine/ClusterEngine.h"
+
 using namespace arangodb;
 using namespace arangodb::aql;
 
@@ -942,94 +946,133 @@ Result EngineInfoContainerDBServer::buildEngines(MapRemoteToSnippet& queryIds,
     cleanupEngines(cc, TRI_ERROR_INTERNAL, _query->vocbase().name(), queryIds);
   });
 
-  std::unordered_map<std::string, std::string> headers;
-  // Build Lookup Infos
-  VPackBuilder infoBuilder;
+  ClusterEngine* ce = static_cast<ClusterEngine*>(EngineSelectorFeature::ENGINE);
+  TRI_ASSERT(ce != nullptr);
+  if (!ce->isRocksDB()) {
+    std::unordered_map<std::string, std::string> headers;
+    // Build Lookup Infos
+    VPackBuilder infoBuilder;
 
-  // we need to lock per server in a deterministic order to avoid deadlocks
-  for (auto& it : dbServerMapping) {
-    std::string const serverDest = "server:" + it.first;
+    // we need to lock per server in a deterministic order to avoid deadlocks
+    for (auto& it : dbServerMapping) {
+      std::string const serverDest = "server:" + it.first;
 
-    LOG_TOPIC(DEBUG, arangodb::Logger::AQL) << "Building Engine Info for " << it.first;
-    infoBuilder.clear();
-    it.second.buildMessage(it.first, *this, *_query, infoBuilder);
-    LOG_TOPIC(DEBUG, arangodb::Logger::AQL)
-        << "Sending the Engine info: " << infoBuilder.toJson();
+      LOG_TOPIC(DEBUG, arangodb::Logger::AQL) << "Building Engine Info for " << it.first;
+      infoBuilder.clear();
+      it.second.buildMessage(it.first, *this, *_query, infoBuilder);
+      LOG_TOPIC(DEBUG, arangodb::Logger::AQL)
+          << "Sending the Engine info: " << infoBuilder.toJson();
 
-    // Now we send to DBServers.
-    // We expect a body with {snippets: {id => engineId}, traverserEngines:
-    // [engineId]}}
+      // Now we send to DBServers.
+      // We expect a body with {snippets: {id => engineId}, traverserEngines: [engineId]}
 
-    CoordTransactionID coordTransactionID = TRI_NewTickServer();
-    auto res = cc->syncRequest("", coordTransactionID, serverDest, RequestType::POST,
-                               url, infoBuilder.toJson(), headers, SETUP_TIMEOUT);
-
-    if (res->getErrorCode() != TRI_ERROR_NO_ERROR) {
-      LOG_TOPIC(DEBUG, Logger::AQL)
-          << it.first << " responded with " << res->getErrorCode() << " -> "
-          << res->stringifyErrorMessage();
-      LOG_TOPIC(TRACE, Logger::AQL) << infoBuilder.toJson();
-      return {res->getErrorCode(), res->stringifyErrorMessage()};
-    }
-
-    std::shared_ptr<VPackBuilder> builder = res->result->getBodyVelocyPack();
-    VPackSlice response = builder->slice();
-
-    if (!response.isObject() || !response.get("result").isObject()) {
-      LOG_TOPIC(ERR, Logger::AQL) << "Received error information from "
-                                  << it.first << " : " << response.toJson();
-      return {TRI_ERROR_CLUSTER_AQL_COMMUNICATION,
-              "Unable to deploy query on all required "
-              "servers. This can happen during "
-              "failover. Please check: " +
-                  it.first};
-    }
-
-    VPackSlice result = response.get("result");
-    VPackSlice snippets = result.get("snippets");
-
-    for (auto const& resEntry : VPackObjectIterator(snippets)) {
-      if (!resEntry.value.isString()) {
-        return {TRI_ERROR_CLUSTER_AQL_COMMUNICATION,
-                "Unable to deploy query on all required "
-                "servers. This can happen during "
-                "failover. Please check: " +
-                    it.first};
+      CoordTransactionID coordTransactionID = TRI_NewTickServer();
+      auto res = cc->syncRequest("", coordTransactionID, serverDest, RequestType::POST,
+                                 url, infoBuilder.toJson(), headers, SETUP_TIMEOUT);
+      Result commRes = handleResponse(res.get(), it.first, it.second, queryIds);
+      if (commRes.fail()) {
+        return commRes;
       }
-      size_t remoteId = 0;
-      std::string shardId = "";
-      auto res = ExtractRemoteAndShard(resEntry.key, remoteId, shardId);
-      if (!res.ok()) {
-        // FIXME in case if that fails, there will
-        // be a segfault somewhere in 'cleanup'
-        return res;
-      }
-      TRI_ASSERT(remoteId != 0);
-      TRI_ASSERT(!shardId.empty());
-      auto& remote = queryIds[remoteId];
-      auto& thisServer = remote[serverDest];
-      thisServer.emplace_back(resEntry.value.copyString());
     }
-
-    VPackSlice travEngines = result.get("traverserEngines");
-    if (!travEngines.isNone()) {
-      if (!travEngines.isArray()) {
-        return {TRI_ERROR_CLUSTER_AQL_COMMUNICATION,
-                "Unable to deploy query on all required "
-                "servers. This can happen during "
-                "failover. Please check: " +
-                    it.first};
+  } else {
+    std::vector<ClusterCommRequest> requests;
+    // Build Lookup Infos
+    VPackBuilder infoBuilder;
+    // we can lock in arbitrary order
+    for (auto& it : dbServerMapping) {
+      std::string const serverDest = "server:" + it.first;
+      LOG_TOPIC(DEBUG, arangodb::Logger::AQL) << "Building Engine Info for " << it.first;
+      infoBuilder.clear();
+      it.second.buildMessage(it.first, *this, *_query, infoBuilder);
+      LOG_TOPIC(DEBUG, arangodb::Logger::AQL)
+          << "Sending the Engine info: " << infoBuilder.toJson();
+      // Now we send to DBServers.
+      // We expect a body with {snippets: {id => engineId}, traverserEngines: [engineId]}
+      requests.emplace_back(serverDest, RequestType::POST, url, std::make_shared<std::string>(infoBuilder.toJson())); 
+    }
+    size_t nrDone = 0;
+    size_t nrGood = cc->performRequests(requests, SETUP_TIMEOUT, nrDone, Logger::AQL, false);
+    for (auto const& req : requests) {
+      auto res = req.result;
+      auto it = dbServerMapping.find(res.serverID);
+      // We cannot receive response from server we have not asked
+      TRI_ASSERT(it != dbServerMapping.end());
+      Result commRes = handleResponse(&res, it->first, it->second, queryIds);
+      if (commRes.fail()) {
+        return commRes;
       }
-
-      it.second.combineTraverserEngines(it.first, travEngines);
     }
   }
+
 
 #ifdef USE_ENTERPRISE
   resetSatellites();
 #endif
   cleanupGuard.cancel();
   return TRI_ERROR_NO_ERROR;
+}
+
+Result EngineInfoContainerDBServer::handleResponse(ClusterCommResult* res, ServerID const& server, DBServerInfo& info, MapRemoteToSnippet& queryIds) const {
+  TRI_ASSERT(res != nullptr);
+  if (res->getErrorCode() != TRI_ERROR_NO_ERROR) {
+    LOG_TOPIC(DEBUG, Logger::AQL)
+        << server << " responded with " << res->getErrorCode() << " -> "
+        << res->stringifyErrorMessage();
+    return {res->getErrorCode(), res->stringifyErrorMessage()};
+  }
+
+  std::shared_ptr<VPackBuilder> builder = res->result->getBodyVelocyPack();
+  VPackSlice response = builder->slice();
+
+  if (!response.isObject() || !response.get("result").isObject()) {
+    LOG_TOPIC(ERR, Logger::AQL) << "Received error information from "
+                                << server << " : " << response.toJson();
+    return {TRI_ERROR_CLUSTER_AQL_COMMUNICATION,
+            "Unable to deploy query on all required "
+            "servers. This can happen during "
+            "failover. Please check: " +
+                server};
+  }
+
+  VPackSlice result = response.get("result");
+  VPackSlice snippets = result.get("snippets");
+
+  for (auto const& resEntry : VPackObjectIterator(snippets)) {
+    if (!resEntry.value.isString()) {
+      return {TRI_ERROR_CLUSTER_AQL_COMMUNICATION,
+              "Unable to deploy query on all required "
+              "servers. This can happen during "
+              "failover. Please check: " +
+                  server};
+    }
+    size_t remoteId = 0;
+    std::string shardId = "";
+    auto res = ExtractRemoteAndShard(resEntry.key, remoteId, shardId);
+    if (!res.ok()) {
+      // FIXME in case if that fails, there will
+      // be a segfault somewhere in 'cleanup'
+      return res;
+    }
+    TRI_ASSERT(remoteId != 0);
+    TRI_ASSERT(!shardId.empty());
+    auto& remote = queryIds[remoteId];
+    auto& thisServer = remote["server:" + server];
+    thisServer.emplace_back(resEntry.value.copyString());
+  }
+
+  VPackSlice travEngines = result.get("traverserEngines");
+  if (!travEngines.isNone()) {
+    if (!travEngines.isArray()) {
+      return {TRI_ERROR_CLUSTER_AQL_COMMUNICATION,
+              "Unable to deploy query on all required "
+              "servers. This can happen during "
+              "failover. Please check: " +
+                  server};
+    }
+
+    info.combineTraverserEngines(server, travEngines);
+  }
+  return {TRI_ERROR_NO_ERROR};
 }
 
 void EngineInfoContainerDBServer::addGraphNode(GraphNode* node) {
