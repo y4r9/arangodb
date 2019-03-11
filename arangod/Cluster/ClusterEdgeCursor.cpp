@@ -82,7 +82,8 @@ bool ClusterEdgeCursor::next(std::function<void(EdgeDocumentToken&&, VPackSlice,
   return false;
 }
 
-void ClusterEdgeCursor::readAll(std::function<void(EdgeDocumentToken&&, VPackSlice, size_t)> callback) {
+void ClusterEdgeCursor::readAll(
+    std::function<void(EdgeDocumentToken&&, VPackSlice, size_t)> const& callback) {
   for (VPackSlice const& edge : _edgeList) {
     callback(EdgeDocumentToken(edge), edge, _position);
   }

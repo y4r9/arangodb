@@ -197,7 +197,8 @@ bool SingleServerEdgeCursor::next(std::function<void(EdgeDocumentToken&&, VPackS
   return true;
 }
 
-void SingleServerEdgeCursor::readAll(std::function<void(EdgeDocumentToken&&, VPackSlice, size_t)> callback) {
+void SingleServerEdgeCursor::readAll(
+    std::function<void(EdgeDocumentToken&&, VPackSlice, size_t)> const& callback) {
   size_t cursorId = 0;
   for (_currentCursor = 0; _currentCursor < _cursors.size(); ++_currentCursor) {
     if (_internalCursorMapping != nullptr) {

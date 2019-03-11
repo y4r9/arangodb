@@ -50,7 +50,7 @@ class ClusterEdgeCursor : public graph::EdgeCursor {
 
   bool next(std::function<void(graph::EdgeDocumentToken&&, arangodb::velocypack::Slice, size_t)> callback) override;
 
-  void readAll(std::function<void(graph::EdgeDocumentToken&&, arangodb::velocypack::Slice, size_t)> callback) override;
+  void readAll(std::function<void(graph::EdgeDocumentToken&&, arangodb::velocypack::Slice, size_t)> const& callback) override;
 
  private:
   std::vector<arangodb::velocypack::Slice> _edgeList;
