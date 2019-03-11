@@ -140,7 +140,7 @@ void FlushFeature::executeCallbacks() {
   std::vector<FlushTransactionPtr> transactions;
 
   {
-    READ_LOCKER(locker, _callbacksLock);
+    READ_LOCKER(locker, _callbacksLock, this);
     transactions.reserve(_callbacks.size());
 
     // execute all callbacks. this will create as many transactions as

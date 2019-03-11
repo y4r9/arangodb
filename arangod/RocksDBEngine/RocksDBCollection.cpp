@@ -315,7 +315,7 @@ static std::shared_ptr<Index> findIndex(velocypack::Slice const& info,
 
 /// @brief Find index by definition
 std::shared_ptr<Index> RocksDBCollection::lookupIndex(velocypack::Slice const& info) const {
-  READ_LOCKER(guard, _indexesLock);
+  READ_LOCKER(guard, _indexesLock, this);
   return findIndex(info, _indexes);
 }
 

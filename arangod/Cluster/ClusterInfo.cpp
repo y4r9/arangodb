@@ -484,7 +484,7 @@ void ClusterInfo::loadPlan() {
                                             "a positive number.";
       }
       {
-        READ_LOCKER(guard, _planProt.lock);
+        READ_LOCKER(guard, _planProt.lock, this);
         if (_planProt.isValid && newPlanVersion <= _planVersion) {
           LOG_TOPIC(DEBUG, Logger::CLUSTER)
               << "We already know this or a later version, do not update. "
@@ -931,7 +931,7 @@ void ClusterInfo::loadCurrent() {
                "not a positive number.";
       }
       {
-        READ_LOCKER(guard, _currentProt.lock);
+        READ_LOCKER(guard, _currentProt.lock, this);
         if (_currentProt.isValid && newCurrentVersion <= _currentVersion) {
           LOG_TOPIC(DEBUG, Logger::CLUSTER)
               << "We already know this or a later version, do not update. "

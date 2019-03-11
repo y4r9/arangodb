@@ -2101,7 +2101,7 @@ void MMFilesCollection::prepareIndexes(VPackSlice indexesSlice) {
 
 #ifdef ARANGODB_ENABLE_MAINTAINER_MODE
   {
-    READ_LOCKER(guard, _indexesLock);
+    READ_LOCKER(guard, _indexesLock, this);
     bool foundPrimary = false;
 
     for (auto const& it : _indexes) {
@@ -2140,7 +2140,7 @@ std::shared_ptr<Index> MMFilesCollection::lookupIndex(VPackSlice const& info) co
   arangodb::Index::IndexType const type = arangodb::Index::type(tmp.c_str());
 
   {
-    READ_LOCKER(guard, _indexesLock);
+    READ_LOCKER(guard, _indexesLock, this);
     for (auto const& idx : _indexes) {
       if (idx->type() == type) {
         // Only check relevant indices

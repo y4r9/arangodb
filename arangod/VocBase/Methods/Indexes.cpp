@@ -265,7 +265,7 @@ static Result EnsureIndexLocal(arangodb::LogicalCollection* collection,
                                VPackSlice const& definition, bool create,
                                VPackBuilder& output) {
   TRI_ASSERT(collection != nullptr);
-  READ_LOCKER(readLocker, collection->vocbase()._inventoryLock);
+  READ_LOCKER(readLocker, collection->vocbase()._inventoryLock, collection);
   Result res;
 
   bool created = false;
