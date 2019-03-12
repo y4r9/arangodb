@@ -1406,7 +1406,9 @@ int TransactionCollectionMock::use(int nestingLevel) {
     }
   }
 
-  _collection = _transaction->vocbase().useCollection(_cid, status);
+  if (!_collection) {
+    _collection = _transaction->vocbase().useCollection(_cid, status);
+  }
 
   return _collection ? TRI_ERROR_NO_ERROR : TRI_ERROR_INTERNAL;
 }
