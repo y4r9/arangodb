@@ -665,6 +665,13 @@ void Graph::createCollectionOptions(VPackBuilder& builder, bool waitForSync) con
   builder.add(StaticStrings::ReplicationFactor, VPackValue(replicationFactor()));
 }
 
+void Graph::createSpecificCollectionOptions(
+    bool,
+    std::unordered_map<std::string, std::shared_ptr<arangodb::velocypack::Buffer<uint8_t>>>&) const {
+  // Not supported in community variant
+  return;
+}
+
 boost::optional<const EdgeDefinition&> Graph::getEdgeDefinition(std::string const& collectionName) const {
   auto it = edgeDefinitions().find(collectionName);
   if (it == edgeDefinitions().end()) {

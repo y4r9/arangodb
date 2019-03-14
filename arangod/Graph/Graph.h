@@ -139,6 +139,10 @@ class Graph {
 
   virtual void createCollectionOptions(VPackBuilder& builder, bool waitForSync) const;
 
+  virtual void createSpecificCollectionOptions(
+      bool waitForSync,
+      std::unordered_map<std::string, std::shared_ptr<arangodb::velocypack::Buffer<uint8_t>>>& optionsMap) const;
+
  public:
   /// @brief get the cids of all vertexCollections
   std::set<std::string> const& vertexCollections() const;
