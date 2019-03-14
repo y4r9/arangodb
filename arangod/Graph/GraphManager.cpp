@@ -192,25 +192,9 @@ Result GraphManager::checkForEdgeDefinitionConflicts(std::map<std::string, EdgeD
   };
   return applyOnAllGraphs(callback);
 }
-
-OperationResult GraphManager::findOrCreateCollectionsByEdgeDefinitions(
-    std::map<std::string, EdgeDefinition> const& edgeDefinitions,
-    bool waitForSync, VPackSlice options) {
-  for (auto const& it : edgeDefinitions) {
-    EdgeDefinition const& edgeDefinition = it.second;
-    OperationResult res =
-        findOrCreateCollectionsByEdgeDefinition(edgeDefinition, waitForSync, options);
-
-    if (res.fail()) {
-      return res;
-    }
-  }
-
-  return OperationResult{TRI_ERROR_NO_ERROR};
-}
-
 OperationResult GraphManager::findOrCreateCollectionsByEdgeDefinition(
-    EdgeDefinition const& edgeDefinition, bool waitForSync, VPackSlice const options) {
+    EdgeDefinition const& edgeDefinition, bool waitForSync, VPackSlice const options,
+    std::unordered_map<std::string, std::shared_ptr<VPackBuffer<uint8_t>>> const& specificOpts) {
   std::string const& edgeCollection = edgeDefinition.getName();
   std::shared_ptr<LogicalCollection> def =
       getCollectionByName(ctx()->vocbase(), edgeCollection);
@@ -540,15 +524,20 @@ Result GraphManager::ensureCollections(Graph const* graph, bool waitForSync) con
   optionsBuilder.openObject();
   graph->createCollectionOptions(optionsBuilder, waitForSync);
   optionsBuilder.close();
-  VPackSlice options = optionsBuilder.slice();
+  std::unordered_map<std::string, std::shared_ptr<VPackBuffer<uint8_t>>> specificOpts;
+  graph->createSpecificCollectionOptions(waitForSync, specificOpts);
 
   // Create Document Collections
   for (auto const& vertexColl : documentCollectionsToCreate) {
+    VPackSlice options = optionsBuilder.slice();
+    auto const& it = specificOpts.find(vertexColl);
+    if (it != specificOpts.end()) {
+      options = VPackSlice{it->second->data()};
+    }
     Result res =
         methods::Collections::create(vocbase, vertexColl, TRI_COL_TYPE_DOCUMENT,
                                      options, waitForSync, true,
                                      [](std::shared_ptr<LogicalCollection> const&) -> void {});
-
     if (res.fail()) {
       return res;
     }
@@ -556,11 +545,15 @@ Result GraphManager::ensureCollections(Graph const* graph, bool waitForSync) con
 
   // Create Edge Collections
   for (auto const& edgeColl : edgeCollectionsToCreate) {
+    VPackSlice options = optionsBuilder.slice();
+    auto const& it = specificOpts.find(edgeColl);
+    if (it != specificOpts.end()) {
+      options = VPackSlice{it->second->data()};
+    }
     Result res =
         methods::Collections::create(vocbase, edgeColl, TRI_COL_TYPE_EDGE,
                                      options, waitForSync, true,
                                      [](std::shared_ptr<LogicalCollection> const&) -> void {});
-
     if (res.fail()) {
       return res;
     }

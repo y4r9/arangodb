@@ -92,14 +92,21 @@ OperationResult GraphOperations::changeEdgeDefinitionForGraph(Graph& graph,
   collectionOptions.openObject();
   _graph.createCollectionOptions(collectionOptions, waitForSync);
   collectionOptions.close();
+  std::unordered_map<std::string, std::shared_ptr<VPackBuffer<uint8_t>>> specificOpts;
+  _graph.createSpecificCollectionOptions(waitForSync, specificOpts);
+
   for (auto const& newCollection : newCollections) {
     // While the collection is new in the graph, it may still already exist.
     if (GraphManager::getCollectionByName(_vocbase, newCollection)) {
       continue;
     }
-
-    OperationResult result = gmngr.createVertexCollection(newCollection, waitForSync,
-                                                          collectionOptions.slice());
+    VPackSlice options = collectionOptions.slice();
+    auto const& it = specificOpts.find(newCollection);
+    if (it != specificOpts.end()) {
+      options = VPackSlice{it->second->data()};
+    }
+    OperationResult result =
+        gmngr.createVertexCollection(newCollection, waitForSync, options);
     if (result.fail()) {
       return result;
     }
@@ -228,8 +235,11 @@ OperationResult GraphOperations::editEdgeDefinition(VPackSlice edgeDefinitionSli
   collectionsOptions.openObject();
   _graph.createCollectionOptions(collectionsOptions, waitForSync);
   collectionsOptions.close();
+  std::unordered_map<std::string, std::shared_ptr<VPackBuffer<uint8_t>>> specificOpts;
+  _graph.createSpecificCollectionOptions(waitForSync, specificOpts);
   result = gmngr.findOrCreateCollectionsByEdgeDefinition(edgeDefinition, waitForSync,
-                                                         collectionsOptions.slice());
+                                                         collectionsOptions.slice(),
+                                                         specificOpts);
   if (result.fail()) {
     return result;
   }
@@ -279,10 +289,6 @@ OperationResult GraphOperations::addOrphanCollection(VPackSlice document, bool w
   std::shared_ptr<LogicalCollection> def;
 
   OperationResult result;
-  VPackBuilder collectionsOptions;
-  collectionsOptions.openObject();
-  _graph.createCollectionOptions(collectionsOptions, waitForSync);
-  collectionsOptions.close();
 
   if (_graph.hasVertexCollection(collectionName)) {
     if (_graph.hasOrphanCollection(collectionName)) {
@@ -297,8 +303,22 @@ OperationResult GraphOperations::addOrphanCollection(VPackSlice document, bool w
   def = GraphManager::getCollectionByName(_vocbase, collectionName);
   if (def == nullptr) {
     if (createCollection) {
-      result = gmngr.createVertexCollection(collectionName, waitForSync,
-                                            collectionsOptions.slice());
+      std::unordered_map<std::string, std::shared_ptr<VPackBuffer<uint8_t>>> specificOpts;
+      _graph.createSpecificCollectionOptions(waitForSync, specificOpts);
+      auto const& it = specificOpts.find(collectionName);
+      if (it != specificOpts.end()) {
+        result = gmngr.createVertexCollection(collectionName, waitForSync,
+                                              VPackSlice(it->second->data()));
+      } else {
+        VPackBuilder collectionsOptions;
+        collectionsOptions.openObject();
+        _graph.createCollectionOptions(collectionsOptions, waitForSync);
+        collectionsOptions.close();
+
+        result = gmngr.createVertexCollection(collectionName, waitForSync,
+                                              collectionsOptions.slice());
+      }
+
       if (result.fail()) {
         return result;
       }
