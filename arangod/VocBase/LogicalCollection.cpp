@@ -274,7 +274,7 @@ int LogicalCollection::getResponsibleShard(arangodb::velocypack::Slice slice,
 }
 
 /// @briefs creates a new document key, the input slice is ignored here
-std::string LogicalCollection::createKey(VPackSlice) {
+std::string LogicalCollection::createKey(VPackSlice) const {
   return keyGenerator()->generate();
 }
 

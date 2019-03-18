@@ -180,7 +180,7 @@ class LogicalCollection : public LogicalDataSource {
 
   /// @briefs creates a new document key, the input slice is ignored here
   /// this method is overriden in derived classes
-  virtual std::string createKey(arangodb::velocypack::Slice input);
+  virtual std::string createKey(arangodb::velocypack::Slice input) const;
 
   PhysicalCollection* getPhysical() const { return _physical.get(); }
 
