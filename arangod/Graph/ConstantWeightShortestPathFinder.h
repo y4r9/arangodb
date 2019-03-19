@@ -42,6 +42,8 @@ struct ShortestPathOptions;
 
 class ConstantWeightShortestPathFinder : public ShortestPathFinder {
  private:
+  // A path snippet contains an edge and a vertex
+  // and is used to reconstruct the path
   struct PathSnippet {
     arangodb::velocypack::StringRef const _pred;
     graph::EdgeDocumentToken _path;
@@ -49,8 +51,25 @@ class ConstantWeightShortestPathFinder : public ShortestPathFinder {
     PathSnippet(arangodb::velocypack::StringRef& pred, graph::EdgeDocumentToken&& path);
   };
 
+  struct FoundVertex {
+    // Number of paths to this vertex
+    size_t npaths;
+
+    // Predecessor edges
+    std::vector<PathSnippet> snippets;
+    FoundVertex(void) : npaths(0), snippets({}){};
+    FoundVertex(size_t n, const std::vector<PathSnippet>& snips)
+        : npaths(n), snippets(snips){};
+  };
+
   typedef std::deque<arangodb::velocypack::StringRef> Closure;
   typedef std::unordered_map<arangodb::velocypack::StringRef, PathSnippet*> Snippets;
+
+  // Contains the vertices that were found while searching
+  // for a shortest path between start and end together with
+  // the number of paths leading to that vertex and information
+  // how to trace paths from the vertex from start/to end.
+  typedef std::unordered_map<arangodb::velocypack::StringRef, FoundVertex> FoundVertices;
 
  public:
   explicit ConstantWeightShortestPathFinder(ShortestPathOptions& options);
@@ -67,16 +86,18 @@ class ConstantWeightShortestPathFinder : public ShortestPathFinder {
 
   void resetSearch();
 
-  bool expandClosure(Closure& sourceClosure, Snippets& sourceSnippets,
-                     Snippets& targetSnippets, bool direction, arangodb::velocypack::StringRef& result);
+  bool expandClosure(Closure& sourceClosure, FoundVertices& foundFromSource,
+                     FoundVertices& foundToTarget, bool direction,
+                     arangodb::velocypack::StringRef& result);
 
-  void fillResult(arangodb::velocypack::StringRef& n, arangodb::graph::ShortestPathResult& result);
+  void fillResult(arangodb::velocypack::StringRef& n,
+                  arangodb::graph::ShortestPathResult& result);
 
  private:
-  Snippets _leftFound;
+  FoundVertices _leftFound;
   Closure _leftClosure;
 
-  Snippets _rightFound;
+  FoundVertices _rightFound;
   Closure _rightClosure;
 
   Closure _nextClosure;

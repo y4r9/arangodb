@@ -68,8 +68,8 @@ bool ConstantWeightShortestPathFinder::shortestPath(
   }
   resetSearch();
 
-  _leftFound.emplace(start, nullptr);
-  _rightFound.emplace(end, nullptr);
+  _leftFound.emplace(start, FoundVertex());
+  _rightFound.emplace(end, FoundVertex());
   _leftClosure.emplace_back(start);
   _rightClosure.emplace_back(end);
 
@@ -96,28 +96,27 @@ bool ConstantWeightShortestPathFinder::shortestPath(
   return false;
 }
 
-bool ConstantWeightShortestPathFinder::expandClosure(Closure& sourceClosure,
-                                                     Snippets& sourceSnippets,
-                                                     Snippets& targetSnippets,
-                                                     bool isBackward, arangodb::velocypack::StringRef& result) {
+bool ConstantWeightShortestPathFinder::expandClosure(
+    Closure& sourceClosure, FoundVertices& foundFromSource, FoundVertices& foundToTarget,
+    bool direction, arangodb::velocypack::StringRef& result) {
   _nextClosure.clear();
   for (auto& v : sourceClosure) {
     _edges.clear();
     _neighbors.clear();
-    expandVertex(isBackward, v);
+    expandVertex(direction, v);  // direction is true iff the edge is traversed "backwards"
     size_t const neighborsSize = _neighbors.size();
     TRI_ASSERT(_edges.size() == neighborsSize);
 
     for (size_t i = 0; i < neighborsSize; ++i) {
       auto const& n = _neighbors[i];
-      if (sourceSnippets.find(n) == sourceSnippets.end()) {
+      if (foundFromSource.find(n) == foundFromSource.end()) {
         // NOTE: _edges[i] stays intact after move
         // and is reset to a nullptr. So if we crash
         // here no mem-leaks. or undefined behavior
         // Just make sure _edges is not used after
-        sourceSnippets.emplace(n, new PathSnippet(v, std::move(_edges[i])));
-        auto targetFoundIt = targetSnippets.find(n);
-        if (targetFoundIt != targetSnippets.end()) {
+        foundFromSource.emplace(n, FoundVertex(1, {PathSnippet(v, std::move(_edges[i]))}));
+        auto found = foundToTarget.find(n);
+        if (found != foundToTarget.end()) {
           result = n;
           return true;
         }
@@ -138,18 +137,18 @@ void ConstantWeightShortestPathFinder::fillResult(arangodb::velocypack::StringRe
   auto it = _leftFound.find(n);
   TRI_ASSERT(it != _leftFound.end());
   arangodb::velocypack::StringRef next;
-  while (it != _leftFound.end() && it->second != nullptr) {
-    next = it->second->_pred;
+  while (it != _leftFound.end() && it->second.npaths > 0) {
+    next = it->second.snippets.at(0)._pred;
     result._vertices.push_front(next);
-    result._edges.push_front(std::move(it->second->_path));
+    result._edges.push_front(std::move(it->second.snippets.at(0)._path));
     it = _leftFound.find(next);
   }
   it = _rightFound.find(n);
   TRI_ASSERT(it != _rightFound.end());
-  while (it != _rightFound.end() && it->second != nullptr) {
-    next = it->second->_pred;
+  while (it != _rightFound.end() && it->second.npaths > 0) {
+    next = it->second.snippets.at(0)._pred;
     result._vertices.emplace_back(next);
-    result._edges.emplace_back(std::move(it->second->_path));
+    result._edges.emplace_back(std::move(it->second.snippets.at(0)._path));
     it = _rightFound.find(next);
   }
 
@@ -193,14 +192,6 @@ void ConstantWeightShortestPathFinder::expandVertex(bool backward, arangodb::vel
 void ConstantWeightShortestPathFinder::resetSearch() {
   _leftClosure.clear();
   _rightClosure.clear();
-
-  for (auto& it : _leftFound) {
-    delete it.second;
-  }
   _leftFound.clear();
-
-  for (auto& it : _rightFound) {
-    delete it.second;
-  }
   _rightFound.clear();
 }
