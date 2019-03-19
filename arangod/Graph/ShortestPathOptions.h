@@ -48,6 +48,7 @@ struct ShortestPathOptions : public BaseOptions {
   bool bidirectional;
   bool multiThreaded;
   std::string end;
+  size_t maxPaths; // maximal number of shortest paths to find
   arangodb::velocypack::Builder startBuilder;
   arangodb::velocypack::Builder endBuilder;
 
@@ -66,9 +67,11 @@ struct ShortestPathOptions : public BaseOptions {
 
   void setStart(std::string const&);
   void setEnd(std::string const&);
+  void setMaxPaths(const size_t k);
 
   arangodb::velocypack::Slice getStart() const;
   arangodb::velocypack::Slice getEnd() const;
+  size_t getMaxPaths() const;
 
   /// @brief  Test if we have to use a weight attribute
   bool useWeight() const;

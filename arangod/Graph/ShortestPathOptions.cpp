@@ -45,7 +45,8 @@ ShortestPathOptions::ShortestPathOptions(aql::Query* query)
       weightAttribute(""),
       defaultWeight(1),
       bidirectional(true),
-      multiThreaded(true) {}
+      multiThreaded(true),
+      maxPaths(1) {}
 
 ShortestPathOptions::ShortestPathOptions(aql::Query* query, VPackSlice const& info)
     : BaseOptions(query),
@@ -53,7 +54,8 @@ ShortestPathOptions::ShortestPathOptions(aql::Query* query, VPackSlice const& in
       weightAttribute(""),
       defaultWeight(1),
       bidirectional(true),
-      multiThreaded(true) {
+      multiThreaded(true),
+      maxPaths(1) {
   TRI_ASSERT(info.isObject());
 #ifdef ARANGODB_ENABLE_MAINTAINER_MODE
   VPackSlice type = info.get("type");
@@ -72,7 +74,8 @@ ShortestPathOptions::ShortestPathOptions(aql::Query* query, VPackSlice info, VPa
       weightAttribute(""),
       defaultWeight(1),
       bidirectional(true),
-      multiThreaded(true) {
+      multiThreaded(true),
+      maxPaths(1) {
   TRI_ASSERT(info.isObject());
 #ifdef ARANGODB_ENABLE_MAINTAINER_MODE
   VPackSlice type = info.get("type");
@@ -128,11 +131,19 @@ void ShortestPathOptions::setEnd(std::string const& id) {
   endBuilder.add(VPackValue(id));
 }
 
+void ShortestPathOptions::setMaxPaths(const size_t k) {
+  maxPaths = k;
+}
+
 VPackSlice ShortestPathOptions::getStart() const {
   return startBuilder.slice();
 }
 
 VPackSlice ShortestPathOptions::getEnd() const { return endBuilder.slice(); }
+
+size_t ShortestPathOptions::getMaxPaths() const {
+  return maxPaths;
+}
 
 bool ShortestPathOptions::useWeight() const { return !weightAttribute.empty(); }
 
