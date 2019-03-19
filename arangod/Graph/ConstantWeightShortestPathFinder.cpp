@@ -66,8 +66,6 @@ bool ConstantWeightShortestPathFinder::shortestPath(
     _options.fetchVerticesCoordinator(result._vertices);
     return true;
   }
-  _leftClosure.clear();
-  _rightClosure.clear();
   resetSearch();
 
   _leftFound.emplace(start, nullptr);
@@ -193,6 +191,9 @@ void ConstantWeightShortestPathFinder::expandVertex(bool backward, arangodb::vel
 }
 
 void ConstantWeightShortestPathFinder::resetSearch() {
+  _leftClosure.clear();
+  _rightClosure.clear();
+
   for (auto& it : _leftFound) {
     delete it.second;
   }
