@@ -65,7 +65,7 @@ class ConstantWeightShortestPathFinder : public ShortestPathFinder {
  private:
   void expandVertex(bool backward, arangodb::velocypack::StringRef vertex);
 
-  void clearVisited();
+  void resetSearch();
 
   bool expandClosure(Closure& sourceClosure, Snippets& sourceSnippets,
                      Snippets& targetSnippets, bool direction, arangodb::velocypack::StringRef& result);

@@ -49,7 +49,7 @@ ConstantWeightShortestPathFinder::ConstantWeightShortestPathFinder(ShortestPathO
     : ShortestPathFinder(options) {}
 
 ConstantWeightShortestPathFinder::~ConstantWeightShortestPathFinder() {
-  clearVisited();
+  resetSearch();
 }
 
 bool ConstantWeightShortestPathFinder::shortestPath(
@@ -68,7 +68,7 @@ bool ConstantWeightShortestPathFinder::shortestPath(
   }
   _leftClosure.clear();
   _rightClosure.clear();
-  clearVisited();
+  resetSearch();
 
   _leftFound.emplace(start, nullptr);
   _rightFound.emplace(end, nullptr);
@@ -159,7 +159,7 @@ void ConstantWeightShortestPathFinder::fillResult(arangodb::velocypack::StringRe
     THROW_ARANGO_EXCEPTION(TRI_ERROR_DEBUG);
   }
   _options.fetchVerticesCoordinator(result._vertices);
-  clearVisited();
+  resetSearch();
 }
 
 void ConstantWeightShortestPathFinder::expandVertex(bool backward, arangodb::velocypack::StringRef vertex) {
@@ -192,7 +192,7 @@ void ConstantWeightShortestPathFinder::expandVertex(bool backward, arangodb::vel
   edgeCursor->readAll(callback);
 }
 
-void ConstantWeightShortestPathFinder::clearVisited() {
+void ConstantWeightShortestPathFinder::resetSearch() {
   for (auto& it : _leftFound) {
     delete it.second;
   }
