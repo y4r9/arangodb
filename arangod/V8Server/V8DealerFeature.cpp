@@ -167,12 +167,15 @@ void V8DealerFeature::collectOptions(std::shared_ptr<ProgramOptions> options) {
       new DoubleParameter(&_maxContextAge),
       arangodb::options::makeFlags(arangodb::options::Flags::Hidden));
 
+  // security-related settings
+
+  // this is turned off by default, so it is ok to make it a hidden option
   options->addOption(
       "--javascript.allow-admin-execute",
       "for testing purposes allow '_admin/execute', NEVER enable on production",
       new BooleanParameter(&_allowAdminExecute),
       arangodb::options::makeFlags(arangodb::options::Flags::Hidden));
-
+  
   options->addOption("--javascript.enabled", "enable the V8 JavaScript engine",
                      new BooleanParameter(&_enableJS),
                      arangodb::options::makeFlags(arangodb::options::Flags::Hidden));

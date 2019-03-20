@@ -38,6 +38,7 @@
 #include "ApplicationFeatures/ApplicationFeature.h"
 #include "ApplicationFeatures/ApplicationServer.h"
 #include "ApplicationFeatures/HttpEndpointProvider.h"
+#include "ApplicationFeatures/V8PlatformFeature.h"
 #include "Basics/Exceptions.h"
 #include "Basics/FileUtils.h"
 #include "Basics/Nonce.h"
@@ -305,9 +306,20 @@ static void JS_Options(v8::FunctionCallbackInfo<v8::Value> const& args) {
   if (args.Length() != 0) {
     TRI_V8_THROW_EXCEPTION_USAGE("options()");
   }
+  
+  V8PlatformFeature* v8platform =
+      application_features::ApplicationServer::getFeature<V8PlatformFeature>(
+          "V8Platform");
+  TRI_ASSERT(v8platform != nullptr);
 
-  VPackBuilder builder = ApplicationServer::server->options(
-      {"server.password", "ldap.bindpasswd"});
+  std::vector<std::string> filters;
+  filters.push_back("(passwd|password)");
+  std::string const& filter = v8platform->startupOptionsFilter();
+  if (!filter.empty()) {
+    filters.push_back(filter);
+  }
+
+  VPackBuilder builder = ApplicationServer::server->options(filters);
   auto result = TRI_VPackToV8(isolate, builder.slice());
 
   TRI_V8_RETURN(result);

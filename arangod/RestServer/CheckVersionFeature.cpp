@@ -138,7 +138,7 @@ void CheckVersionFeature::checkVersion() {
 
   bool ignoreDatafileErrors = false;
   {
-    VPackBuilder options = server()->options(std::unordered_set<std::string>());
+    VPackBuilder options = server()->options(std::vector<std::string>());
     VPackSlice s = options.slice();
     if (s.get("database.ignore-datafile-errors").isBoolean()) {
       ignoreDatafileErrors = s.get("database.ignore-datafile-errors").getBool();

@@ -28,6 +28,8 @@
 #include "ProgramOptions/ProgramOptions.h"
 #include "ProgramOptions/Section.h"
 
+#include <regex>
+
 using namespace arangodb;
 using namespace arangodb::basics;
 using namespace arangodb::options;
@@ -133,6 +135,14 @@ void V8PlatformFeature::collectOptions(std::shared_ptr<ProgramOptions> options) 
 
   options->addOption("--javascript.v8-max-heap", "maximal heap size (in MB)",
                      new UInt64Parameter(&_v8MaxHeap));
+  
+  options->addOption("--javascript.startup-options-filter",
+                     "startup options whose names match this regular expression will not be exposed to JavaScript actions",
+                     new StringParameter(&_startupOptionsFilter));
+  
+  options->addOption("--javascript.environment-variables-filter",
+                     "environment variables whose names match this regular expression will not be exposed to JavaScript actions",
+                     new StringParameter(&_environmentVariablesFilter));
 }
 
 void V8PlatformFeature::validateOptions(std::shared_ptr<ProgramOptions> options) {
@@ -151,6 +161,26 @@ void V8PlatformFeature::validateOptions(std::shared_ptr<ProgramOptions> options)
       LOG_TOPIC(FATAL, arangodb::Logger::FIXME)
           << "value for '--javascript.v8-max-heap' exceeds maximum value "
           << (std::numeric_limits<int>::max)();
+      FATAL_ERROR_EXIT();
+    }
+  }
+  
+  if (!_startupOptionsFilter.empty()) {
+    try {
+      std::regex(_startupOptionsFilter, std::regex::nosubs | std::regex::ECMAScript);
+    } catch (std::exception const& ex) {
+      LOG_TOPIC(FATAL, arangodb::Logger::FIXME)
+          << "value for '--javascript.startup-options-filter' is not valid a regular expression: " << ex.what();
+      FATAL_ERROR_EXIT();
+    }
+  }
+
+  if (!_environmentVariablesFilter.empty()) {
+    try {
+      std::regex(_environmentVariablesFilter, std::regex::nosubs | std::regex::ECMAScript);
+    } catch (std::exception const& ex) {
+      LOG_TOPIC(FATAL, arangodb::Logger::FIXME)
+          << "value for '--javascript.environment-variables-filter' is not a valid regular expression: " << ex.what();
       FATAL_ERROR_EXIT();
     }
   }

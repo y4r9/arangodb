@@ -34,6 +34,7 @@
 
 #include <algorithm>
 #include <iostream>
+#include <regex>
 
 #define ARANGODB_PROGRAM_OPTIONS_PROGNAME "#progname#"
 
@@ -115,18 +116,39 @@ void ProgramOptions::printSectionsHelp() const {
   std::cout << std::endl;
 }
 
-// returns a VPack representation of the option values
+// returns a VPack representation of the option values, with optional
+// filters applied to filter out specific options. 
+// filters are expected to be strings containing
+// valid ECMAScript regexes. Any option that matches the filter will
+// be *excluded* from the result
 VPackBuilder ProgramOptions::toVPack(bool onlyTouched, bool detailed,
-                                     std::unordered_set<std::string> const& exclude) const {
+                                     std::vector<std::string> const& filters) const {
+
+  std::vector<std::regex> regexes;
+  regexes.reserve(filters.size());
+  for (auto const& it : filters) {
+    // the assumption here is that all regular expressions are valid and that
+    // the validation has been done already
+    try {
+      TRI_ASSERT(!it.empty());
+      regexes.emplace_back(it, std::regex::nosubs | std::regex::ECMAScript);
+    } catch (std::exception const&) {
+      THROW_ARANGO_EXCEPTION_MESSAGE(TRI_ERROR_INTERNAL, "program options filter expression is valid");
+    }
+  }
+
   VPackBuilder builder;
   builder.openObject();
 
   walk(
-      [&builder, &exclude, &detailed](Section const& section, Option const& option) {
+      [&builder, &regexes, &detailed](Section const& section, Option const& option) {
         std::string full(option.fullName());
-        if (exclude.find(full) != exclude.end()) {
-          // excluded option
-          return;
+      
+        for (auto const& regex : regexes) {
+          if (std::regex_search(full, regex)) {
+            // excluded option
+            return;
+          }
         }
 
         // add key

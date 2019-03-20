@@ -283,8 +283,12 @@ void ApplicationServer::shutdownFatalError() {
   reportServerProgress(ServerState::ABORT);
 }
 
-VPackBuilder ApplicationServer::options(std::unordered_set<std::string> const& excludes) const {
-  return _options->toVPack(false, false, excludes);
+// return VPack options, with optional filters applied to filter
+// out specific options. filters are expected to be strings containing
+// valid ECMAScript regexes. Any option that matches the filter will
+// be *excluded* from the result
+VPackBuilder ApplicationServer::options(std::vector<std::string> const& filters) const {
+  return _options->toVPack(false, false, filters);
 }
 
 // walks over all features and runs a callback function for them
@@ -366,7 +370,7 @@ void ApplicationServer::parseOptions(int argc, char* argv[]) {
   }
 
   if (_dumpOptions) {
-    auto builder = _options->toVPack(false, true, std::unordered_set<std::string>());
+    auto builder = _options->toVPack(false, true, std::vector<std::string>());
     arangodb::velocypack::Options options;
     options.prettyPrint = true;
     std::cout << builder.slice().toJson(&options) << std::endl;

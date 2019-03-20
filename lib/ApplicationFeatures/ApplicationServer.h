@@ -228,8 +228,11 @@ class ApplicationServer {
   // report that we are going down by fatal error
   void shutdownFatalError();
 
-  // return VPack options
-  VPackBuilder options(std::unordered_set<std::string> const& excludes) const;
+  // return VPack options, with optional filters applied to filter
+  // out specific options. filters are expected to be strings containing
+  // valid ECMAScript regexes. Any option that matches the filter will
+  // be *excluded* from the result
+  VPackBuilder options(std::vector<std::string> const& filters) const;
   
   // return the program options object
   std::shared_ptr<options::ProgramOptions> options() const { return _options; }

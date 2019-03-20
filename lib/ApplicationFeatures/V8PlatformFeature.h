@@ -65,18 +65,21 @@ class V8PlatformFeature final : public application_features::ApplicationFeature 
   void start() override final;
   void unprepare() override final;
 
+  v8::Isolate* createIsolate();
+  void disposeIsolate(v8::Isolate*);
+
+  std::string const& startupOptionsFilter() const { return _startupOptionsFilter; }
+  std::string const& environmentVariablesFilter() const { return _environmentVariablesFilter; }
+
  private:
   std::vector<std::string> _v8Options;
   uint64_t _v8MaxHeap = TRI_V8_MAXHEAP;
 
- public:
-  v8::Isolate* createIsolate();
-  void disposeIsolate(v8::Isolate*);
-
- private:
   std::unique_ptr<v8::Platform> _platform;
   std::unique_ptr<v8::ArrayBuffer::Allocator> _allocator;
   std::string _v8CombinedOptions;
+  std::string _startupOptionsFilter;
+  std::string _environmentVariablesFilter;
   arangodb::Mutex _lock;  // to protect vector _isolateData
   std::unordered_map<v8::Isolate*, std::unique_ptr<IsolateData>> _isolateData;
 };
