@@ -77,18 +77,19 @@ bool ConstantWeightShortestPathFinder::shortestPath(
     THROW_ARANGO_EXCEPTION(TRI_ERROR_DEBUG);
   }
 
-  arangodb::velocypack::StringRef n;
+  // nodes from which paths can be reconstructed using snippets
+  std::vector<arangodb::velocypack::StringRef> nodes;
   while (!_leftClosure.empty() && !_rightClosure.empty()) {
     callback();
 
     if (_leftClosure.size() < _rightClosure.size()) {
-      if (expandClosure(_leftClosure, _leftFound, _rightFound, false, n)) {
-        fillResult(n, result);
+      if (expandClosure(_leftClosure, _leftFound, _rightFound, false, nodes)) {
+        fillResult(nodes.at(0), result);
         return true;
       }
     } else {
-      if (expandClosure(_rightClosure, _rightFound, _leftFound, true, n)) {
-        fillResult(n, result);
+      if (expandClosure(_rightClosure, _rightFound, _leftFound, true, nodes)) {
+        fillResult(nodes.at(0), result);
         return true;
       }
     }
@@ -96,30 +97,94 @@ bool ConstantWeightShortestPathFinder::shortestPath(
   return false;
 }
 
+size_t ConstantWeightShortestPathFinder::kShortestPath(
+    arangodb::velocypack::Slice const& start, arangodb::velocypack::Slice const& end,
+    size_t maxPaths, std::vector<arangodb::graph::ShortestPathResult>& result,
+    std::function<void()> const& callback) {
+  result.clear();
+
+  if (start == end) {
+    result.emplace_back(ShortestPathResult());
+    result.at(0)._vertices.emplace_back(start);
+    _options.fetchVerticesCoordinator(result.at(0)._vertices);
+
+    return 1;
+  }
+
+  // Init
+  resetSearch();
+
+  _leftFound.emplace(start, FoundVertex());
+  _rightFound.emplace(end, FoundVertex());
+  _leftClosure.emplace_back(start);
+  _rightClosure.emplace_back(end);
+
+  TRI_IF_FAILURE("TraversalOOMInitialize") {
+    THROW_ARANGO_EXCEPTION(TRI_ERROR_DEBUG);
+  }
+
+  std::vector<arangodb::velocypack::StringRef> nodes;
+  while (!_leftClosure.empty() && !_rightClosure.empty()) {
+    callback();
+
+    if (_leftClosure.size() < _rightClosure.size()) {
+      if (expandClosure(_leftClosure, _leftFound, _rightFound, false, nodes)) {
+        //        fillResult(n, result);
+        return true;
+      }
+    } else {
+      if (expandClosure(_rightClosure, _rightFound, _leftFound, true, nodes)) {
+        //        fillResult(n, result);
+        return true;
+      }
+    }
+  }
+  return 0;
+}
+
 bool ConstantWeightShortestPathFinder::expandClosure(
     Closure& sourceClosure, FoundVertices& foundFromSource, FoundVertices& foundToTarget,
-    bool direction, arangodb::velocypack::StringRef& result) {
+    bool direction, std::vector<arangodb::velocypack::StringRef>& result) {
+  size_t totalPaths = 0;
+
   _nextClosure.clear();
+  result.clear();
   for (auto& v : sourceClosure) {
     _edges.clear();
     _neighbors.clear();
+    auto foundv = foundFromSource.find(v);
+    // v should be in foundFromSource, because
+    // it is in sourceClosure
+    TRI_ASSERT(foundv != foundFromSource.end());
+    auto pathsToV = foundv->second.npaths;
+
     expandVertex(direction, v);  // direction is true iff the edge is traversed "backwards"
     size_t const neighborsSize = _neighbors.size();
     TRI_ASSERT(_edges.size() == neighborsSize);
 
     for (size_t i = 0; i < neighborsSize; ++i) {
       auto const& n = _neighbors[i];
-      if (foundFromSource.find(n) == foundFromSource.end()) {
-        // NOTE: _edges[i] stays intact after move
-        // and is reset to a nullptr. So if we crash
-        // here no mem-leaks. or undefined behavior
-        // Just make sure _edges is not used after
-        foundFromSource.emplace(n, FoundVertex(1, {PathSnippet(v, std::move(_edges[i]))}));
-        auto found = foundToTarget.find(n);
-        if (found != foundToTarget.end()) {
-          result = n;
+
+      // NOTE: _edges[i] stays intact after move
+      // and is reset to a nullptr. So if we crash
+      // here no mem-leaks. or undefined behavior
+      // Just make sure _edges is not used after
+      auto snippet = PathSnippet(v, std::move(_edges[i]));
+      auto inserted = foundFromSource.emplace(n, FoundVertex(1, {  }));
+      auto &w = inserted.first->second;
+
+      w.npaths += pathsToV;
+      w.snippets.emplace_back(snippet);
+
+      auto found = foundToTarget.find(n);
+      if (found != foundToTarget.end()) {
+        result.emplace_back(n);
+        totalPaths += w.npaths + found->second.npaths;
+        if (totalPaths >= _options.getMaxPaths()) {
           return true;
         }
+      }
+      if (inserted.second) {
         _nextClosure.emplace_back(n);
       }
     }

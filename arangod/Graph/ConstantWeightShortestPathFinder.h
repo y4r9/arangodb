@@ -63,7 +63,6 @@ class ConstantWeightShortestPathFinder : public ShortestPathFinder {
   };
 
   typedef std::deque<arangodb::velocypack::StringRef> Closure;
-  typedef std::unordered_map<arangodb::velocypack::StringRef, PathSnippet*> Snippets;
 
   // Contains the vertices that were found while searching
   // for a shortest path between start and end together with
@@ -81,6 +80,12 @@ class ConstantWeightShortestPathFinder : public ShortestPathFinder {
                     arangodb::graph::ShortestPathResult& result,
                     std::function<void()> const& callback) override;
 
+  size_t kShortestPath(arangodb::velocypack::Slice const& start,
+                       arangodb::velocypack::Slice const& end,
+                       size_t maxPaths,
+                       std::vector<arangodb::graph::ShortestPathResult>& result,
+                       std::function<void()> const& callback);
+
  private:
   void expandVertex(bool backward, arangodb::velocypack::StringRef vertex);
 
@@ -88,7 +93,7 @@ class ConstantWeightShortestPathFinder : public ShortestPathFinder {
 
   bool expandClosure(Closure& sourceClosure, FoundVertices& foundFromSource,
                      FoundVertices& foundToTarget, bool direction,
-                     arangodb::velocypack::StringRef& result);
+                     std::vector<arangodb::velocypack::StringRef>& result);
 
   void fillResult(arangodb::velocypack::StringRef& n,
                   arangodb::graph::ShortestPathResult& result);
