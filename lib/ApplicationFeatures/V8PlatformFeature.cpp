@@ -187,6 +187,10 @@ void V8PlatformFeature::validateOptions(std::shared_ptr<ProgramOptions> options)
 }
 
 void V8PlatformFeature::start() {
+  // initialize regexes for filtering options. the regexes must have been validated before
+  _startupOptionsFilterRegex = std::regex(_startupOptionsFilter, std::regex::nosubs | std::regex::ECMAScript);
+  _environmentVariablesFilterRegex = std::regex(_environmentVariablesFilter, std::regex::nosubs | std::regex::ECMAScript);
+
   v8::V8::InitializeICU();
 
   // explicit option --javascript.v8-options used
@@ -254,4 +258,12 @@ void V8PlatformFeature::disposeIsolate(v8::Isolate* isolate) {
   }
   // because Isolate::Dispose() will delete isolate!
   isolate->Dispose();
+}
+
+bool V8PlatformFeature::shouldExposeStartupOption(std::string const& name) const {
+  return _startupOptionsFilter.empty() || !std::regex_search(name, _startupOptionsFilterRegex);
+}
+  
+bool V8PlatformFeature::shouldExposeEnvironmentVariable(std::string const& name) const {
+  return _environmentVariablesFilter.empty() || !std::regex_search(name, _environmentVariablesFilterRegex);
 }

@@ -312,14 +312,15 @@ static void JS_Options(v8::FunctionCallbackInfo<v8::Value> const& args) {
           "V8Platform");
   TRI_ASSERT(v8platform != nullptr);
 
-  std::vector<std::string> filters;
-  filters.push_back("(passwd|password)");
-  std::string const& filter = v8platform->startupOptionsFilter();
-  if (!filter.empty()) {
-    filters.push_back(filter);
-  }
+  auto filter = [v8platform](std::string const& name) {
+    if (name.find("passwd") != std::string::npos ||
+        name.find("password") != std::string::npos) {
+      return false;
+    }
+    return v8platform->shouldExposeStartupOption(name);
+  };
 
-  VPackBuilder builder = ApplicationServer::server->options(filters);
+  VPackBuilder builder = ApplicationServer::server->options(filter);
   auto result = TRI_VPackToV8(isolate, builder.slice());
 
   TRI_V8_RETURN(result);

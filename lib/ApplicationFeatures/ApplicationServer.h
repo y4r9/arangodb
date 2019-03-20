@@ -229,10 +229,9 @@ class ApplicationServer {
   void shutdownFatalError();
 
   // return VPack options, with optional filters applied to filter
-  // out specific options. filters are expected to be strings containing
-  // valid ECMAScript regexes. Any option that matches the filter will
-  // be *excluded* from the result
-  VPackBuilder options(std::vector<std::string> const& filters) const;
+  // out specific options. the filter function is expected to return true
+  // for any options that should become part of the result
+  VPackBuilder options(std::function<bool(std::string const&)> const& filter) const;
   
   // return the program options object
   std::shared_ptr<options::ProgramOptions> options() const { return _options; }

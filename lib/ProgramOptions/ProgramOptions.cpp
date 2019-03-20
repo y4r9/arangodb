@@ -118,37 +118,20 @@ void ProgramOptions::printSectionsHelp() const {
 
 // returns a VPack representation of the option values, with optional
 // filters applied to filter out specific options. 
-// filters are expected to be strings containing
-// valid ECMAScript regexes. Any option that matches the filter will
-// be *excluded* from the result
+// the filter function is expected to return true
+// for any options that should become part of the result
 VPackBuilder ProgramOptions::toVPack(bool onlyTouched, bool detailed,
-                                     std::vector<std::string> const& filters) const {
-
-  std::vector<std::regex> regexes;
-  regexes.reserve(filters.size());
-  for (auto const& it : filters) {
-    // the assumption here is that all regular expressions are valid and that
-    // the validation has been done already
-    try {
-      TRI_ASSERT(!it.empty());
-      regexes.emplace_back(it, std::regex::nosubs | std::regex::ECMAScript);
-    } catch (std::exception const&) {
-      THROW_ARANGO_EXCEPTION_MESSAGE(TRI_ERROR_INTERNAL, "program options filter expression is valid");
-    }
-  }
+                                     std::function<bool(std::string const&)> const& filter) const {
 
   VPackBuilder builder;
   builder.openObject();
 
   walk(
-      [&builder, &regexes, &detailed](Section const& section, Option const& option) {
+      [&builder, &filter, &detailed](Section const& section, Option const& option) {
         std::string full(option.fullName());
-      
-        for (auto const& regex : regexes) {
-          if (std::regex_search(full, regex)) {
-            // excluded option
-            return;
-          }
+     
+        if (!filter(full)) {
+          return;
         }
 
         // add key

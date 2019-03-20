@@ -28,6 +28,7 @@
 
 #include <libplatform/libplatform.h>
 #include <v8.h>
+#include <regex>
 
 namespace arangodb {
 
@@ -68,8 +69,13 @@ class V8PlatformFeature final : public application_features::ApplicationFeature 
   v8::Isolate* createIsolate();
   void disposeIsolate(v8::Isolate*);
 
-  std::string const& startupOptionsFilter() const { return _startupOptionsFilter; }
-  std::string const& environmentVariablesFilter() const { return _environmentVariablesFilter; }
+  /// @brief tests if the value of the startup option should be exposed to end
+  /// users via JavaScript actions. will use _startupOptionsFilter*
+  bool shouldExposeStartupOption(std::string const& name) const;
+  
+  /// @brief tests if the value of the environment variable should be exposed to end
+  /// users via JavaScript actions. will use _environmentVariablesFilter*
+  bool shouldExposeEnvironmentVariable(std::string const& name) const;
 
  private:
   std::vector<std::string> _v8Options;
@@ -78,8 +84,17 @@ class V8PlatformFeature final : public application_features::ApplicationFeature 
   std::unique_ptr<v8::Platform> _platform;
   std::unique_ptr<v8::ArrayBuffer::Allocator> _allocator;
   std::string _v8CombinedOptions;
+
+  /// @brief regular expression string for startup options filtering
   std::string _startupOptionsFilter;
+  /// @brief regular expression generated from _startupOptionsFilter
+  std::regex _startupOptionsFilterRegex;
+ 
+  /// @brief regular expression string for environment variables filtering
   std::string _environmentVariablesFilter;
+  /// @brief regular expression generated from _environmentVariablesFilter
+  std::regex _environmentVariablesFilterRegex;
+
   arangodb::Mutex _lock;  // to protect vector _isolateData
   std::unordered_map<v8::Isolate*, std::unique_ptr<IsolateData>> _isolateData;
 };
