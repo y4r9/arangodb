@@ -197,9 +197,7 @@ size_t ConstantWeightShortestPathFinder::expandClosure(
 }
 
 void ConstantWeightShortestPathFinder::fillResult(arangodb::velocypack::StringRef& n,
-                                                  std::vector<arangodb::graph::ShortestPathResult>& result) {
-  
-
+                                                  arangodb::graph::ShortestPathResult& result) {
   result._vertices.emplace_back(n);
   auto it = _leftFound.find(n);
   TRI_ASSERT(it != _leftFound.end());
