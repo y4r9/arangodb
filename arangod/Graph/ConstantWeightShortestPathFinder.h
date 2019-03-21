@@ -91,12 +91,13 @@ class ConstantWeightShortestPathFinder : public ShortestPathFinder {
 
   void resetSearch();
 
-  bool expandClosure(Closure& sourceClosure, FoundVertices& foundFromSource,
-                     FoundVertices& foundToTarget, bool direction,
-                     std::vector<arangodb::velocypack::StringRef>& result);
+  // returns the number of paths found
+  size_t expandClosure(Closure& sourceClosure, FoundVertices& foundFromSource,
+                       FoundVertices& foundToTarget, bool direction,
+                       std::vector<arangodb::velocypack::StringRef>& result);
 
   void fillResult(arangodb::velocypack::StringRef& n,
-                  arangodb::graph::ShortestPathResult& result);
+                  std::vector<arangodb::graph::ShortestPathResult>& result);
 
  private:
   FoundVertices _leftFound;

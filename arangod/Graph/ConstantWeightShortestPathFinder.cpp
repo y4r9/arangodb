@@ -83,12 +83,12 @@ bool ConstantWeightShortestPathFinder::shortestPath(
     callback();
 
     if (_leftClosure.size() < _rightClosure.size()) {
-      if (expandClosure(_leftClosure, _leftFound, _rightFound, false, nodes)) {
+      if (0 < expandClosure(_leftClosure, _leftFound, _rightFound, false, nodes)) {
         fillResult(nodes.at(0), result);
         return true;
       }
     } else {
-      if (expandClosure(_rightClosure, _rightFound, _leftFound, true, nodes)) {
+      if (0 < expandClosure(_rightClosure, _rightFound, _leftFound, true, nodes)) {
         fillResult(nodes.at(0), result);
         return true;
       }
@@ -127,13 +127,13 @@ size_t ConstantWeightShortestPathFinder::kShortestPath(
   while (!_leftClosure.empty() && !_rightClosure.empty()) {
     callback();
 
-    if (_leftClosure.size() < _rightClosure.size()) {
+    if (0 < _leftClosure.size() < _rightClosure.size()) {
       if (expandClosure(_leftClosure, _leftFound, _rightFound, false, nodes)) {
         //        fillResult(n, result);
         return true;
       }
     } else {
-      if (expandClosure(_rightClosure, _rightFound, _leftFound, true, nodes)) {
+      if (0 < expandClosure(_rightClosure, _rightFound, _leftFound, true, nodes)) {
         //        fillResult(n, result);
         return true;
       }
@@ -142,9 +142,9 @@ size_t ConstantWeightShortestPathFinder::kShortestPath(
   return 0;
 }
 
-bool ConstantWeightShortestPathFinder::expandClosure(
-    Closure& sourceClosure, FoundVertices& foundFromSource, FoundVertices& foundToTarget,
-    bool direction, std::vector<arangodb::velocypack::StringRef>& result) {
+size_t ConstantWeightShortestPathFinder::expandClosure(
+  Closure& sourceClosure, FoundVertices& foundFromSource, FoundVertices& foundToTarget,
+  bool direction, std::vector<arangodb::velocypack::StringRef>& result) {
   size_t totalPaths = 0;
 
   _nextClosure.clear();
@@ -181,7 +181,7 @@ bool ConstantWeightShortestPathFinder::expandClosure(
         result.emplace_back(n);
         totalPaths += w.npaths + found->second.npaths;
         if (totalPaths >= _options.getMaxPaths()) {
-          return true;
+          return totalPaths;
         }
       }
       if (inserted.second) {
@@ -193,11 +193,13 @@ bool ConstantWeightShortestPathFinder::expandClosure(
   _neighbors.clear();
   sourceClosure.swap(_nextClosure);
   _nextClosure.clear();
-  return false;
+  return 0;
 }
 
 void ConstantWeightShortestPathFinder::fillResult(arangodb::velocypack::StringRef& n,
-                                                  arangodb::graph::ShortestPathResult& result) {
+                                                  std::vector<arangodb::graph::ShortestPathResult>& result) {
+  
+
   result._vertices.emplace_back(n);
   auto it = _leftFound.find(n);
   TRI_ASSERT(it != _leftFound.end());
