@@ -59,10 +59,6 @@ using namespace arangodb::aql;
 using namespace arangodb::graph;
 using namespace arangodb::velocypack;
 
-// std::unordered_set<std::string> unused;
-// auto builder = edges->toVelocyPackIgnore(unused, false, false);
-// LOG_DEVEL << builder.toJson();
-
 namespace {
 struct Setup {
   StorageEngineMock engine;
@@ -208,8 +204,6 @@ struct MockGraphDatabase {
     std::vector<std::shared_ptr<arangodb::velocypack::Builder>> docs;
 
     for (auto& p : edgedef) {
-      //      std::cout << "edge: " << vertexCollection << " " << p.first << " -> "
-      //          << p.second << std::endl;
       auto docJson = velocypack::Parser::fromJson(
           "{ \"_from\": \"" + vertexCollection + "/" + std::to_string(p.first) +
           "\"" + ", \"_to\": \"" + vertexCollection + "/" +
@@ -305,7 +299,9 @@ TEST_CASE("ConstantWeightShortestPathFinder", "[graph]") {
                         {{1, 2},   {2, 3},   {3, 4},   {5, 4},   {6, 5},
                          {7, 6},   {8, 7},   {1, 10},  {10, 11}, {11, 12},
                          {12, 4},  {12, 5},  {21, 22}, {22, 23}, {23, 24},
-                         {24, 25}, {21, 26}, {26, 27}, {27, 28}, {28, 25}});
+                         {24, 25}, {21, 26}, {26, 27}, {27, 28}, {28, 25},
+                         {30, 31}, {31, 32}, {32, 33}, {33, 34}, {34, 35},
+                         {32, 30}, {33, 35}});
 
   auto query = gdb.getQuery("RETURN 1");
   auto spo = gdb.getShortestPathOptions(query);
@@ -379,6 +375,21 @@ TEST_CASE("ConstantWeightShortestPathFinder", "[graph]") {
     REQUIRE(rr);
     REQUIRE(checkPath(result, {"1", "2", "3", "4"},
                       {{}, {"v/1", "v/2"}, {"v/2", "v/3"}, {"v/3", "v/4"}}));
+  }
+
+  SECTION("path of length 5 with loops to start/end") {
+    auto start = velocypack::Parser::fromJson("\"v/30\"");
+    auto end = velocypack::Parser::fromJson("\"v/35\"");
+    ShortestPathResult result;
+
+    auto rr = finder->shortestPath(start->slice(), end->slice(), result, []() {});
+    REQUIRE(rr);
+    REQUIRE(checkPath(result, {"30", "31", "32", "33", "35"},
+                      {{},
+                       {"v/30", "v/31"},
+                       {"v/31", "v/32"},
+                       {"v/32", "v/33"},
+                       {"v/33", "v/35"}}));
   }
 
   SECTION("two paths of length 5") {
