@@ -53,13 +53,18 @@ class ConstantWeightShortestPathFinder : public ShortestPathFinder {
 
   struct FoundVertex {
     // Number of paths to this vertex
-    size_t npaths;
+    bool _startOrEnd;
+    size_t _npaths;
 
     // Predecessor edges
-    std::vector<PathSnippet> snippets;
-    FoundVertex(void) : npaths(0), snippets({}){};
-    FoundVertex(size_t n, const std::vector<PathSnippet>& snips)
-        : npaths(n), snippets(snips){};
+    std::vector<PathSnippet> _snippets;
+    FoundVertex(void) : _startOrEnd(false), _npaths(0), _snippets({}){};
+    FoundVertex(bool startOrEnd)
+        : _startOrEnd(startOrEnd), _npaths(0), _snippets({}){};
+    FoundVertex(bool startOrEnd, size_t npaths)
+        : _startOrEnd(startOrEnd), _npaths(npaths), _snippets({}){};
+    FoundVertex(bool startOrEnd, size_t npaths, const std::vector<PathSnippet>& snippets)
+        : _startOrEnd(startOrEnd), _npaths(npaths), _snippets(snippets){};
   };
 
   typedef std::deque<arangodb::velocypack::StringRef> Closure;
