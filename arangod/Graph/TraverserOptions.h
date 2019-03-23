@@ -76,6 +76,9 @@ struct TraverserOptions : public graph::BaseOptions {
   ///        The Node keeps responsibility
   std::unique_ptr<aql::PruneExpressionEvaluator> _pruneExpression;
 
+ private:
+  bool _requiresVertexData;
+
  public:
   uint64_t minDepth;
 
@@ -140,6 +143,10 @@ struct TraverserOptions : public graph::BaseOptions {
     TRI_ASSERT(usesPrune());
     return _pruneExpression.get();
   }
+
+  bool requiresVertexData() const { return _requiresVertexData; }
+
+  void disableVertexData() { _requiresVertexData = false; }
 
  private:
   graph::EdgeCursor* nextCursorCoordinator(StringRef vid, uint64_t);
