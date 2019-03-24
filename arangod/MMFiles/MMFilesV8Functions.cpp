@@ -94,7 +94,9 @@ static void JS_DatafilesVocbaseCol(v8::FunctionCallbackInfo<v8::Value> const& ar
     TRI_V8_THROW_EXCEPTION_INTERNAL("cannot extract collection");
   }
 
-  TRI_THROW_SHARDING_COLLECTION_NOT_YET_IMPLEMENTED(collection);
+  if (ServerState::instance()->isCoordinator()) {       
+    TRI_V8_THROW_EXCEPTION(TRI_ERROR_NOT_IMPLEMENTED);  
+  }
 
   // TODO: move this into engine
   StorageEngine* engine = EngineSelectorFeature::ENGINE;
@@ -239,7 +241,9 @@ static void JS_TryRepairDatafileVocbaseCol(v8::FunctionCallbackInfo<v8::Value> c
     TRI_V8_THROW_EXCEPTION_INTERNAL("cannot extract collection");
   }
 
-  TRI_THROW_SHARDING_COLLECTION_NOT_YET_IMPLEMENTED(collection);
+  if (ServerState::instance()->isCoordinator()) {       
+    TRI_V8_THROW_EXCEPTION(TRI_ERROR_NOT_IMPLEMENTED);  
+  }
 
   if (args.Length() != 1) {
     TRI_V8_THROW_EXCEPTION_USAGE("tryRepairDatafile(<datafile>)");
@@ -273,7 +277,9 @@ static void JS_TruncateDatafileVocbaseCol(v8::FunctionCallbackInfo<v8::Value> co
     TRI_V8_THROW_EXCEPTION_INTERNAL("cannot extract collection");
   }
 
-  TRI_THROW_SHARDING_COLLECTION_NOT_YET_IMPLEMENTED(collection);
+  if (ServerState::instance()->isCoordinator()) {       
+    TRI_V8_THROW_EXCEPTION(TRI_ERROR_NOT_IMPLEMENTED);  
+  }
 
   if (args.Length() != 2) {
     TRI_V8_THROW_EXCEPTION_USAGE("truncateDatafile(<datafile>, <size>)");
