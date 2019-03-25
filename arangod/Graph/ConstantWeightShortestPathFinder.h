@@ -54,17 +54,17 @@ class ConstantWeightShortestPathFinder : public ShortestPathFinder {
   struct FoundVertex {
     // Number of paths to this vertex
     bool _startOrEnd;
+    size_t _depth;
     size_t _npaths;
 
     // Predecessor edges
     std::vector<PathSnippet> _snippets;
-    FoundVertex(void) : _startOrEnd(false), _npaths(0), _snippets({}){};
-    FoundVertex(bool startOrEnd)
-        : _startOrEnd(startOrEnd), _npaths(0), _snippets({}){};
-    FoundVertex(bool startOrEnd, size_t npaths)
-        : _startOrEnd(startOrEnd), _npaths(npaths), _snippets({}){};
-    FoundVertex(bool startOrEnd, size_t npaths, const std::vector<PathSnippet>& snippets)
-        : _startOrEnd(startOrEnd), _npaths(npaths), _snippets(snippets){};
+    FoundVertex(void)
+        : _startOrEnd(false), _depth(0), _npaths(0), _snippets({}){};
+    FoundVertex(bool startOrEnd)  // _npaths is 1 for start/end vertices
+        : _startOrEnd(startOrEnd), _depth(0), _npaths(1), _snippets({}){};
+    FoundVertex(bool startOrEnd, size_t depth, size_t npaths)
+        : _startOrEnd(startOrEnd), _depth(depth), _npaths(npaths), _snippets({}){};
   };
 
   typedef std::deque<arangodb::velocypack::StringRef> Closure;
@@ -88,8 +88,8 @@ class ConstantWeightShortestPathFinder : public ShortestPathFinder {
   size_t kShortestPath(arangodb::velocypack::Slice const& start,
                        arangodb::velocypack::Slice const& end,
                        size_t maxPaths,
-                       std::vector<arangodb::graph::ShortestPathResult>& result,
                        std::function<void()> const& callback);
+  size_t getNrPaths() { return _nPaths; };
 
  private:
   void expandVertex(bool backward, arangodb::velocypack::StringRef vertex);
@@ -104,12 +104,17 @@ class ConstantWeightShortestPathFinder : public ShortestPathFinder {
   void fillResult(arangodb::velocypack::StringRef& n,
                   arangodb::graph::ShortestPathResult& result);
 
+  // Compute the number of paths found from a list of joining nodes
+  void computeNrPaths(std::vector<arangodb::velocypack::StringRef>& joiningNodes);
+
  private:
   FoundVertices _leftFound;
   Closure _leftClosure;
 
   FoundVertices _rightFound;
   Closure _rightClosure;
+
+  size_t _nPaths;
 
   Closure _nextClosure;
 

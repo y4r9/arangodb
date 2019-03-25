@@ -55,6 +55,7 @@ ConstantWeightShortestPathFinder::~ConstantWeightShortestPathFinder() {
 bool ConstantWeightShortestPathFinder::shortestPath(
     arangodb::velocypack::Slice const& s, arangodb::velocypack::Slice const& e,
     arangodb::graph::ShortestPathResult& result, std::function<void()> const& callback) {
+
   result.clear();
   TRI_ASSERT(s.isString());
   TRI_ASSERT(e.isString());
@@ -99,16 +100,10 @@ bool ConstantWeightShortestPathFinder::shortestPath(
 
 size_t ConstantWeightShortestPathFinder::kShortestPath(
     arangodb::velocypack::Slice const& start, arangodb::velocypack::Slice const& end,
-    size_t maxPaths, std::vector<arangodb::graph::ShortestPathResult>& result,
-    std::function<void()> const& callback) {
-  result.clear();
-
+    size_t maxPaths, std::function<void()> const& callback) {
   if (start == end) {
-    result.emplace_back(ShortestPathResult());
-    result.at(0)._vertices.emplace_back(start);
-    _options.fetchVerticesCoordinator(result.at(0)._vertices);
-
-    return 1;
+    _nPaths = 1;
+    return _nPaths;
   }
 
   // Init
@@ -129,23 +124,23 @@ size_t ConstantWeightShortestPathFinder::kShortestPath(
 
     if (_leftClosure.size() < _rightClosure.size()) {
       if (0 < expandClosure(_leftClosure, _leftFound, _rightFound, false, nodes)) {
-        //        fillResult(n, result);
-        return true;
+        computeNrPaths(nodes);
+        return _nPaths;
       }
     } else {
       if (0 < expandClosure(_rightClosure, _rightFound, _leftFound, true, nodes)) {
-        //        fillResult(n, result);
-        return true;
+        computeNrPaths(nodes);
+        return _nPaths;
       }
     }
   }
-  return 0;
+  _nPaths = 0;
+  return _nPaths;
 }
 
 size_t ConstantWeightShortestPathFinder::expandClosure(
   Closure& sourceClosure, FoundVertices& foundFromSource, FoundVertices& foundToTarget,
   bool direction, std::vector<arangodb::velocypack::StringRef>& result) {
-  size_t totalPaths = 0;
 
   _nextClosure.clear();
   result.clear();
@@ -156,6 +151,7 @@ size_t ConstantWeightShortestPathFinder::expandClosure(
     // v should be in foundFromSource, because
     // it is in sourceClosure
     TRI_ASSERT(foundv != foundFromSource.end());
+    auto depth = foundv->second._depth;
     auto pathsToV = foundv->second._npaths;
 
     expandVertex(direction, v);  // direction is true iff the edge is traversed "backwards"
@@ -170,20 +166,23 @@ size_t ConstantWeightShortestPathFinder::expandClosure(
       // here no mem-leaks. or undefined behavior
       // Just make sure _edges is not used after
       auto snippet = PathSnippet(v, std::move(_edges[i]));
-      auto inserted = foundFromSource.emplace(n, FoundVertex(false, 1));
+      auto inserted = foundFromSource.emplace(n, FoundVertex(false, depth + 1, pathsToV));
       auto &w = inserted.first->second;
-
-      w._npaths += pathsToV;
       w._snippets.emplace_back(snippet);
+
+      // If we know this vertex and it is at the frontier, we found more paths
+      if (!inserted.second && w._depth == depth + 1) {
+        w._npaths += pathsToV;
+      }
 
       auto found = foundToTarget.find(n);
       if (found != foundToTarget.end()) {
+        // This is a path joining node, but we do not know
+        // yet whether we added all paths to it, so we have
+        // to finish computing the closure.
         result.emplace_back(n);
-        totalPaths += w._npaths + found->second._npaths;
-        if (totalPaths >= _options.getMaxPaths()) {
-          return totalPaths;
-        }
       }
+      // vertex was new
       if (inserted.second) {
         _nextClosure.emplace_back(n);
       }
@@ -193,7 +192,7 @@ size_t ConstantWeightShortestPathFinder::expandClosure(
   _neighbors.clear();
   sourceClosure.swap(_nextClosure);
   _nextClosure.clear();
-  return 0;
+  return result.size();
 }
 
 void ConstantWeightShortestPathFinder::fillResult(arangodb::velocypack::StringRef& n,
@@ -222,6 +221,21 @@ void ConstantWeightShortestPathFinder::fillResult(arangodb::velocypack::StringRe
   }
   _options.fetchVerticesCoordinator(result._vertices);
   resetSearch();
+}
+
+void ConstantWeightShortestPathFinder::computeNrPaths(std::vector<arangodb::velocypack::StringRef>& joiningNodes)
+{
+  size_t npaths = 0;
+
+  for (auto& n : joiningNodes) {
+    // Find the joining node in both left
+    // and right
+    auto lfv = _leftFound.find(n);
+    auto rfv = _rightFound.find(n);
+
+    npaths += lfv->second._npaths * rfv->second._npaths;
+  }
+  _nPaths = npaths;
 }
 
 void ConstantWeightShortestPathFinder::expandVertex(bool backward, arangodb::velocypack::StringRef vertex) {
@@ -259,4 +273,5 @@ void ConstantWeightShortestPathFinder::resetSearch() {
   _rightClosure.clear();
   _leftFound.clear();
   _rightFound.clear();
+  _nPaths = 0;
 }
