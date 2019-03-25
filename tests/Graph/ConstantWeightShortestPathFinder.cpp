@@ -295,13 +295,15 @@ TEST_CASE("ConstantWeightShortestPathFinder", "[graph]") {
   MockGraphDatabase gdb("testVocbase");
 
   gdb.addVertexCollection("v", 100);
-  gdb.addEdgeCollection("e", "v",
-                        {{1, 2},   {2, 3},   {3, 4},   {5, 4},   {6, 5},
-                         {7, 6},   {8, 7},   {1, 10},  {10, 11}, {11, 12},
-                         {12, 4},  {12, 5},  {21, 22}, {22, 23}, {23, 24},
-                         {24, 25}, {21, 26}, {26, 27}, {27, 28}, {28, 25},
-                         {30, 31}, {31, 32}, {32, 33}, {33, 34}, {34, 35},
-                         {32, 30}, {33, 35}});
+  gdb.addEdgeCollection(
+      "e", "v",
+      {{1, 2},   {2, 3},   {3, 4},   {5, 4},   {6, 5},   {7, 6},   {8, 7},
+       {1, 10},  {10, 11}, {11, 12}, {12, 4},  {12, 5},  {21, 22}, {22, 23},
+       {23, 24}, {24, 25}, {21, 26}, {26, 27}, {27, 28}, {28, 25}, {30, 31},
+       {31, 32}, {32, 33}, {33, 34}, {34, 35}, {32, 30}, {33, 35}, {40, 41},
+       {41, 42}, {41, 43}, {42, 44}, {43, 44}, {44, 45}, {45, 46}, {46, 47},
+       {48, 47}, {49, 47}, {50, 47}, {48, 46}, {50, 46}, {50, 47}, {48, 46},
+       {50, 46}, {40, 60}, {60, 61}, {61, 62}, {62, 63}, {63, 64}, {64, 47}});
 
   auto query = gdb.getQuery("RETURN 1");
   auto spo = gdb.getShortestPathOptions(query);
@@ -422,6 +424,51 @@ TEST_CASE("ConstantWeightShortestPathFinder", "[graph]") {
       auto rr = finder->shortestPath(end->slice(), start->slice(), result, []() {});
 
       REQUIRE(!rr);
+    }
+  }
+
+  SECTION("two paths of length 5 (find both)") {
+    auto start = velocypack::Parser::fromJson("\"v/40\"");
+    auto end = velocypack::Parser::fromJson("\"v/47\"");
+
+
+    ShortestPathResult result;
+    {
+      auto rr = finder->kShortestPath(start->slice(), end->slice(), 5, []() {});
+      LOG_DEVEL << rr << "\n";
+
+      result.clear();
+      finder->getNextPath(result);
+      LOG_DEVEL << " ---> \n";
+      for (size_t i = 0; i < result.length(); i++) {
+        auto vert = result.vertexToAqlValue(spo->cache(), i);
+        LOG_DEVEL << vert.slice().get(StaticStrings::KeyString).toString();
+      }
+
+
+      result.clear();
+      finder->getNextPath(result);
+      LOG_DEVEL << " ---> \n";
+      for (size_t i = 0; i < result.length(); i++) {
+        auto vert = result.vertexToAqlValue(spo->cache(), i);
+        LOG_DEVEL << vert.slice().get(StaticStrings::KeyString).toString();
+      }
+
+      REQUIRE(rr);
+      // One of the two has to be returned
+      // This of course leads to output from the LOG_DEVEL in checkPath
+      CHECK((checkPath(result, {"21", "22", "23", "24", "25"},
+                       {{},
+                        {"v/21", "v/22"},
+                        {"v/22", "v/23"},
+                        {"v/23", "v/24"},
+                        {"v/24", "v/25"}}) ||
+             checkPath(result, {"21", "26", "27", "28", "25"},
+                       {{},
+                        {"v/21", "v/26"},
+                        {"v/26", "v/27"},
+                        {"v/27", "v/28"},
+                        {"v/28", "v/25"}})));
     }
   }
 

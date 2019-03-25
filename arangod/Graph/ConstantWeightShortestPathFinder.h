@@ -59,14 +59,18 @@ class ConstantWeightShortestPathFinder : public ShortestPathFinder {
 
     // Predecessor edges
     std::vector<PathSnippet> _snippets;
+
+    // Used to assemble paths
+    std::vector<PathSnippet>::iterator _tracer;
+
     FoundVertex(void)
-        : _startOrEnd(false), _depth(0), _npaths(0), _snippets({}){};
+      : _startOrEnd(false), _depth(0), _npaths(0), _snippets({}){};
     FoundVertex(bool startOrEnd)  // _npaths is 1 for start/end vertices
         : _startOrEnd(startOrEnd), _depth(0), _npaths(1), _snippets({}){};
     FoundVertex(bool startOrEnd, size_t depth, size_t npaths)
         : _startOrEnd(startOrEnd), _depth(depth), _npaths(npaths), _snippets({}){};
   };
-
+  typedef arangodb::velocypack::StringRef VertexRef;
   typedef std::deque<arangodb::velocypack::StringRef> Closure;
 
   // Contains the vertices that were found while searching
@@ -89,7 +93,13 @@ class ConstantWeightShortestPathFinder : public ShortestPathFinder {
                        arangodb::velocypack::Slice const& end,
                        size_t maxPaths,
                        std::function<void()> const& callback);
+  // Number of paths that were *computed* between start and end. Note
+  // that this does not mean this reflects the total number of paths
+  // between start and end
   size_t getNrPaths() { return _nPaths; };
+
+  // get the next available path.
+  size_t getNextPath(arangodb::graph::ShortestPathResult& path);
 
  private:
   void expandVertex(bool backward, arangodb::velocypack::StringRef vertex);
@@ -107,6 +117,9 @@ class ConstantWeightShortestPathFinder : public ShortestPathFinder {
   // Compute the number of paths found from a list of joining nodes
   void computeNrPaths(std::vector<arangodb::velocypack::StringRef>& joiningNodes);
 
+  // Set all iterators in _leftFound and _rightFound to the beginning
+  void preparePathIteration(void);
+
  private:
   FoundVertices _leftFound;
   Closure _leftClosure;
@@ -117,6 +130,10 @@ class ConstantWeightShortestPathFinder : public ShortestPathFinder {
   size_t _nPaths;
 
   Closure _nextClosure;
+
+  // The nodes where shortest paths join
+  std::vector<arangodb::velocypack::StringRef> _joiningNodes;
+  std::vector<arangodb::velocypack::StringRef>::iterator _currentJoiningNode;
 
   std::vector<arangodb::velocypack::StringRef> _neighbors;
   std::vector<graph::EdgeDocumentToken> _edges;

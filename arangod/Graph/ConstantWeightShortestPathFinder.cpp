@@ -118,24 +118,98 @@ size_t ConstantWeightShortestPathFinder::kShortestPath(
     THROW_ARANGO_EXCEPTION(TRI_ERROR_DEBUG);
   }
 
-  std::vector<arangodb::velocypack::StringRef> nodes;
   while (!_leftClosure.empty() && !_rightClosure.empty()) {
     callback();
 
     if (_leftClosure.size() < _rightClosure.size()) {
-      if (0 < expandClosure(_leftClosure, _leftFound, _rightFound, false, nodes)) {
-        computeNrPaths(nodes);
+      if (0 < expandClosure(_leftClosure, _leftFound, _rightFound, false, _joiningNodes)) {
+        computeNrPaths(_joiningNodes);
+        preparePathIteration();
         return _nPaths;
       }
     } else {
-      if (0 < expandClosure(_rightClosure, _rightFound, _leftFound, true, nodes)) {
-        computeNrPaths(nodes);
+      if (0 < expandClosure(_rightClosure, _rightFound, _leftFound, true, _joiningNodes)) {
+        computeNrPaths(_joiningNodes);
+        preparePathIteration();
         return _nPaths;
       }
     }
   }
   _nPaths = 0;
   return _nPaths;
+}
+
+size_t ConstantWeightShortestPathFinder::getNextPath(arangodb::graph::ShortestPathResult& path) {
+  path._vertices.emplace_back(*_currentJoiningNode);
+  // TODO: Testing HACK
+
+  auto it = _leftFound.find(*_currentJoiningNode);
+  TRI_ASSERT(it != _leftFound.end());
+
+  arangodb::velocypack::StringRef next;
+  std::deque<FoundVertex> trace;
+
+  while (it->second._startOrEnd == false) {
+    trace.push_back(it->second);
+
+    next = it->second._tracer->_pred;
+
+    path._vertices.push_front(next);
+    path._edges.push_front(std::move(it->second._tracer->_path));
+
+    it = _leftFound.find(next);
+  }
+
+  auto i = trace.rbegin();
+  // start vertex
+  i++;
+  // Move to next path
+  while (i != trace.rend()) {
+    i->_tracer++;
+    if (i->_tracer != i->_snippets.end()) {
+      break;
+    } else {
+      i->_tracer = i->_snippets.begin();
+    }
+    i++;
+  }
+
+  it = _rightFound.find(*_currentJoiningNode);
+  trace.clear();
+
+  TRI_ASSERT(it != _rightFound.end());
+  while (it != _rightFound.end() && (it->second._startOrEnd == false)) {
+    trace.push_back(it->second);
+
+    next = it->second._tracer->_pred;
+    path._vertices.emplace_back(next);
+
+    path._edges.emplace_back(std::move(it->second._tracer->_path));
+    it = _rightFound.find(next);
+  }
+
+  i = trace.rbegin();
+  // end vertex
+  i++;
+  // Move to next path
+  while (i != trace.rend()) {
+    i->_tracer++;
+    if (i->_tracer != i->_snippets.end()) {
+      break;
+    } else {
+      i->_tracer = i->_snippets.begin();
+    }
+    i++;
+  }
+
+  TRI_IF_FAILURE("TraversalOOMPath") {
+    THROW_ARANGO_EXCEPTION(TRI_ERROR_DEBUG);
+  }
+  _options.fetchVerticesCoordinator(path._vertices);
+
+  _currentJoiningNode++;
+  // TODO: this is pointless
+  return 1;
 }
 
 size_t ConstantWeightShortestPathFinder::expandClosure(
@@ -236,6 +310,16 @@ void ConstantWeightShortestPathFinder::computeNrPaths(std::vector<arangodb::velo
     npaths += lfv->second._npaths * rfv->second._npaths;
   }
   _nPaths = npaths;
+}
+
+void ConstantWeightShortestPathFinder::preparePathIteration(void) {
+  _currentJoiningNode = _joiningNodes.begin();
+  for (auto& i : _leftFound) {
+    i.second._tracer = i.second._snippets.begin();
+  }
+  for (auto& i : _rightFound) {
+    i.second._tracer = i.second._snippets.begin();
+  }
 }
 
 void ConstantWeightShortestPathFinder::expandVertex(bool backward, arangodb::velocypack::StringRef vertex) {
