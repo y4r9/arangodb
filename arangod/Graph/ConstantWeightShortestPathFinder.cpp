@@ -41,7 +41,7 @@
 using namespace arangodb;
 using namespace arangodb::graph;
 
-ConstantWeightShortestPathFinder::PathSnippet::PathSnippet(arangodb::velocypack::StringRef& pred,
+ConstantWeightShortestPathFinder::PathSnippet::PathSnippet(VertexRef& pred,
                                                            EdgeDocumentToken&& path)
     : _pred(pred), _path(std::move(path)) {}
 
@@ -59,8 +59,8 @@ bool ConstantWeightShortestPathFinder::shortestPath(
   result.clear();
   TRI_ASSERT(s.isString());
   TRI_ASSERT(e.isString());
-  arangodb::velocypack::StringRef start(s);
-  arangodb::velocypack::StringRef end(e);
+  VertexRef start(s);
+  VertexRef end(e);
   // Init
   if (start == end) {
     result._vertices.emplace_back(start);
@@ -79,7 +79,7 @@ bool ConstantWeightShortestPathFinder::shortestPath(
   }
 
   // nodes from which paths can be reconstructed using snippets
-  std::vector<arangodb::velocypack::StringRef> nodes;
+  std::vector<VertexRef> nodes;
   while (!_leftClosure.empty() && !_rightClosure.empty()) {
     callback();
 
@@ -146,7 +146,7 @@ size_t ConstantWeightShortestPathFinder::getNextPath(arangodb::graph::ShortestPa
   auto it = _leftFound.find(*_currentJoiningNode);
   TRI_ASSERT(it != _leftFound.end());
 
-  arangodb::velocypack::StringRef next;
+  VertexRef next;
   std::deque<FoundVertex> trace;
 
   while (it->second._startOrEnd == false) {
@@ -214,7 +214,7 @@ size_t ConstantWeightShortestPathFinder::getNextPath(arangodb::graph::ShortestPa
 
 size_t ConstantWeightShortestPathFinder::expandClosure(
   Closure& sourceClosure, FoundVertices& foundFromSource, FoundVertices& foundToTarget,
-  bool direction, std::vector<arangodb::velocypack::StringRef>& result) {
+  bool direction, std::vector<VertexRef>& result) {
 
   _nextClosure.clear();
   result.clear();
@@ -269,12 +269,12 @@ size_t ConstantWeightShortestPathFinder::expandClosure(
   return result.size();
 }
 
-void ConstantWeightShortestPathFinder::fillResult(arangodb::velocypack::StringRef& n,
+void ConstantWeightShortestPathFinder::fillResult(VertexRef& n,
                                                   arangodb::graph::ShortestPathResult& result) {
   result._vertices.emplace_back(n);
   auto it = _leftFound.find(n);
   TRI_ASSERT(it != _leftFound.end());
-  arangodb::velocypack::StringRef next;
+  VertexRef next;
   while (it != _leftFound.end() && (it->second._startOrEnd == false)) {
     next = it->second._snippets.at(0)._pred;
     result._vertices.push_front(next);
@@ -297,7 +297,7 @@ void ConstantWeightShortestPathFinder::fillResult(arangodb::velocypack::StringRe
   resetSearch();
 }
 
-void ConstantWeightShortestPathFinder::computeNrPaths(std::vector<arangodb::velocypack::StringRef>& joiningNodes)
+void ConstantWeightShortestPathFinder::computeNrPaths(std::vector<VertexRef>& joiningNodes)
 {
   size_t npaths = 0;
 
@@ -322,7 +322,7 @@ void ConstantWeightShortestPathFinder::preparePathIteration(void) {
   }
 }
 
-void ConstantWeightShortestPathFinder::expandVertex(bool backward, arangodb::velocypack::StringRef vertex) {
+void ConstantWeightShortestPathFinder::expandVertex(bool backward, VertexRef vertex) {
   std::unique_ptr<EdgeCursor> edgeCursor;
   if (backward) {
     edgeCursor.reset(_options.nextReverseCursor(vertex));
@@ -333,17 +333,17 @@ void ConstantWeightShortestPathFinder::expandVertex(bool backward, arangodb::vel
   auto callback = [&](EdgeDocumentToken&& eid, VPackSlice edge, size_t cursorIdx) -> void {
     if (edge.isString()) {
       if (edge.compareString(vertex.data(), vertex.length()) != 0) {
-        arangodb::velocypack::StringRef id = _options.cache()->persistString(arangodb::velocypack::StringRef(edge));
+        VertexRef id = _options.cache()->persistString(VertexRef(edge));
         _edges.emplace_back(std::move(eid));
         _neighbors.emplace_back(id);
       }
     } else {
-      arangodb::velocypack::StringRef other(transaction::helpers::extractFromFromDocument(edge));
+      VertexRef other(transaction::helpers::extractFromFromDocument(edge));
       if (other == vertex) {
-        other = arangodb::velocypack::StringRef(transaction::helpers::extractToFromDocument(edge));
+        other = VertexRef(transaction::helpers::extractToFromDocument(edge));
       }
       if (other != vertex) {
-        arangodb::velocypack::StringRef id = _options.cache()->persistString(other);
+        VertexRef id = _options.cache()->persistString(other);
         _edges.emplace_back(std::move(eid));
         _neighbors.emplace_back(id);
       }

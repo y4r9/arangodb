@@ -42,13 +42,16 @@ struct ShortestPathOptions;
 
 class ConstantWeightShortestPathFinder : public ShortestPathFinder {
  private:
+  // Mainly for code readability
+  typedef arangodb::velocypack::StringRef VertexRef;
+
   // A path snippet contains an edge and a vertex
   // and is used to reconstruct the path
   struct PathSnippet {
-    arangodb::velocypack::StringRef const _pred;
+    VertexRef const _pred;
     graph::EdgeDocumentToken _path;
 
-    PathSnippet(arangodb::velocypack::StringRef& pred, graph::EdgeDocumentToken&& path);
+    PathSnippet(VertexRef& pred, graph::EdgeDocumentToken&& path);
   };
 
   struct FoundVertex {
@@ -70,14 +73,13 @@ class ConstantWeightShortestPathFinder : public ShortestPathFinder {
     FoundVertex(bool startOrEnd, size_t depth, size_t npaths)
         : _startOrEnd(startOrEnd), _depth(depth), _npaths(npaths), _snippets({}){};
   };
-  typedef arangodb::velocypack::StringRef VertexRef;
-  typedef std::deque<arangodb::velocypack::StringRef> Closure;
+  typedef std::deque<VertexRef> Closure;
 
   // Contains the vertices that were found while searching
   // for a shortest path between start and end together with
   // the number of paths leading to that vertex and information
   // how to trace paths from the vertex from start/to end.
-  typedef std::unordered_map<arangodb::velocypack::StringRef, FoundVertex> FoundVertices;
+  typedef std::unordered_map<VertexRef, FoundVertex> FoundVertices;
 
  public:
   explicit ConstantWeightShortestPathFinder(ShortestPathOptions& options);
@@ -102,20 +104,20 @@ class ConstantWeightShortestPathFinder : public ShortestPathFinder {
   size_t getNextPath(arangodb::graph::ShortestPathResult& path);
 
  private:
-  void expandVertex(bool backward, arangodb::velocypack::StringRef vertex);
+  void expandVertex(bool backward, VertexRef vertex);
 
   void resetSearch();
 
   // returns the number of paths found
   size_t expandClosure(Closure& sourceClosure, FoundVertices& foundFromSource,
                        FoundVertices& foundToTarget, bool direction,
-                       std::vector<arangodb::velocypack::StringRef>& result);
+                       std::vector<VertexRef>& result);
 
-  void fillResult(arangodb::velocypack::StringRef& n,
+  void fillResult(VertexRef& n,
                   arangodb::graph::ShortestPathResult& result);
 
   // Compute the number of paths found from a list of joining nodes
-  void computeNrPaths(std::vector<arangodb::velocypack::StringRef>& joiningNodes);
+  void computeNrPaths(std::vector<VertexRef>& joiningNodes);
 
   // Set all iterators in _leftFound and _rightFound to the beginning
   void preparePathIteration(void);
@@ -132,10 +134,10 @@ class ConstantWeightShortestPathFinder : public ShortestPathFinder {
   Closure _nextClosure;
 
   // The nodes where shortest paths join
-  std::vector<arangodb::velocypack::StringRef> _joiningNodes;
-  std::vector<arangodb::velocypack::StringRef>::iterator _currentJoiningNode;
+  std::vector<VertexRef> _joiningNodes;
+  std::vector<VertexRef>::iterator _currentJoiningNode;
 
-  std::vector<arangodb::velocypack::StringRef> _neighbors;
+  std::vector<VertexRef> _neighbors;
   std::vector<graph::EdgeDocumentToken> _edges;
 };
 
