@@ -433,43 +433,22 @@ TEST_CASE("ConstantWeightShortestPathFinder", "[graph]") {
 
 
     ShortestPathResult result;
-    {
-      auto rr = finder->kShortestPath(start->slice(), end->slice(), 5, []() {});
-      LOG_DEVEL << rr << "\n";
+    auto rr = finder->kShortestPath(start->slice(), end->slice(), 5, []() {});
 
-      result.clear();
-      finder->getNextPath(result);
-      LOG_DEVEL << " ---> \n";
+    REQUIRE(rr);
+
+    CHECK((finder->getNrPaths() == 3));
+
+    size_t npaths = 0;
+    result.clear();
+    while(finder->getNextPath(result)) {
       for (size_t i = 0; i < result.length(); i++) {
         auto vert = result.vertexToAqlValue(spo->cache(), i);
-        LOG_DEVEL << vert.slice().get(StaticStrings::KeyString).toString();
+        // TODO: implement way to check paths
       }
-
-
-      result.clear();
-      finder->getNextPath(result);
-      LOG_DEVEL << " ---> \n";
-      for (size_t i = 0; i < result.length(); i++) {
-        auto vert = result.vertexToAqlValue(spo->cache(), i);
-        LOG_DEVEL << vert.slice().get(StaticStrings::KeyString).toString();
-      }
-
-      REQUIRE(rr);
-      // One of the two has to be returned
-      // This of course leads to output from the LOG_DEVEL in checkPath
-      CHECK((checkPath(result, {"21", "22", "23", "24", "25"},
-                       {{},
-                        {"v/21", "v/22"},
-                        {"v/22", "v/23"},
-                        {"v/23", "v/24"},
-                        {"v/24", "v/25"}}) ||
-             checkPath(result, {"21", "26", "27", "28", "25"},
-                       {{},
-                        {"v/21", "v/26"},
-                        {"v/26", "v/27"},
-                        {"v/27", "v/28"},
-                        {"v/28", "v/25"}})));
+      npaths++;
     }
+    CHECK((npaths == 3));
   }
 
   delete finder;

@@ -42,7 +42,7 @@ struct ShortestPathOptions;
 
 class ConstantWeightShortestPathFinder : public ShortestPathFinder {
  private:
-  // Mainly for code readability
+  // Mainly for readability
   typedef arangodb::velocypack::StringRef VertexRef;
 
   // A path snippet contains an edge and a vertex
@@ -67,7 +67,7 @@ class ConstantWeightShortestPathFinder : public ShortestPathFinder {
     std::vector<PathSnippet>::iterator _tracer;
 
     FoundVertex(void)
-      : _startOrEnd(false), _depth(0), _npaths(0), _snippets({}){};
+        : _startOrEnd(false), _depth(0), _npaths(0), _snippets({}){};
     FoundVertex(bool startOrEnd)  // _npaths is 1 for start/end vertices
         : _startOrEnd(startOrEnd), _depth(0), _npaths(1), _snippets({}){};
     FoundVertex(bool startOrEnd, size_t depth, size_t npaths)
@@ -92,8 +92,7 @@ class ConstantWeightShortestPathFinder : public ShortestPathFinder {
                     std::function<void()> const& callback) override;
 
   size_t kShortestPath(arangodb::velocypack::Slice const& start,
-                       arangodb::velocypack::Slice const& end,
-                       size_t maxPaths,
+                       arangodb::velocypack::Slice const& end, size_t maxPaths,
                        std::function<void()> const& callback);
   // Number of paths that were *computed* between start and end. Note
   // that this does not mean this reflects the total number of paths
@@ -101,7 +100,7 @@ class ConstantWeightShortestPathFinder : public ShortestPathFinder {
   size_t getNrPaths() { return _nPaths; };
 
   // get the next available path.
-  size_t getNextPath(arangodb::graph::ShortestPathResult& path);
+  bool getNextPath(arangodb::graph::ShortestPathResult& path);
 
  private:
   void expandVertex(bool backward, VertexRef vertex);
@@ -113,21 +112,24 @@ class ConstantWeightShortestPathFinder : public ShortestPathFinder {
                        FoundVertices& foundToTarget, bool direction,
                        std::vector<VertexRef>& result);
 
-  void fillResult(VertexRef& n,
-                  arangodb::graph::ShortestPathResult& result);
+  void fillResult(VertexRef& n, arangodb::graph::ShortestPathResult& result);
 
   // Compute the number of paths found from a list of joining nodes
   void computeNrPaths(std::vector<VertexRef>& joiningNodes);
 
   // Set all iterators in _leftFound and _rightFound to the beginning
   void preparePathIteration(void);
+  // Move to the next path
+  void advancePathIterator(void);
 
  private:
   FoundVertices _leftFound;
   Closure _leftClosure;
+  std::deque<VertexRef> _leftTrace;
 
   FoundVertices _rightFound;
   Closure _rightClosure;
+  std::deque<VertexRef> _rightTrace;
 
   size_t _nPaths;
 
@@ -136,6 +138,13 @@ class ConstantWeightShortestPathFinder : public ShortestPathFinder {
   // The nodes where shortest paths join
   std::vector<VertexRef> _joiningNodes;
   std::vector<VertexRef>::iterator _currentJoiningNode;
+  // A bit ugly: I want the time to produce the next path
+  // to be spend when actually making that path, not after
+  // making the previous one.
+  // This makes the first path kind of special, since all
+  // that needs to be done is to set all iterators to begin()
+  // If you have a prettier way of doing this, I'd like to hear it.
+  bool _firstPath;
 
   std::vector<VertexRef> _neighbors;
   std::vector<graph::EdgeDocumentToken> _edges;

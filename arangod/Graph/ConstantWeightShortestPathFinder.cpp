@@ -55,7 +55,6 @@ ConstantWeightShortestPathFinder::~ConstantWeightShortestPathFinder() {
 bool ConstantWeightShortestPathFinder::shortestPath(
     arangodb::velocypack::Slice const& s, arangodb::velocypack::Slice const& e,
     arangodb::graph::ShortestPathResult& result, std::function<void()> const& callback) {
-
   result.clear();
   TRI_ASSERT(s.isString());
   TRI_ASSERT(e.isString());
@@ -139,83 +138,55 @@ size_t ConstantWeightShortestPathFinder::kShortestPath(
   return _nPaths;
 }
 
-size_t ConstantWeightShortestPathFinder::getNextPath(arangodb::graph::ShortestPathResult& path) {
+bool ConstantWeightShortestPathFinder::getNextPath(arangodb::graph::ShortestPathResult& path) {
+  if (!_firstPath) {
+    advancePathIterator();
+  }
+  if (_currentJoiningNode == _joiningNodes.end()) {
+    return false;
+  }
+
+  _firstPath = false;
   path._vertices.emplace_back(*_currentJoiningNode);
-  // TODO: Testing HACK
 
   auto it = _leftFound.find(*_currentJoiningNode);
   TRI_ASSERT(it != _leftFound.end());
 
-  VertexRef next;
-  std::deque<FoundVertex> trace;
-
+  _leftTrace.clear();
+  _leftTrace.push_back(*_currentJoiningNode);
   while (it->second._startOrEnd == false) {
-    trace.push_back(it->second);
+    VertexRef next;
 
     next = it->second._tracer->_pred;
-
     path._vertices.push_front(next);
+    _leftTrace.push_back(next);
     path._edges.push_front(std::move(it->second._tracer->_path));
-
     it = _leftFound.find(next);
   }
 
-  auto i = trace.rbegin();
-  // start vertex
-  i++;
-  // Move to next path
-  while (i != trace.rend()) {
-    i->_tracer++;
-    if (i->_tracer != i->_snippets.end()) {
-      break;
-    } else {
-      i->_tracer = i->_snippets.begin();
-    }
-    i++;
-  }
-
+  _rightTrace.clear();
   it = _rightFound.find(*_currentJoiningNode);
-  trace.clear();
-
   TRI_ASSERT(it != _rightFound.end());
-  while (it != _rightFound.end() && (it->second._startOrEnd == false)) {
-    trace.push_back(it->second);
+  while (it->second._startOrEnd == false) {
+    VertexRef next;
 
     next = it->second._tracer->_pred;
+    _rightTrace.push_back(next);
     path._vertices.emplace_back(next);
-
     path._edges.emplace_back(std::move(it->second._tracer->_path));
     it = _rightFound.find(next);
-  }
-
-  i = trace.rbegin();
-  // end vertex
-  i++;
-  // Move to next path
-  while (i != trace.rend()) {
-    i->_tracer++;
-    if (i->_tracer != i->_snippets.end()) {
-      break;
-    } else {
-      i->_tracer = i->_snippets.begin();
-    }
-    i++;
   }
 
   TRI_IF_FAILURE("TraversalOOMPath") {
     THROW_ARANGO_EXCEPTION(TRI_ERROR_DEBUG);
   }
   _options.fetchVerticesCoordinator(path._vertices);
-
-  _currentJoiningNode++;
-  // TODO: this is pointless
-  return 1;
+  return true;
 }
 
 size_t ConstantWeightShortestPathFinder::expandClosure(
-  Closure& sourceClosure, FoundVertices& foundFromSource, FoundVertices& foundToTarget,
-  bool direction, std::vector<VertexRef>& result) {
-
+    Closure& sourceClosure, FoundVertices& foundFromSource,
+    FoundVertices& foundToTarget, bool direction, std::vector<VertexRef>& result) {
   _nextClosure.clear();
   result.clear();
   for (auto& v : sourceClosure) {
@@ -241,7 +212,7 @@ size_t ConstantWeightShortestPathFinder::expandClosure(
       // Just make sure _edges is not used after
       auto snippet = PathSnippet(v, std::move(_edges[i]));
       auto inserted = foundFromSource.emplace(n, FoundVertex(false, depth + 1, pathsToV));
-      auto &w = inserted.first->second;
+      auto& w = inserted.first->second;
       w._snippets.emplace_back(snippet);
 
       // If we know this vertex and it is at the frontier, we found more paths
@@ -297,8 +268,7 @@ void ConstantWeightShortestPathFinder::fillResult(VertexRef& n,
   resetSearch();
 }
 
-void ConstantWeightShortestPathFinder::computeNrPaths(std::vector<VertexRef>& joiningNodes)
-{
+void ConstantWeightShortestPathFinder::computeNrPaths(std::vector<VertexRef>& joiningNodes) {
   size_t npaths = 0;
 
   for (auto& n : joiningNodes) {
@@ -313,13 +283,55 @@ void ConstantWeightShortestPathFinder::computeNrPaths(std::vector<VertexRef>& jo
 }
 
 void ConstantWeightShortestPathFinder::preparePathIteration(void) {
+  _firstPath = true;
   _currentJoiningNode = _joiningNodes.begin();
+  _leftTrace.clear();
+  _rightTrace.clear();
   for (auto& i : _leftFound) {
     i.second._tracer = i.second._snippets.begin();
   }
   for (auto& i : _rightFound) {
     i.second._tracer = i.second._snippets.begin();
   }
+}
+
+void ConstantWeightShortestPathFinder::advancePathIterator(void) {
+  // Try advancing the left hand side of the current
+  // joining node
+  bool advanced = false;
+
+  auto advancer = [](std::deque<VertexRef>& trace, FoundVertices& found) {
+    auto t = trace.rbegin();
+    t++;  // skip start node
+    while (t != trace.rend()) {
+      auto& f = found.find(*t)->second;
+      f._tracer++;
+      if (f._tracer == f._snippets.end()) {
+        f._tracer = f._snippets.begin();
+        t++;
+      } else {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  // Advance left path
+  advanced = advancer(_leftTrace, _leftFound);
+
+  // If this did not advance, advance right path
+  if (!advanced) {
+    advanced = advancer(_rightTrace, _rightFound);
+  }
+
+  // If both sides of the current joining node are exhausted,
+  // advance joining node, reset all tracers
+  if (!advanced) {
+    _currentJoiningNode++;
+  }
+
+  // Exhaustion of the path iterator is determined by
+  // _currentJoiningNode being the end() of _joiningNodes
 }
 
 void ConstantWeightShortestPathFinder::expandVertex(bool backward, VertexRef vertex) {
