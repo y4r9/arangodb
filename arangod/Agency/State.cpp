@@ -373,7 +373,7 @@ index_t State::logFollower(query_t const& transactions) {
       // Now we must completely erase our log and compaction snapshots and
       // start from the snapshot
       Store snapshot(_agent, "snapshot");
-      snapshot = slices[0].get("readDB");
+      snapshot = slices[0];
       if (!storeLogFromSnapshot(snapshot, snapshotIndex, snapshotTerm)) {
         LOG_TOPIC(FATAL, Logger::AGENCY)
             << "Could not restore received log snapshot.";
@@ -797,7 +797,7 @@ bool State::loadLastCompactedSnapshot(Store& store, index_t& index, term_t& term
       VPackSlice i = result[0];
       VPackSlice ii = i.resolveExternals();
       try {
-        store = ii.get("readDB");
+        store = ii;
         index = basics::StringUtils::uint64(ii.get("_key").copyString());
         term = ii.get("term").getNumber<uint64_t>();
         return true;
@@ -1234,6 +1234,7 @@ bool State::persistCompactionSnapshot(index_t cind, arangodb::consensus::term_t 
       }
       store.add("term", VPackValue(static_cast<double>(term)));
       store.add("_key", VPackValue(i_str.str()));
+      store.add("version", VPackValue(2));
     }
 
     TRI_ASSERT(_vocbase != nullptr);
@@ -1245,7 +1246,26 @@ bool State::persistCompactionSnapshot(index_t cind, arangodb::consensus::term_t 
       THROW_ARANGO_EXCEPTION(res);
     }
 
-    auto result = trx.insert("compact", store.slice(), _options);
+    OperationResult result;
+    try {
+      result = trx.insert("compact", store.slice(), _options);
+      if (!result.ok()) {
+        if (result.is(TRI_ERROR_ARANGO_UNIQUE_CONSTRAINT_VIOLATED)) {
+          LOG_TOPIC(DEBUG, Logger::AGENCY)
+            << "Failed to insert compacted agency state, will attempt to update: "
+            << result.errorMessage();
+          result = trx.replace("compact", store.slice(), _options);
+        } else {
+          LOG_TOPIC(FATAL, Logger::AGENCY)
+            << "Failed to persist compacted agency state" << result.errorMessage();
+          FATAL_ERROR_EXIT();
+        }
+      }
+    } catch (std::exception const& e) {
+      LOG_TOPIC(FATAL, Logger::AGENCY)
+        << "Failed to persist compacted agency state: " << e.what();
+      FATAL_ERROR_EXIT();
+    }
 
     res = trx.finish(result.result);
 
@@ -1462,7 +1482,7 @@ std::shared_ptr<VPackBuilder> State::latestAgencyState(TRI_vocbase_t& vocbase,
     // Result can only have length 0 or 1.
     VPackSlice ii = result[0].resolveExternals();
     buffer_t tmp = std::make_shared<arangodb::velocypack::Buffer<uint8_t>>();
-    store = ii.get("readDB");
+    store = ii;
     index = arangodb::basics::StringUtils::uint64(ii.get("_key").copyString());
     term = ii.get("term").getNumber<uint64_t>();
     LOG_TOPIC(INFO, Logger::AGENCY)
@@ -1534,13 +1554,11 @@ uint64_t State::toVelocyPack(index_t lastIndex, VPackBuilder& builder) const {
   auto bindVars = std::make_shared<VPackBuilder>();
   { VPackObjectBuilder b(bindVars.get()); }
 
-  std::string const querystr 
-    = "FOR l IN log FILTER l._key <= 'buf" + stringify(lastIndex) +
-      "' SORT l._key RETURN {'_key': l._key, 'timestamp': l.timestamp,"
-                            "'clientId': l.clientId, 'request': l.request}";
+  std::string const logQueryStr = std::string("FOR l IN log FILTER l._key <= '")
+    + stringify(lastIndex) + std::string("' SORT l._key RETURN l");
 
   TRI_ASSERT(nullptr != _vocbase);  // this check was previously in the Query constructor
-  arangodb::aql::Query logQuery(false, *_vocbase, aql::QueryString(querystr), bindVars,
+  arangodb::aql::Query logQuery(false, *_vocbase, aql::QueryString(logQueryStr), bindVars,
                              nullptr, arangodb::aql::PART_MAIN);
 
   aql::QueryResult logQueryResult = logQuery.executeSync(_queryRegistry);
@@ -1567,11 +1585,12 @@ uint64_t State::toVelocyPack(index_t lastIndex, VPackBuilder& builder) const {
   }
 
   if (n > 0) {
-    std::string const compstr
-      = "FOR c in compact FILTER c._key >= '" + firstIndex +
-        "' SORT c._key LIMIT 1 RETURN c";
 
-    arangodb::aql::Query compQuery(false, *_vocbase, aql::QueryString(compstr),
+    std::string const compQueryStr =
+      std::string("FOR c in compact FILTER c._key >= '") + firstIndex
+      + std::string("' SORT c._key LIMIT 1 RETURN c");
+        
+    arangodb::aql::Query compQuery(false, *_vocbase, aql::QueryString(compQueryStr),
                                bindVars, nullptr, arangodb::aql::PART_MAIN);
 
     aql::QueryResult compQueryResult = compQuery.executeSync(_queryRegistry);
