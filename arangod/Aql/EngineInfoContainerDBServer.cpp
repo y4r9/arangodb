@@ -45,9 +45,8 @@
 #include "IResearch/IResearchViewNode.h"
 #endif
 
-
-#include "StorageEngine/EngineSelectorFeature.h"
 #include "ClusterEngine/ClusterEngine.h"
+#include "StorageEngine/EngineSelectorFeature.h"
 
 using namespace arangodb;
 using namespace arangodb::aql;
@@ -240,7 +239,7 @@ void EngineInfoContainerDBServer::EngineInfo::serializeSnippet(
       viewNode->shards() = shards;
     } else
 #endif
-    if (ExecutionNode::REMOTE == nodeType) {
+        if (ExecutionNode::REMOTE == nodeType) {
       auto rem = ExecutionNode::castTo<RemoteNode*>(clone);
       // update the remote node with the information about the query
       rem->server("server:" + arangodb::ServerState::instance()->getId());
@@ -306,7 +305,7 @@ void EngineInfoContainerDBServer::EngineInfo::serializeSnippet(
     // we need to count nodes by type ourselves, as we will set the
     // "varUsageComputed" flag below (which will handle the counting)
     plan.increaseCounter(nodeType);
-    
+
     if (nodeType == ExecutionNode::INDEX || nodeType == ExecutionNode::ENUMERATE_COLLECTION) {
       auto x = dynamic_cast<CollectionAccessingNode*>(clone);
       auto const* prototype = x->prototypeCollection();
@@ -355,8 +354,8 @@ void EngineInfoContainerDBServer::EngineInfo::serializeSnippet(
   plan.setVarUsageComputed();
   const unsigned flags = ExecutionNode::SERIALIZE_DETAILS;
   plan.root()->toVelocyPack(infoBuilder, flags, /*keepTopLevelOpen*/ false);
- 
-  // remove shard id hack for all participating collections 
+
+  // remove shard id hack for all participating collections
   for (auto& it : cleanup) {
     it->resetCurrentShard();
   }
@@ -377,12 +376,14 @@ void EngineInfoContainerDBServer::addNode(ExecutionNode* node) {
   TRI_ASSERT(!_engineStack.empty());
   _engineStack.top()->addNode(node);
   switch (node->getType()) {
-    case ExecutionNode::ENUMERATE_COLLECTION: 
+    case ExecutionNode::ENUMERATE_COLLECTION:
     case ExecutionNode::INDEX: {
       auto* scatter = findFirstScatter(*node);
       auto const* colNode = dynamic_cast<CollectionAccessingNode const*>(node);
       if (colNode == nullptr) {
-        THROW_ARANGO_EXCEPTION_MESSAGE(TRI_ERROR_INTERNAL, "unable to cast node to CollectionAccessingNode");
+        THROW_ARANGO_EXCEPTION_MESSAGE(
+            TRI_ERROR_INTERNAL,
+            "unable to cast node to CollectionAccessingNode");
       }
       std::unordered_set<std::string> restrictedShard;
       if (colNode->isRestricted()) {
@@ -492,6 +493,10 @@ EngineInfoContainerDBServer::CollectionInfo& EngineInfoContainerDBServer::handle
     ScatterNode* scatter /* = nullptr */,
     std::unordered_set<std::string> const& restrictedShards /*= {}*/
 ) {
+  if (accessType > AccessMode::Type::READ) {
+    _hasWriteAccess = true;
+  }
+
   auto const shards = col->shardIds(
       restrictedShards.empty() ? _query->queryOptions().shardIds : restrictedShards);
 
@@ -961,9 +966,7 @@ Result EngineInfoContainerDBServer::buildEngines(MapRemoteToSnippet& queryIds,
     cleanupEngines(cc, TRI_ERROR_INTERNAL, _query->vocbase().name(), queryIds);
   });
 
-  ClusterEngine* ce = static_cast<ClusterEngine*>(EngineSelectorFeature::ENGINE);
-  TRI_ASSERT(ce != nullptr);
-  if (!ce->isRocksDB()) {
+  if (!canSetupParallel()) {
     std::unordered_map<std::string, std::string> headers;
     // Build Lookup Infos
     VPackBuilder infoBuilder;
@@ -1003,10 +1006,12 @@ Result EngineInfoContainerDBServer::buildEngines(MapRemoteToSnippet& queryIds,
           << "Sending the Engine info: " << infoBuilder.toJson();
       // Now we send to DBServers.
       // We expect a body with {snippets: {id => engineId}, traverserEngines: [engineId]}
-      requests.emplace_back(serverDest, RequestType::POST, url, std::make_shared<std::string>(infoBuilder.toJson())); 
+      requests.emplace_back(serverDest, RequestType::POST, url,
+                            std::make_shared<std::string>(infoBuilder.toJson()));
     }
     size_t nrDone = 0;
-    size_t nrGood = cc->performRequests(requests, SETUP_TIMEOUT, nrDone, Logger::AQL, false);
+    size_t nrGood =
+        cc->performRequests(requests, SETUP_TIMEOUT, nrDone, Logger::AQL, false);
     for (auto const& req : requests) {
       auto res = req.result;
       auto it = dbServerMapping.find(res.serverID);
@@ -1019,7 +1024,6 @@ Result EngineInfoContainerDBServer::buildEngines(MapRemoteToSnippet& queryIds,
     }
   }
 
-
 #ifdef USE_ENTERPRISE
   resetSatellites();
 #endif
@@ -1027,7 +1031,10 @@ Result EngineInfoContainerDBServer::buildEngines(MapRemoteToSnippet& queryIds,
   return TRI_ERROR_NO_ERROR;
 }
 
-Result EngineInfoContainerDBServer::handleResponse(ClusterCommResult* res, ServerID const& server, DBServerInfo& info, MapRemoteToSnippet& queryIds) const {
+Result EngineInfoContainerDBServer::handleResponse(ClusterCommResult* res,
+                                                   ServerID const& server,
+                                                   DBServerInfo& info,
+                                                   MapRemoteToSnippet& queryIds) const {
   TRI_ASSERT(res != nullptr);
   if (res->getErrorCode() != TRI_ERROR_NO_ERROR) {
     LOG_TOPIC(DEBUG, Logger::AQL)
@@ -1040,8 +1047,8 @@ Result EngineInfoContainerDBServer::handleResponse(ClusterCommResult* res, Serve
   VPackSlice response = builder->slice();
 
   if (!response.isObject() || !response.get("result").isObject()) {
-    LOG_TOPIC(ERR, Logger::AQL) << "Received error information from "
-                                << server << " : " << response.toJson();
+    LOG_TOPIC(ERR, Logger::AQL) << "Received error information from " << server
+                                << " : " << response.toJson();
     return {TRI_ERROR_CLUSTER_AQL_COMMUNICATION,
             "Unable to deploy query on all required "
             "servers. This can happen during "
@@ -1120,6 +1127,15 @@ void EngineInfoContainerDBServer::addGraphNode(GraphNode* node) {
   }
 
   _graphNodes.emplace_back(node);
+}
+
+bool EngineInfoContainerDBServer::canSetupParallel() const {
+  ClusterEngine* ce = static_cast<ClusterEngine*>(EngineSelectorFeature::ENGINE);
+  TRI_ASSERT(ce != nullptr);
+  if (ce->isRocksDB() && !_hasWriteAccess) {
+    return true;
+  }
+  return false;
 }
 
 /**

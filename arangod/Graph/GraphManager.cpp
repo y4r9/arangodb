@@ -451,7 +451,6 @@ Result GraphManager::ensureCollections(Graph const* graph, bool waitForSync) con
 
   TRI_vocbase_t* vocbase = &(ctx()->vocbase());
   Result innerRes{TRI_ERROR_NO_ERROR};
-  LOG_DEVEL << "Der SmartGraph hass";
 
   // Check that all edgeCollections are either to be created
   // or exist in a valid way.
@@ -533,10 +532,7 @@ Result GraphManager::ensureCollections(Graph const* graph, bool waitForSync) con
     VPackSlice options = optionsBuilder.slice();
     auto const& it = specificOpts.find(vertexColl);
     if (it != specificOpts.end()) {
-      LOG_DEVEL << "Using special hass sharding for " << vertexColl;
       options = VPackSlice{it->second->data()};
-    } else {
-      LOG_DEVEL << "Not Using special hass sharding for " << vertexColl;
     }
     Result res =
         methods::Collections::create(vocbase, vertexColl, TRI_COL_TYPE_DOCUMENT,

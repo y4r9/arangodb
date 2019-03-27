@@ -243,7 +243,11 @@ class EngineInfoContainerDBServer {
   void resetSatellites() const;
 #endif
 
-  Result handleResponse(ClusterCommResult* res, ServerID const& server, DBServerInfo& info, MapRemoteToSnippet& queryIds) const;
+  Result handleResponse(ClusterCommResult* res, ServerID const& server,
+                        DBServerInfo& info, MapRemoteToSnippet& queryIds) const;
+
+  bool canSetupParallel() const;
+  
  private:
   struct ViewInfo {
     std::vector<std::shared_ptr<EngineInfo>> engines;  // list of the engines associated with a view
@@ -272,6 +276,8 @@ class EngineInfoContainerDBServer {
   // @brief List of all graphNodes that need to create TraverserEngines on
   // DBServers
   std::vector<GraphNode*> _graphNodes;
+
+  bool _hasWriteAccess;
 };
 
 }  // namespace aql
