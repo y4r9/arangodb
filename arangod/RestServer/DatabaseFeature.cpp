@@ -400,11 +400,14 @@ void DatabaseFeature::stop() {
       continue;
     }
 
+    LOG_DEVEL << "process Collections";
     vocbase->processCollections(
         [](LogicalCollection* collection) {
+          LOG_DEVEL << "process " << collection->name();
           // no one else must modify the collection's status while we are in here
           collection->executeWhileStatusWriteLocked(
               [collection]() { collection->close(); });
+          LOG_DEVEL << "process " << collection->name() << "done";
         },
         true);
   }
