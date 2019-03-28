@@ -60,7 +60,7 @@
 #include <velocypack/velocypack-aliases.h>
 
 namespace {
-    
+
 arangodb::velocypack::StringRef const cuidRef("cuid");
 arangodb::velocypack::StringRef const dbRef("db");
 arangodb::velocypack::StringRef const databaseRef("database");
@@ -775,7 +775,7 @@ Result Syncer::dropIndex(arangodb::velocypack::Slice const& slice) {
     }
 
     try {
-      CollectionGuard guard(vocbase, col);
+      CollectionGuard guard(vocbase, col, __FILE__, __LINE__);
       bool result = guard.collection()->dropIndex(iid);
 
       if (!result) {

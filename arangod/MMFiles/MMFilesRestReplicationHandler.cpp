@@ -554,7 +554,7 @@ void MMFilesRestReplicationHandler::handleCommandInventory() {
         "global inventory can only be created from within _system database");
     return;
   }
-  
+
   auto nameFilter = [&](LogicalCollection const* collection) {
     std::string const& cname = collection->name();
     if (!includeSystem && TRI_vocbase_t::IsSystemName(cname)) {
@@ -631,7 +631,7 @@ void MMFilesRestReplicationHandler::handleCommandCreateKeys() {
     return;
   }
 
-  auto guard = std::make_unique<arangodb::CollectionGuard>(&_vocbase, c->id(), false);
+  auto guard = std::make_unique<arangodb::CollectionGuard>(&_vocbase, c->id(), __FILE__, __LINE__, false);
 
   arangodb::LogicalCollection* col = guard->collection();
   TRI_ASSERT(col != nullptr);
@@ -950,7 +950,7 @@ void MMFilesRestReplicationHandler::handleCommandDump() {
     }
   }
 
-  arangodb::CollectionGuard guard(&_vocbase, c->id(), false);
+  arangodb::CollectionGuard guard(&_vocbase, c->id(), __FILE__, __LINE__, false);
   arangodb::LogicalCollection* col = guard.collection();
   TRI_ASSERT(col != nullptr);
 

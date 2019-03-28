@@ -144,7 +144,7 @@ Result DatabaseInitialSyncer::runWithInventory(bool incremental, VPackSlice dbIn
     LOG_TOPIC(DEBUG, Logger::REPLICATION)
         << "client: getting master state to dump " << vocbase().name();
     Result r;
-    
+
     r = sendFlush();
     if (r.fail()) {
       return r;
@@ -1011,7 +1011,7 @@ Result DatabaseInitialSyncer::fetchCollectionSync(arangodb::LogicalCollection* c
 /// provided
 Result DatabaseInitialSyncer::changeCollection(arangodb::LogicalCollection* col,
                                                VPackSlice const& slice) {
-  arangodb::CollectionGuard guard(&vocbase(), col->id());
+  arangodb::CollectionGuard guard(&vocbase(), col->id(), __FILE__, __LINE__);
 
   return guard.collection()->properties(slice, false);  // always a full-update
 }
