@@ -214,8 +214,6 @@ bool KShortestPathsExecutor::fetchPaths() {
                                         THROW_ARANGO_EXCEPTION(TRI_ERROR_QUERY_KILLED);
                                       }
                                     });
-    _currentPathNumber = 0;
-    TRI_ASSERT(_currentPathNumber < _nPaths);
   } while(_nPaths == 0);
   return true;
 }

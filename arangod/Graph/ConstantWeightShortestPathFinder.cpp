@@ -147,17 +147,16 @@ size_t ConstantWeightShortestPathFinder::kShortestPath(
 
 
 bool ConstantWeightShortestPathFinder::getNextPath(arangodb::graph::ShortestPathResult& path) {
+  if (_currentJoiningNode == _joiningNodes.end()) {
+    LOG_DEVEL << "No paths available!\n";
+    return false;
+  }
   if (!_firstPath) {
     LOG_DEVEL << "Not first path\n";
     advancePathIterator();
   } else {
     LOG_DEVEL << "First path!\n";
   }
-  if (_currentJoiningNode == _joiningNodes.end()) {
-    LOG_DEVEL << "No paths available!\n";
-    return false;
-  }
-
   _firstPath = false;
   path._vertices.emplace_back(*_currentJoiningNode);
 
@@ -353,7 +352,6 @@ void ConstantWeightShortestPathFinder::advancePathIterator(void) {
     t++;  // skip start node
     while (t != trace.rend()) {
       auto& f = found.find(*t)->second;
-      f._tracer++;
       if (f._tracer == f._snippets.end()) {
         f._tracer = f._snippets.begin();
         t++;
@@ -368,11 +366,11 @@ void ConstantWeightShortestPathFinder::advancePathIterator(void) {
   LOG_DEVEL << "left trace " << _leftTrace.size() << "\n";
   for (auto k : _leftTrace) {
     LOG_DEVEL << k.toString() << " ";
-  } 
+  }
   LOG_DEVEL << "right trace " << _rightTrace.size() << "\n";
   for (auto k : _rightTrace) {
     LOG_DEVEL << k.toString() << " ";
-  } 
+  }
 
 
   // Advance left path
