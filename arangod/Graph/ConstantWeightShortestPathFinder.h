@@ -24,6 +24,7 @@
 #ifndef ARANGODB_GRAPH_CONSTANT_WEIGHT_SHORTEST_PATH_FINDER_H
 #define ARANGODB_GRAPH_CONSTANT_WEIGHT_SHORTEST_PATH_FINDER_H 1
 
+#include "Aql/AqlValue.h"
 #include "Basics/VelocyPackHelper.h"
 #include "Graph/EdgeDocumentToken.h"
 #include "Graph/ShortestPathFinder.h"
@@ -99,8 +100,11 @@ class ConstantWeightShortestPathFinder : public ShortestPathFinder {
   // between start and end
   size_t getNrPaths() { return _nPaths; };
 
-  // get the next available path.
+  // get the next available path as AQL value.
+  bool getNextPathAql(arangodb::velocypack::Builder& builder);
+  // get the next available path as a ShortestPathResult
   bool getNextPath(arangodb::graph::ShortestPathResult& path);
+  bool pathAvailable( void ) { return _currentJoiningNode != _joiningNodes.end(); };
 
  private:
   void expandVertex(bool backward, VertexRef vertex);
@@ -110,12 +114,12 @@ class ConstantWeightShortestPathFinder : public ShortestPathFinder {
   // returns the number of paths found
   size_t expandClosure(Closure& sourceClosure, FoundVertices& foundFromSource,
                        FoundVertices& foundToTarget, bool direction,
-                       std::vector<VertexRef>& result);
+                       std::set<VertexRef>& result);
 
   void fillResult(VertexRef& n, arangodb::graph::ShortestPathResult& result);
 
   // Compute the number of paths found from a list of joining nodes
-  void computeNrPaths(std::vector<VertexRef>& joiningNodes);
+  void computeNrPaths(std::set<VertexRef>& joiningNodes);
 
   // Set all iterators in _leftFound and _rightFound to the beginning
   void preparePathIteration(void);
@@ -136,8 +140,8 @@ class ConstantWeightShortestPathFinder : public ShortestPathFinder {
   Closure _nextClosure;
 
   // The nodes where shortest paths join
-  std::vector<VertexRef> _joiningNodes;
-  std::vector<VertexRef>::iterator _currentJoiningNode;
+  std::set<VertexRef> _joiningNodes;
+  std::set<VertexRef>::iterator _currentJoiningNode;
   // A bit ugly: I want the time to produce the next path
   // to be spend when actually making that path, not after
   // making the previous one.

@@ -274,12 +274,12 @@ std::unique_ptr<ExecutionBlock> KShortestPathsNode::createBlock(
   KShortestPathsExecutorInfos::InputVertex sourceInput = ::prepareVertexInput(this, false);
   KShortestPathsExecutorInfos::InputVertex targetInput = ::prepareVertexInput(this, true);
 
-  std::unique_ptr<ShortestPathFinder> finder;
-  if (opts->useWeight()) {
+  std::unique_ptr<ConstantWeightShortestPathFinder> finder;
+  /*  if (opts->useWeight()) {
     finder.reset(new graph::AttributeWeightShortestPathFinder(*opts));
-  } else {
+    } else { */
     finder.reset(new graph::ConstantWeightShortestPathFinder(*opts));
-  }
+    // }
 
   TRI_ASSERT(finder != nullptr);
   KShortestPathsExecutorInfos infos(inputRegisters, outputRegisters,

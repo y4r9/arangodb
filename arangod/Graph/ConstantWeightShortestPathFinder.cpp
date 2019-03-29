@@ -23,6 +23,7 @@
 
 #include "ConstantWeightShortestPathFinder.h"
 
+#include "Aql/AqlValue.h"
 #include "Cluster/ServerState.h"
 #include "Graph/EdgeCursor.h"
 #include "Graph/EdgeDocumentToken.h"
@@ -46,7 +47,10 @@ ConstantWeightShortestPathFinder::PathSnippet::PathSnippet(VertexRef& pred,
     : _pred(pred), _path(std::move(path)) {}
 
 ConstantWeightShortestPathFinder::ConstantWeightShortestPathFinder(ShortestPathOptions& options)
-    : ShortestPathFinder(options) {}
+  : ShortestPathFinder(options), _nPaths(0) {
+  // No paths available
+  _currentJoiningNode = _joiningNodes.end();
+}
 
 ConstantWeightShortestPathFinder::~ConstantWeightShortestPathFinder() {
   resetSearch();
@@ -78,18 +82,20 @@ bool ConstantWeightShortestPathFinder::shortestPath(
   }
 
   // nodes from which paths can be reconstructed using snippets
-  std::vector<VertexRef> nodes;
+  std::set<VertexRef> nodes;
   while (!_leftClosure.empty() && !_rightClosure.empty()) {
     callback();
 
     if (_leftClosure.size() < _rightClosure.size()) {
       if (0 < expandClosure(_leftClosure, _leftFound, _rightFound, false, nodes)) {
-        fillResult(nodes.at(0), result);
+        auto v = *nodes.begin();
+        fillResult(v, result);
         return true;
       }
     } else {
       if (0 < expandClosure(_rightClosure, _rightFound, _leftFound, true, nodes)) {
-        fillResult(nodes.at(0), result);
+        auto v = *nodes.begin();
+        fillResult(v, result);
         return true;
       }
     }
@@ -134,15 +140,21 @@ size_t ConstantWeightShortestPathFinder::kShortestPath(
       }
     }
   }
-  _nPaths = 0;
-  return _nPaths;
+  // No paths found
+  _currentJoiningNode = _joiningNodes.end();
+  return 0;
 }
+
 
 bool ConstantWeightShortestPathFinder::getNextPath(arangodb::graph::ShortestPathResult& path) {
   if (!_firstPath) {
+    LOG_DEVEL << "Not first path\n";
     advancePathIterator();
+  } else {
+    LOG_DEVEL << "First path!\n";
   }
   if (_currentJoiningNode == _joiningNodes.end()) {
+    LOG_DEVEL << "No paths available!\n";
     return false;
   }
 
@@ -184,9 +196,40 @@ bool ConstantWeightShortestPathFinder::getNextPath(arangodb::graph::ShortestPath
   return true;
 }
 
+bool ConstantWeightShortestPathFinder::getNextPathAql(arangodb::velocypack::Builder& result) {
+  ShortestPathResult path;
+
+  if(getNextPath(path)) {
+    result.clear();
+    result.openObject();
+
+    result.add(VPackValue("edges"));
+    result.openArray();
+    for (auto const& it : path._edges) {
+      // TRI_ASSERT(it != nullptr);
+      _options.cache()->insertEdgeIntoResult(it, result);
+    }
+    result.close(); // Array
+
+    result.add(VPackValue("vertices"));
+    result.openArray();
+    for (auto const& it : path._vertices) {
+      _options.cache()->insertVertexIntoResult(it, result);
+    }
+    result.close(); // Array
+
+    result.close(); // Object
+    TRI_ASSERT(result.isClosed());
+    auto retresult = arangodb::aql::AqlValue(result.slice());
+    return true;
+  } else {
+    return false;
+  }
+}
+
 size_t ConstantWeightShortestPathFinder::expandClosure(
     Closure& sourceClosure, FoundVertices& foundFromSource,
-    FoundVertices& foundToTarget, bool direction, std::vector<VertexRef>& result) {
+    FoundVertices& foundToTarget, bool direction, std::set<VertexRef>& result) {
   _nextClosure.clear();
   result.clear();
   for (auto& v : sourceClosure) {
@@ -225,7 +268,7 @@ size_t ConstantWeightShortestPathFinder::expandClosure(
         // This is a path joining node, but we do not know
         // yet whether we added all paths to it, so we have
         // to finish computing the closure.
-        result.emplace_back(n);
+        result.emplace(n);
       }
       // vertex was new
       if (inserted.second) {
@@ -268,7 +311,7 @@ void ConstantWeightShortestPathFinder::fillResult(VertexRef& n,
   resetSearch();
 }
 
-void ConstantWeightShortestPathFinder::computeNrPaths(std::vector<VertexRef>& joiningNodes) {
+void ConstantWeightShortestPathFinder::computeNrPaths(std::set<VertexRef>& joiningNodes) {
   size_t npaths = 0;
 
   for (auto& n : joiningNodes) {
@@ -284,6 +327,10 @@ void ConstantWeightShortestPathFinder::computeNrPaths(std::vector<VertexRef>& jo
 
 void ConstantWeightShortestPathFinder::preparePathIteration(void) {
   _firstPath = true;
+  LOG_DEVEL << " Joining nodes: ";
+  for (auto& i : _joiningNodes) {
+    LOG_DEVEL << i.toString();
+  }
   _currentJoiningNode = _joiningNodes.begin();
   _leftTrace.clear();
   _rightTrace.clear();
@@ -296,6 +343,7 @@ void ConstantWeightShortestPathFinder::preparePathIteration(void) {
 }
 
 void ConstantWeightShortestPathFinder::advancePathIterator(void) {
+  TRI_ASSERT(_currentJoiningNode != _joiningNodes.end());
   // Try advancing the left hand side of the current
   // joining node
   bool advanced = false;
@@ -310,17 +358,29 @@ void ConstantWeightShortestPathFinder::advancePathIterator(void) {
         f._tracer = f._snippets.begin();
         t++;
       } else {
+        LOG_DEVEL << " did advance this <<";
         return true;
       }
     }
     return false;
   };
 
+  LOG_DEVEL << "left trace " << _leftTrace.size() << "\n";
+  for (auto k : _leftTrace) {
+    LOG_DEVEL << k.toString() << " ";
+  } 
+  LOG_DEVEL << "right trace " << _rightTrace.size() << "\n";
+  for (auto k : _rightTrace) {
+    LOG_DEVEL << k.toString() << " ";
+  } 
+
+
   // Advance left path
   advanced = advancer(_leftTrace, _leftFound);
 
   // If this did not advance, advance right path
   if (!advanced) {
+    LOG_DEVEL << "right trace " << _rightTrace.size() << "\n";
     advanced = advancer(_rightTrace, _rightFound);
   }
 
@@ -370,4 +430,5 @@ void ConstantWeightShortestPathFinder::resetSearch() {
   _leftFound.clear();
   _rightFound.clear();
   _nPaths = 0;
+  _firstPath = true;
 }

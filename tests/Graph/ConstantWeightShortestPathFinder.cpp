@@ -303,7 +303,8 @@ TEST_CASE("ConstantWeightShortestPathFinder", "[graph]") {
        {31, 32}, {32, 33}, {33, 34}, {34, 35}, {32, 30}, {33, 35}, {40, 41},
        {41, 42}, {41, 43}, {42, 44}, {43, 44}, {44, 45}, {45, 46}, {46, 47},
        {48, 47}, {49, 47}, {50, 47}, {48, 46}, {50, 46}, {50, 47}, {48, 46},
-       {50, 46}, {40, 60}, {60, 61}, {61, 62}, {62, 63}, {63, 64}, {64, 47}});
+       {50, 46}, {40, 60}, {60, 61}, {61, 62}, {62, 63}, {63, 64}, {64, 47},
+       {70, 71}, {70, 71}, {70, 71}});
 
   auto query = gdb.getQuery("RETURN 1");
   auto spo = gdb.getShortestPathOptions(query);
@@ -448,6 +449,37 @@ TEST_CASE("ConstantWeightShortestPathFinder", "[graph]") {
       }
       npaths++;
     }
+    CHECK((npaths == 3));
+  }
+
+  SECTION("many edges between two nodes") {
+    auto start = velocypack::Parser::fromJson("\"v/70\"");
+    auto end = velocypack::Parser::fromJson("\"v/71\"");
+
+
+    ShortestPathResult result;
+    auto rr = finder->kShortestPath(start->slice(), end->slice(), 5, []() {});
+
+    REQUIRE(rr);
+    LOG_DEVEL << "n paths found " << rr << "\n";
+    LOG_DEVEL << "claimed paths found " << finder->getNrPaths() << "\n";
+
+    CHECK((finder->getNrPaths() == 3));
+
+    size_t npaths = 0;
+    result.clear();
+    while(finder->pathAvailable()) {
+      finder->getNextPath(result);
+      for (size_t i = 0; i < result.length(); i++) {
+        auto vert = result.vertexToAqlValue(spo->cache(), i);
+        LOG_DEVEL << "verteks " << vert.slice().toString() << "\n";
+        // TODO: implement way to check paths
+      }
+      npaths++;
+    }
+    LOG_DEVEL << "returned paths: " << npaths << "\n";
+
+    finder->getNextPath(result);
     CHECK((npaths == 3));
   }
 

@@ -38,6 +38,7 @@ class Slice;
 }
 
 namespace graph {
+class ConstantWeightShortestPathFinder;
 class ShortestPathFinder;
 class ShortestPathResult;
 class TraverserCache;
@@ -75,7 +76,7 @@ class KShortestPathsExecutorInfos : public ExecutorInfos {
                             RegisterId nrInputRegisters, RegisterId nrOutputRegisters,
                             std::unordered_set<RegisterId> registersToClear,
                             std::unordered_set<RegisterId> registersToKeep,
-                            std::unique_ptr<graph::ShortestPathFinder>&& finder,
+                            std::unique_ptr<graph::ConstantWeightShortestPathFinder>&& finder,
                             std::unordered_map<OutputName, RegisterId, OutputNameHash>&& registerMapping,
                             InputVertex&& source, InputVertex&& target);
 
@@ -85,7 +86,7 @@ class KShortestPathsExecutorInfos : public ExecutorInfos {
   KShortestPathsExecutorInfos(KShortestPathsExecutorInfos const&) = delete;
   ~KShortestPathsExecutorInfos();
 
-  arangodb::graph::ShortestPathFinder& finder() const;
+  arangodb::graph::ConstantWeightShortestPathFinder& finder() const;
 
   /**
    * @brief test if we use a register or a constant input
@@ -127,7 +128,7 @@ class KShortestPathsExecutorInfos : public ExecutorInfos {
 
  private:
   /// @brief the shortest path finder.
-  std::unique_ptr<arangodb::graph::ShortestPathFinder> _finder;
+  std::unique_ptr<arangodb::graph::ConstantWeightShortestPathFinder> _finder;
 
   /// @brief Mapping outputType => register
   std::unordered_map<OutputName, RegisterId, OutputNameHash> _registerMapping;
@@ -172,33 +173,24 @@ class KShortestPathsExecutor {
    */
   std::pair<ExecutionState, Stats> produceRow(OutputAqlItemRow& output);
 
+  // should be nrpaths - currentpath?
+  /* _nPaths - _currentPathNumber; */
   inline size_t numberOfRowsInFlight() const { return 0; }
 
  private:
   /**
-   * @brief Fetch input row(s) and compute path
+   * @brief compute the correct return state
    *
-   * @return false if we are done and no path could be found.
+   * @return DONE if no more is expected
    */
-  bool fetchPath();
+  bool fetchPaths();
 
   /**
    * @brief compute the correct return state
    *
    * @return DONE if no more is expected
    */
-
   ExecutionState computeState() const;
-
-  /**
-   * @brief get the id of a input vertex
-   * Result will be in id parameter, it
-   * is guaranteed that the memory
-   * is managed until the next call of fetchPath.
-   *
-   * @return DONE if no more is expected
-   */
-  bool getVertexId(bool isTarget, arangodb::velocypack::Slice& id);
 
  private:
   Infos& _infos;
@@ -206,16 +198,22 @@ class KShortestPathsExecutor {
   InputAqlItemRow _input;
   ExecutionState _rowState;
   /// @brief the shortest path finder.
-  arangodb::graph::ShortestPathFinder& _finder;
+  arangodb::graph::ConstantWeightShortestPathFinder& _finder;
   /// @brief current computed path.
   std::unique_ptr<graph::ShortestPathResult> _path;
 
-  size_t _posInPath;
+  /// @brief number of shortest paths
+  size_t _nPaths;
+  /// @brief which path we're on
+  size_t _currentPathNumber;
 
   /// @brief temporary memory mangement for source id
   arangodb::velocypack::Builder _sourceBuilder;
   /// @brief temporary memory mangement for target id
   arangodb::velocypack::Builder _targetBuilder;
+
+
+  bool getVertexId(bool isTarget, VPackSlice& id);
 };
 }  // namespace aql
 }  // namespace arangodb
