@@ -328,6 +328,7 @@ class ImportHelper {
   arangodb::basics::StringBuffer _lineBuffer;
   arangodb::basics::StringBuffer _outputBuffer;
   std::string _firstLine;
+  bool _firstColumn;
   std::vector<std::string> _columnNames;
 
   std::unordered_map<std::string, std::string> _translations;

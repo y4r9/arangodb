@@ -176,6 +176,7 @@ ImportHelper::ImportHelper(ClientFeature const* client, std::string const& endpo
       _lineBuffer(false),
       _outputBuffer(false),
       _firstLine(""),
+      _firstColumn(false),
       _columnNames(),
       _hasError(false) {
   for (uint32_t i = 0; i < threadCount; i++) {
@@ -537,6 +538,8 @@ void ImportHelper::beginLine(size_t row) {
   if (!_generateAttributes.empty()) {
     _mapping = nlohmann::json::object();
   }
+
+  _firstColumn = true;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -611,7 +614,9 @@ void ImportHelper::addField(char const* field, size_t fieldLength, size_t row,
     return;
   }
 
-  if (column > 0) {
+  if (_firstColumn) {
+    _firstColumn = false;
+  } else {
     _lineBuffer.appendChar(',');
   }
 
