@@ -23,6 +23,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include "ImportHelper.h"
+
 #include "Basics/ConditionLocker.h"
 #include "Basics/MutexLocker.h"
 #include "Basics/OpenFilesTracker.h"
@@ -532,6 +533,10 @@ void ImportHelper::beginLine(size_t row) {
     _lineBuffer.appendChar('\n');
   }
   _lineBuffer.appendChar('[');
+
+  if (!_generateAttributes.empty()) {
+    _mapping = nlohmann::json::object();
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -541,14 +546,15 @@ void ImportHelper::beginLine(size_t row) {
 void ImportHelper::ProcessCsvAdd(TRI_csv_parser_t* parser, char const* field, size_t fieldLength,
                                  size_t row, size_t column, bool escaped) {
   auto importHelper = static_cast<ImportHelper*>(parser->_dataAdd);
-  importHelper->addField(field, fieldLength, row, column, escaped);
+  importHelper->addField(field, fieldLength, row, column, escaped, true);
 }
 
 void ImportHelper::addField(char const* field, size_t fieldLength, size_t row,
-                            size_t column, bool escaped) {
+                            size_t column, bool escaped, bool mapping) {
   if (_rowsRead < _rowsToSkip) {
     return;
   }
+
   // we read the first line if we get here
   if (row == _rowsToSkip) {
     std::string name = std::string(field, fieldLength);
@@ -561,6 +567,44 @@ void ImportHelper::addField(char const* field, size_t fieldLength, size_t row,
     }
     _columnNames.push_back(std::move(name));
   }
+
+  if (mapping && !_generateAttributes.empty() && row > _rowsToSkip) {
+    if (_convert) {
+      if (IsInteger(field, fieldLength)) {
+        try {
+          if (fieldLength > 8) {
+            (void)std::stoll(std::string(field, fieldLength));
+          }
+
+          int64_t num = StringUtils::int64(field, fieldLength);
+          _mapping[_columnNames[column]] = num;
+        } catch (...) {
+          _mapping[_columnNames[column]] = std::string(field, fieldLength);
+        }
+      } else if (IsDecimal(field, fieldLength)) {
+        try {
+          std::string tmp(field, fieldLength);
+          size_t pos = 0;
+          double num = std::stod(tmp, &pos);
+          if (pos == fieldLength) {
+            bool failed = (num != num || num == HUGE_VAL || num == -HUGE_VAL);
+            if (!failed) {
+              _mapping[_columnNames[column]] = num;
+            }
+          } else {
+            _mapping[_columnNames[column]] = std::string(field, fieldLength);
+          }
+        } catch (...) {
+          _mapping[_columnNames[column]] = std::string(field, fieldLength);
+        }
+      } else {
+        _lineBuffer.appendJsonEncoded(field, fieldLength);
+      }
+    } else {
+      _mapping[_columnNames[column]] = std::string(field, fieldLength);
+    }
+  }
+
   // skip removable attributes
   if (!_removeAttributes.empty() && column < _columnNames.size() &&
       _removeAttributes.find(_columnNames[column]) != _removeAttributes.end()) {
@@ -683,7 +727,29 @@ void ImportHelper::addLastField(char const* field, size_t fieldLength,
     return;
   }
 
-  addField(field, fieldLength, row, column, escaped);
+  addField(field, fieldLength, row, column, escaped, true);
+
+  if (!_generateAttributes.empty()) {
+    _mapping["_rowNumber"] = row;
+
+    size_t c = column + 1;
+
+    if (row == _rowsToSkip) {
+      for (auto const& p : _generateAttributes) {
+        std::string const& key = p.first;
+
+        addField(key.c_str(), key.length(), row, c, false, false);
+        ++c;
+      }
+    } else {
+      for (auto const& p : _generateAttributes) {
+        std::string value = inja::render(p.second, _mapping);
+
+        addField(value.c_str(), value.length(), row, c, false, false);
+        ++c;
+      }
+    }
+  }
 
   _lineBuffer.appendChar(']');
 

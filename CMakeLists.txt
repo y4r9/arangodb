@@ -1037,6 +1037,8 @@ add_definitions("-DARANGODB_BOOST_VERSION=\"${BOOST_VERSION}\"")
 ## 3rd Party INCLUDE DIRECTORIES
 ################################################################################
 
+include_directories(SYSTEM ${PROJECT_SOURCE_DIR}/3rdParty/inja/single_include)
+include_directories(SYSTEM ${PROJECT_SOURCE_DIR}/3rdParty/inja/third_party/include)
 include_directories(SYSTEM ${PROJECT_SOURCE_DIR}/3rdParty/linenoise-ng/include)
 include_directories(SYSTEM ${PROJECT_SOURCE_DIR}/3rdParty/linenoise-ng/src)
 include_directories(SYSTEM ${PROJECT_SOURCE_DIR}/3rdParty/velocypack/include)

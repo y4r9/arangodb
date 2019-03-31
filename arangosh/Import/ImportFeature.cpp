@@ -129,6 +129,10 @@ void ImportFeature::collectOptions(std::shared_ptr<options::ProgramOptions> opti
                      " into a collection (for csv and tsv only)",
                      new VectorParameter<StringParameter>(&_removeAttributes));
 
+  options->addOption("--generate-attribute",
+                     "generates an attribute from exiting ones",
+                     new VectorParameter<StringParameter>(&_generateAttributes));
+
   std::unordered_set<std::string> types = {"document", "edge"};
   std::vector<std::string> typesVector(types.begin(), types.end());
   std::string typesJoined = StringUtils::join(typesVector, " or ");
@@ -234,6 +238,28 @@ void ImportFeature::validateOptions(std::shared_ptr<options::ProgramOptions> opt
       FATAL_ERROR_EXIT();
     }
   }
+
+  for (auto const& it : _generateAttributes) {
+    auto parts = StringUtils::split(it, "=");
+    if (parts.size() < 2) {
+      LOG_TOPIC(FATAL, arangodb::Logger::FIXME)
+          << "invalid generated attribute (expected '=')'" << it << "'";
+      FATAL_ERROR_EXIT();
+    }
+
+    std::string value = it.substr(parts[0].length() + 1);
+    StringUtils::trimInPlace(parts[0]);
+    StringUtils::trimInPlace(value);
+
+    if (parts[0].empty()) {
+      LOG_TOPIC(FATAL, arangodb::Logger::FIXME)
+          << "invalid generated attribute (expected non-empty key) '" << it << "'";
+      FATAL_ERROR_EXIT();
+    }
+
+    _generateAttributeMap[parts[0]] = value;
+  }
+
   for (std::string& str : _removeAttributes) {
     StringUtils::trimInPlace(str);
     if (str.empty()) {
@@ -395,6 +421,7 @@ void ImportFeature::start() {
 
   ih.setTranslations(translations);
   ih.setRemoveAttributes(_removeAttributes);
+  ih.setGenerateAttributes(_generateAttributeMap);
 
   // quote
   if (_quote.length() <= 1) {

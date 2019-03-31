@@ -183,7 +183,17 @@ exception from the GPL license:
 * License Name: BSD 2-clause "Simplified" License
 * License Id: BSD-2-Clause
 
-### RocksDB
+### Inja
+
+* Name: Inja
+* Version: v2.1.0
+* GitHub: https://github.com/pantor/inja
+* License: GitHub: https://raw.githubusercontent.com/pantor/inja/master/LICENSE
+* License Name: MIT License
+* License Id: MIT
+* License Comment: Dual license
+
+## RocksDB
 
 * Name: RocksDB
 * Version: 5.16

@@ -25,12 +25,14 @@
 #ifndef ARANGODB_IMPORT_IMPORT_HELPER_H
 #define ARANGODB_IMPORT_IMPORT_HELPER_H 1
 
+#include "Basics/Common.h"
+
 #include <atomic>
+#include <inja/inja.hpp>
 
 #include "AutoTuneThread.h"
 #include "QuickHistogram.h"
 
-#include "Basics/Common.h"
 #include "Basics/ConditionVariable.h"
 #include "Basics/Mutex.h"
 #include "Basics/StringBuffer.h"
@@ -167,6 +169,10 @@ class ImportHelper {
     }
   }
 
+  void setGenerateAttributes(std::unordered_map<std::string, std::string> const& attrs) {
+    _generateAttributes = attrs;
+  }
+
   //////////////////////////////////////////////////////////////////////////////
   /// @brief whether or not to overwrite existing data in the collection
   //////////////////////////////////////////////////////////////////////////////
@@ -272,7 +278,7 @@ class ImportHelper {
 
   std::string getCollectionUrlPart() const;
   void beginLine(size_t row);
-  void addField(char const*, size_t, size_t row, size_t column, bool escaped);
+  void addField(char const*, size_t, size_t row, size_t column, bool escaped, bool mapping);
   void addLastField(char const*, size_t, size_t row, size_t column, bool escaped);
 
   bool collectionExists();
@@ -325,7 +331,10 @@ class ImportHelper {
   std::vector<std::string> _columnNames;
 
   std::unordered_map<std::string, std::string> _translations;
+  std::unordered_map<std::string, std::string> _generateAttributes;
   std::unordered_set<std::string> _removeAttributes;
+
+  nlohmann::json _mapping;
 
   bool _hasError;
   std::vector<std::string> _errorMessages;

@@ -64,6 +64,8 @@ class ImportFeature final : public application_features::ApplicationFeature,
   std::string _typeImport;
   std::vector<std::string> _translations;
   std::vector<std::string> _removeAttributes;
+  std::vector<std::string> _generateAttributes;
+  std::unordered_map<std::string, std::string> _generateAttributeMap;
   bool _overwrite;
   std::string _quote;
   std::string _separator;

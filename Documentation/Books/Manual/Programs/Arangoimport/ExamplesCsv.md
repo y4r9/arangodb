@@ -147,15 +147,28 @@ and the target attribute must be separated with a *=*.
 Ignoring Attributes
 -------------------
 
-For the CSV and TSV input formats, certain attribute names can be ignored on imports.
-In an ArangoDB cluster there are cases where this can come in handy,
-when your documents already contain a `_key` attribute
-and your collection has a sharding attribute other than `_key`: In the cluster this
-configuration is not supported, because ArangoDB needs to guarantee the uniqueness of the `_key`
-attribute in *all* shards of the collection.
+For the CSV and TSV input formats, certain attribute names can be
+ignored on imports.  In an ArangoDB cluster there are cases where this
+can come in handy, when your documents already contain a `_key`
+attribute and your collection has a sharding attribute other than
+`_key`: In the cluster this configuration is not supported, because
+ArangoDB needs to guarantee the uniqueness of the `_key` attribute in
+*all* shards of the collection.
 
     arangoimport --file "data.csv" --type csv --remove-attribute "_key"
 
 The same thing would apply if your data contains an *_id* attribute:
 
     arangoimport --file "data.csv" --type csv --remove-attribute "_id"
+
+Generating Attributes
+---------------------
+
+For the CSV and TSV input formats, you can combine attributes to
+generate new attribute by using the `--generate-attribute` option.
+
+    arangoimport --file "data.csv" --type csv --generate-attribute "date={{ year }}-{{ month }}-{{ day}}"
+
+The generated attribute is described in a *jinja*-like syntax,
+see (inja)[https://github.com/pantor/inja].
+
