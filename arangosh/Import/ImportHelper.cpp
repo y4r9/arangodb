@@ -601,7 +601,7 @@ void ImportHelper::addField(char const* field, size_t fieldLength, size_t row,
           _mapping[_columnNames[column]] = std::string(field, fieldLength);
         }
       } else {
-        _lineBuffer.appendJsonEncoded(field, fieldLength);
+        _mapping[_columnNames[column]] = std::string(field, fieldLength);
       }
     } else {
       _mapping[_columnNames[column]] = std::string(field, fieldLength);
