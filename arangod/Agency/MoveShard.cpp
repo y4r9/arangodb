@@ -157,7 +157,7 @@ bool MoveShard::create(std::shared_ptr<VPackBuilder> envelope) {
   _jb->close();  // transaction object
   _jb->close();  // close array
 
-  write_ret_t res = singleWriteTransaction(_agent, *_jb);
+  write_ret_t res = singleWriteTransaction(_agent, *_jb, false);
 
   if (res.accepted && res.indices.size() == 1 && res.indices[0]) {
     return true;
@@ -190,7 +190,7 @@ bool MoveShard::start(bool&) {
     finish("", "", true, "collection has been dropped in the meantime");
     return false;
   }
-  auto collection = _snapshot.hasAsNode(planColPrefix + _database + "/" + _collection);
+  auto const& collection = _snapshot.hasAsNode(planColPrefix + _database + "/" + _collection);
   if (collection.second && collection.first.has("distributeShardsLike")) {
     finish("", "", false,
            "collection must not have 'distributeShardsLike' attribute");
@@ -218,10 +218,15 @@ bool MoveShard::start(bool&) {
   // Check that the toServer is in state "GOOD":
   std::string health = checkServerHealth(_snapshot, _to);
   if (health != "GOOD") {
-    LOG_TOPIC(DEBUG, Logger::SUPERVISION)
-        << "server " << _to << " is currently " << health
-        << ", not starting MoveShard job " << _jobId;
-    return false;
+    if (health == "BAD") {
+      LOG_TOPIC(DEBUG, Logger::SUPERVISION)
+          << "server " << _to << " is currently " << health
+          << ", not starting MoveShard job " << _jobId;
+      return false;
+    } else {   // FAILED
+      finish("", "", false, "toServer is FAILED");
+      return false;
+    }
   }
 
   // Check that _to is not in `Target/CleanedServers`:
@@ -389,7 +394,7 @@ bool MoveShard::start(bool&) {
   }  // array for transaction done
 
   // Transact to agency
-  write_ret_t res = singleWriteTransaction(_agent, pending);
+  write_ret_t res = singleWriteTransaction(_agent, pending, false);
 
   if (res.accepted && res.indices.size() == 1 && res.indices[0]) {
     LOG_TOPIC(DEBUG, Logger::SUPERVISION)
@@ -448,6 +453,17 @@ JOB_STATUS MoveShard::pendingLeader() {
   Builder trx;
   Builder pre;  // precondition
   bool finishedAfterTransaction = false;
+
+  // Check if any of the servers in the Plan are FAILED, if so,
+  // we abort:
+  if (plan.isArray() &&
+      Job::countGoodOrBadServersInList(_snapshot, plan) < plan.length()) {
+    LOG_TOPIC(DEBUG, Logger::SUPERVISION)
+      << "MoveShard (leader): found FAILED server in Plan, aborting job, db: "
+      << _database << " coll: " << _collection << " shard: " << _shard;
+    abort();
+    return FAILED;
+  }
 
   if (plan[0].copyString() == _from) {
     // Still the old leader, let's check that the toServer is insync:
@@ -649,7 +665,7 @@ JOB_STATUS MoveShard::pendingLeader() {
   }
 
   // Transact to agency:
-  write_ret_t res = singleWriteTransaction(_agent, trx);
+  write_ret_t res = singleWriteTransaction(_agent, trx, false);
 
   if (res.accepted && res.indices.size() == 1 && res.indices[0]) {
     LOG_TOPIC(DEBUG, Logger::SUPERVISION)
@@ -663,6 +679,20 @@ JOB_STATUS MoveShard::pendingLeader() {
 }
 
 JOB_STATUS MoveShard::pendingFollower() {
+  // Check if any of the servers in the Plan are FAILED, if so,
+  // we abort:
+  std::string planPath =
+      planColPrefix + _database + "/" + _collection + "/shards/" + _shard;
+  Slice plan = _snapshot.hasAsSlice(planPath).first;
+  if (plan.isArray() &&
+      Job::countGoodOrBadServersInList(_snapshot, plan) < plan.length()) {
+    LOG_TOPIC(DEBUG, Logger::SUPERVISION)
+      << "MoveShard (follower): found FAILED server in Plan, aborting job, db: "
+      << _database << " coll: " << _collection << " shard: " << _shard;
+    abort();
+    return FAILED;
+  }
+
   // Find the other shards in the same distributeShardsLike group:
   std::vector<Job::shard_t> shardsLikeMe =
       clones(_snapshot, _database, _collection, _shard);
@@ -735,7 +765,7 @@ JOB_STATUS MoveShard::pendingFollower() {
     trx.add(precondition.slice());
   }
 
-  write_ret_t res = singleWriteTransaction(_agent, trx);
+  write_ret_t res = singleWriteTransaction(_agent, trx, false);
 
   if (res.accepted && res.indices.size() == 1 && res.indices[0]) {
     return FINISHED;
@@ -859,7 +889,7 @@ arangodb::Result MoveShard::abort() {
         });
     }
   }
-  write_ret_t res = singleWriteTransaction(_agent, trx);
+  write_ret_t res = singleWriteTransaction(_agent, trx, false);
 
   if (!res.accepted) {
     result = Result(TRI_ERROR_SUPERVISION_GENERAL_FAILURE,
