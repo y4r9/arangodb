@@ -1226,6 +1226,7 @@ static arangodb::Result fillIndex(transaction::Methods* trx, RocksDBIndex* ridx,
   // occurred, this needs to happen since we are non transactional
   if (res.fail()) {
     RocksDBKeyBounds bounds = ridx->getBounds();
+    // cppcheck-suppress knownConditionTrueFalse symbolName=numDocsWritten
     arangodb::Result res2 =
         rocksutils::removeLargeRange(rocksutils::globalRocksDB(), bounds, true,
                                      /*useRangeDel*/ numDocsWritten > 25000);
@@ -1678,6 +1679,7 @@ uint64_t RocksDBCollection::recalculateCounts() {
     return numberDocuments();
   }
   auto useGuard = scopeGuard([&] {
+      // cppcheck-suppress knownConditionTrueFalse symbolName=snapshot
     if (snapshot) {
       db->ReleaseSnapshot(snapshot);
     }

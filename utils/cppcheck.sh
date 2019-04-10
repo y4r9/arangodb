@@ -20,6 +20,7 @@ cppcheck -j4 \
   --suppress="*:Aql/tokens.cpp" \
   --suppress="*:Aql/tokens.ll" \
   --suppress="*:*yacc*" \
+  --template="{file}:{line}: {id}:{severity}: {message}" \
   arangod/ arangosh/ lib/ enterprise/ 2>> cppcheck.tmp
 
 sort cppcheck.tmp | uniq > cppcheck.log

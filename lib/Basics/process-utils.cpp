@@ -1200,7 +1200,7 @@ static bool killProcess(ExternalProcess* pid, int signal) {
   if (signal == SIGKILL) {
     LOG_TOPIC(WARN, arangodb::Logger::FIXME) << "sending SIGKILL signal to process: " << pid->_pid;
   }
-  if (kill(pid->_pid, signal) == 0) {
+  if (pid != nullptr && kill(pid->_pid, signal) == 0) {
     return true;
   }
   return false;
@@ -1212,7 +1212,7 @@ static bool killProcess(ExternalProcess* pid, int signal) {
   UINT uExitCode = 0;
 
   // kill worker process
-  if (0 != TerminateProcess(pid->_process, uExitCode)) {
+  if (pid != nullptr && 0 != TerminateProcess(pid->_process, uExitCode)) {
     return true;
   } else {
     return false;

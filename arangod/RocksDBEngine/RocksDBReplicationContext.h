@@ -138,7 +138,7 @@ class RocksDBReplicationContext {
   // ========================= Dump API =============================
 
   struct DumpResult : arangodb::Result {
-    DumpResult(int res) : Result(res), hasMore(false), includedTick(0) {}
+    explicit DumpResult(int res) : Result(res), hasMore(false), includedTick(0) {}
     DumpResult(int res, bool hm, uint64_t tick)
         : Result(res), hasMore(hm), includedTick(tick) {}
     bool hasMore;

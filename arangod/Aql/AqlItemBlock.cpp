@@ -109,10 +109,11 @@ AqlItemBlock::AqlItemBlock(ResourceMonitor* resourceMonitor, VPackSlice const sl
   enum RunType { NoRun = 0, EmptyRun, NextRun, PositionalRun };
 
   int64_t runLength = 0;
-  size_t tablePos = 0;
   RunType runType = NoRun;
 
   try {
+    size_t tablePos = 0;
+
     // skip the first two records
     rawIterator.next();
     rawIterator.next();

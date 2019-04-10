@@ -178,7 +178,7 @@ class Scheduler {
   // queue is full
 
   struct FifoJob {
-    FifoJob(std::function<void(bool)> const& callback) : _callback(callback) {}
+    explicit FifoJob(std::function<void(bool)> const& callback) : _callback(callback) {}
     std::function<void(bool)> _callback;
   };
 

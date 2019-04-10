@@ -73,9 +73,15 @@ namespace arangodb {
 //  base +1 : flush mem buffer to level 0
 //  base +2 : level 0 compaction to level 1
 //  base +3 : all other compactions
+
 struct sPriorityInfo {
+  // cppcheck-suppress unusedStructMember symbolName=_baseSet
   bool _baseSet;
+
+  // cppcheck-suppress unusedStructMember symbolName=_basePriority
   int _basePriority;
+
+  // cppcheck-suppress unusedStructMember symbolName=_currentPriority
   int _currentPriority;
 };
 
@@ -198,13 +204,12 @@ void RocksDBThrottle::SetThrottleWriteRate(std::chrono::microseconds Micros,
                                            uint64_t Keys, uint64_t Bytes, bool IsLevel0) {
   // lock _threadMutex while we update _throttleData
   MUTEX_LOCKER(mutexLocker, _threadMutex);
-  unsigned target_idx;
 
   // throw out anything smaller than 32Mbytes ... be better if this
   //  was calculated against write_buffer_size, but that varies by column family
   if ((64 << 19) < Bytes) {
     // index 0 for level 0 compactions, index 1 for all others
-    target_idx = (IsLevel0 ? 0 : 1);
+    unsigned target_idx = (IsLevel0 ? 0 : 1);
 
     _throttleData[target_idx]._micros += Micros;
     _throttleData[target_idx]._keys += Keys;
@@ -269,10 +274,9 @@ void RocksDBThrottle::ThreadLoop() {
 // Routine to actually perform the throttle calculation,
 //  now is external routing from ThreadLoop() to easy unit test
 void RocksDBThrottle::RecalculateThrottle() {
-  unsigned loop;
   std::chrono::microseconds tot_micros;
   uint64_t tot_bytes, tot_keys, tot_compact, adjustment_bytes;
-  int64_t new_throttle, compaction_backlog, temp_rate;
+  int64_t compaction_backlog, temp_rate;
   bool no_data;
 
   tot_micros *= 0;
@@ -293,7 +297,7 @@ void RocksDBThrottle::RecalculateThrottle() {
     //  subtracting [_replaceIdx] before copying [0] into it,
     //  then adding new [_replaceIdx].  But that needs more
     //  time for testing.
-    for (loop = 2; loop < THROTTLE_INTERVALS; ++loop) {
+    for (unsigned loop = 2; loop < THROTTLE_INTERVALS; ++loop) {
       tot_micros += _throttleData[loop]._micros;
       tot_keys += _throttleData[loop]._keys;
       tot_bytes += _throttleData[loop]._bytes;
@@ -315,6 +319,7 @@ void RocksDBThrottle::RecalculateThrottle() {
   // lock _threadMutex while we update _throttleData
   if (!no_data) {
     MUTEX_LOCKER(mutexLocker, _threadMutex);
+    int64_t new_throttle;
 
     // non-level0 data available?
     if (0 != tot_bytes && 0 != tot_micros.count()) {
@@ -428,7 +433,6 @@ void RocksDBThrottle::SetThrottle() {
 ///
 int64_t RocksDBThrottle::ComputeBacklog() {
   int64_t compaction_backlog, imm_backlog, imm_trigger;
-  bool ret_flag;
   std::string ret_string, property_name;
   int temp;
 
@@ -446,7 +450,7 @@ int64_t RocksDBThrottle::ComputeBacklog() {
   for (auto& cf : _families) {
     property_name = rocksdb::DB::Properties::kNumFilesAtLevelPrefix;
     property_name.append("0");
-    ret_flag = _internalRocksDB->GetProperty(cf, property_name, &ret_string);
+      bool ret_flag = _internalRocksDB->GetProperty(cf, property_name, &ret_string);
     if (ret_flag) {
       temp = std::stoi(ret_string);
     } else {
@@ -484,12 +488,11 @@ void RocksDBThrottle::AdjustThreadPriority(int Adjustment) {
   // initialize thread infor if this the first time the thread has ever called
   if (!gThreadPriority._baseSet) {
     pid_t tid;
-    int ret_val;
 
     tid = syscall(SYS_gettid);
     if (-1 != (int)tid) {
       errno = 0;
-      ret_val = getpriority(PRIO_PROCESS, tid);
+      int ret_val = getpriority(PRIO_PROCESS, tid);
       // ret_val could be -1 legally, so double test
       if (-1 != ret_val || 0 == errno) {
         gThreadPriority._baseSet = true;

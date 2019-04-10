@@ -93,39 +93,38 @@ using namespace std::chrono;
 using namespace date;
 
 /*
-- always specify your user facing function name MYFUNC in error generators
-- errors are broadcasted like this:
-    - Wrong parameter types: ::registerInvalidArgumentWarning(query, "MYFUNC")
-    - Generic errors: ::registerWarning(query, "MYFUNC", TRI_ERROR_QUERY_INVALID_REGEX);
-    - ICU related errors: if (U_FAILURE(status)) { ::registerICUWarning(query, "MYFUNC", status); }
-    - close with: return AqlValue(AqlValueHintNull());
-- specify the number of parameters you expect at least and at max using:
-- if you support optional parameters, first check whether the count is sufficient
-  using parameters.size()
-- fetch the values using:
-  AqlValue value
-  - Anonymous  = extractFunctionParameterValue(parameters, 0);
-  - ::getBooleanParameter() if you expect a bool
-  - Stringify() if you need a string.
-  - ::extractKeys() if its an object and you need the keys
-  - ::extractCollectionName() if you expect a collection
-  - ::listContainsElement() search for a member
-  - ::parameterToTimePoint / ::dateFromParameters get a time string as date.
-- check the values whether they match your expectations i.e. using:
-  - param.isNumber() then extract it using: param.toInt64(trx)
-- Available helper functions for working with parameters:
-  - ::variance()
-  - ::sortNumberList()
-  - ::unsetOrKeep ()
-  - ::getDocumentByIdentifier ()
-  - ::mergeParameters()
-  - ::flattenList()
+  - always specify your user facing function name MYFUNC in error generators
+  - errors are broadcasted like this:
+      - Wrong parameter types: ::registerInvalidArgumentWarning(query, "MYFUNC")
+      - Generic errors: ::registerWarning(query, "MYFUNC", TRI_ERROR_QUERY_INVALID_REGEX);
+      - ICU related errors: if (U_FAILURE(status)) { ::registerICUWarning(query, "MYFUNC", status); }
+      - close with: return AqlValue(AqlValueHintNull());
+  - specify the number of parameters you expect at least and at max using:
+  - if you support optional parameters, first check whether the count is sufficient
+    using parameters.size()
+  - fetch the values using:
+    AqlValue value
+    - Anonymous  = extractFunctionParameterValue(parameters, 0);
+    - ::getBooleanParameter() if you expect a bool
+    - Stringify() if you need a string.
+    - ::extractKeys() if its an object and you need the keys
+    - ::extractCollectionName() if you expect a collection
+    - ::listContainsElement() search for a member
+    - ::parameterToTimePoint / ::dateFromParameters get a time string as date.
+  - check the values whether they match your expectations i.e. using:
+    - param.isNumber() then extract it using: param.toInt64(trx)
+  - Available helper functions for working with parameters:
+    - ::variance()
+    - ::sortNumberList()
+    - ::unsetOrKeep ()
+    - ::getDocumentByIdentifier ()
+    - ::mergeParameters()
+    - ::flattenList()
 
-- now do your work with the parameters
-- build up a result using a VPackbuilder like you would with regular velocpyack.
-- return it wrapping it into an AqlValue
-
- */
+  - now do your work with the parameters
+  - build up a result using a VPackbuilder like you would with regular velocpyack.
+  - return it wrapping it into an AqlValue
+*/
 
 namespace {
 
@@ -2028,6 +2027,7 @@ AqlValue Functions::Length(arangodb::aql::Query*, transaction::Methods* trx,
 /// FIND_FIRST(text, search, start, end) → position
 AqlValue Functions::FindFirst(arangodb::aql::Query* query, transaction::Methods* trx,
                               VPackFunctionParameters const& parameters) {
+  // cppcheck-suppress variableScope symbolName=AFN
   static char const* AFN = "FIND_FIRST";
 
   AqlValue const& value = extractFunctionParameterValue(parameters, 0);
@@ -2094,6 +2094,7 @@ AqlValue Functions::FindFirst(arangodb::aql::Query* query, transaction::Methods*
 /// FIND_FIRST(text, search, start, end) → position
 AqlValue Functions::FindLast(arangodb::aql::Query* query, transaction::Methods* trx,
                              VPackFunctionParameters const& parameters) {
+  // cppcheck-suppress variableScope symbolName=AFN
   static char const* AFN = "FIND_LAST";
 
   AqlValue const& value = extractFunctionParameterValue(parameters, 0);
@@ -2162,6 +2163,7 @@ AqlValue Functions::FindLast(arangodb::aql::Query* query, transaction::Methods* 
 /// @brief function REVERSE
 AqlValue Functions::Reverse(arangodb::aql::Query* query, transaction::Methods* trx,
                             VPackFunctionParameters const& parameters) {
+  // cppcheck-suppress variableScope symbolName=AFN
   static char const* AFN = "REVERSE";
 
   AqlValue const& value = extractFunctionParameterValue(parameters, 0);
@@ -2212,6 +2214,7 @@ AqlValue Functions::Reverse(arangodb::aql::Query* query, transaction::Methods* t
 /// @brief function FIRST
 AqlValue Functions::First(arangodb::aql::Query* query, transaction::Methods* trx,
                           VPackFunctionParameters const& parameters) {
+  // cppcheck-suppress variableScope symbolName=AFN
   static char const* AFN = "FIRST";
 
   AqlValue const& value = extractFunctionParameterValue(parameters, 0);
@@ -2233,6 +2236,7 @@ AqlValue Functions::First(arangodb::aql::Query* query, transaction::Methods* trx
 /// @brief function LAST
 AqlValue Functions::Last(arangodb::aql::Query* query, transaction::Methods* trx,
                          VPackFunctionParameters const& parameters) {
+  // cppcheck-suppress variableScope symbolName=AFN
   static char const* AFN = "LAST";
 
   AqlValue const& value = extractFunctionParameterValue(parameters, 0);
@@ -2256,6 +2260,7 @@ AqlValue Functions::Last(arangodb::aql::Query* query, transaction::Methods* trx,
 /// @brief function NTH
 AqlValue Functions::Nth(arangodb::aql::Query* query, transaction::Methods* trx,
                         VPackFunctionParameters const& parameters) {
+  // cppcheck-suppress variableScope symbolName=AFN
   static char const* AFN = "NTH";
 
   AqlValue const& value = extractFunctionParameterValue(parameters, 0);
@@ -2564,6 +2569,7 @@ AqlValue Functions::Substring(arangodb::aql::Query*, transaction::Methods* trx,
 
 AqlValue Functions::Substitute(arangodb::aql::Query* query, transaction::Methods* trx,
                                VPackFunctionParameters const& parameters) {
+  // cppcheck-suppress variableScope symbolName=AFN
   static char const* AFN = "SUBSTITUTE";
 
   AqlValue const& search = extractFunctionParameterValue(parameters, 1);
@@ -2894,6 +2900,7 @@ void rtrimInternal(uint32_t& startOffset, uint32_t& endOffset, UnicodeString& un
 /// @brief function TRIM
 AqlValue Functions::Trim(arangodb::aql::Query* query, transaction::Methods* trx,
                          VPackFunctionParameters const& parameters) {
+  // cppcheck-suppress variableScope symbolName=AFN
   static char const* AFN = "TRIM";
 
   AqlValue const& value = extractFunctionParameterValue(parameters, 0);
@@ -2951,6 +2958,7 @@ AqlValue Functions::Trim(arangodb::aql::Query* query, transaction::Methods* trx,
 /// @brief function LTRIM
 AqlValue Functions::LTrim(arangodb::aql::Query* query, transaction::Methods* trx,
                           VPackFunctionParameters const& parameters) {
+  // cppcheck-suppress variableScope symbolName=AFN
   static char const* AFN = "LTRIM";
 
   AqlValue const& value = extractFunctionParameterValue(parameters, 0);
@@ -2990,6 +2998,7 @@ AqlValue Functions::LTrim(arangodb::aql::Query* query, transaction::Methods* trx
 /// @brief function RTRIM
 AqlValue Functions::RTrim(arangodb::aql::Query* query, transaction::Methods* trx,
                           VPackFunctionParameters const& parameters) {
+  // cppcheck-suppress variableScope symbolName=AFN
   static char const* AFN = "RTRIM";
 
   AqlValue const& value = extractFunctionParameterValue(parameters, 0);
@@ -3029,6 +3038,7 @@ AqlValue Functions::RTrim(arangodb::aql::Query* query, transaction::Methods* trx
 /// @brief function LIKE
 AqlValue Functions::Like(arangodb::aql::Query* query, transaction::Methods* trx,
                          VPackFunctionParameters const& parameters) {
+  // cppcheck-suppress variableScope symbolName=AFN
   static char const* AFN = "LIKE";
 
   bool const caseInsensitive = ::getBooleanParameter(trx, parameters, 2, false);
@@ -3070,6 +3080,7 @@ AqlValue Functions::Like(arangodb::aql::Query* query, transaction::Methods* trx,
 /// @brief function SPLIT
 AqlValue Functions::Split(arangodb::aql::Query* query, transaction::Methods* trx,
                           VPackFunctionParameters const& parameters) {
+  // cppcheck-suppress variableScope symbolName=AFN
   static char const* AFN = "SPLIT";
 
   // cheapest parameter checks first:
@@ -3199,6 +3210,7 @@ AqlValue Functions::Split(arangodb::aql::Query* query, transaction::Methods* trx
 /// @brief function REGEX_MATCHES
 AqlValue Functions::RegexMatches(arangodb::aql::Query* query, transaction::Methods* trx,
                                  VPackFunctionParameters const& parameters) {
+  // cppcheck-suppress variableScope symbolName=AFN
   static char const* AFN = "REGEX_MATCHES";
 
   AqlValue const& aqlValueToMatch = extractFunctionParameterValue(parameters, 0);
@@ -3272,6 +3284,7 @@ AqlValue Functions::RegexMatches(arangodb::aql::Query* query, transaction::Metho
 /// @brief function REGEX_SPLIT
 AqlValue Functions::RegexSplit(arangodb::aql::Query* query, transaction::Methods* trx,
                                VPackFunctionParameters const& parameters) {
+  // cppcheck-suppress variableScope symbolName=AFN
   static char const* AFN = "REGEX_SPLIT";
 
   int64_t limitNumber = -1;
@@ -3397,6 +3410,7 @@ AqlValue Functions::RegexSplit(arangodb::aql::Query* query, transaction::Methods
 /// @brief function REGEX_TEST
 AqlValue Functions::RegexTest(arangodb::aql::Query* query, transaction::Methods* trx,
                               VPackFunctionParameters const& parameters) {
+  // cppcheck-suppress variableScope symbolName=AFN
   static char const* AFN = "REGEX_TEST";
 
   bool const caseInsensitive = ::getBooleanParameter(trx, parameters, 2, false);
@@ -3438,6 +3452,7 @@ AqlValue Functions::RegexTest(arangodb::aql::Query* query, transaction::Methods*
 /// @brief function REGEX_REPLACE
 AqlValue Functions::RegexReplace(arangodb::aql::Query* query, transaction::Methods* trx,
                                  VPackFunctionParameters const& parameters) {
+  // cppcheck-suppress variableScope symbolName=AFN
   static char const* AFN = "REGEX_REPLACE";
 
   bool const caseInsensitive = ::getBooleanParameter(trx, parameters, 3, false);
@@ -4134,6 +4149,7 @@ AqlValue Functions::Keep(arangodb::aql::Query* query, transaction::Methods* trx,
 /// @brief function TRANSLATE
 AqlValue Functions::Translate(arangodb::aql::Query* query, transaction::Methods* trx,
                               VPackFunctionParameters const& parameters) {
+  // cppcheck-suppress variableScope symbolName=AFN
   static char const* AFN = "TRANSLATE";
 
   AqlValue const& key = extractFunctionParameterValue(parameters, 0);
@@ -4672,6 +4688,7 @@ AqlValue Functions::IsKey(arangodb::aql::Query*, transaction::Methods* trx,
 /// @brief function COUNT_DISTINCT
 AqlValue Functions::CountDistinct(arangodb::aql::Query* query, transaction::Methods* trx,
                                   VPackFunctionParameters const& parameters) {
+  // cppcheck-suppress variableScope symbolName=AFN
   static char const* AFN = "COUNT_DISTINCT";
 
   AqlValue const& value = extractFunctionParameterValue(parameters, 0);
@@ -4702,6 +4719,7 @@ AqlValue Functions::CountDistinct(arangodb::aql::Query* query, transaction::Meth
 /// @brief function UNIQUE
 AqlValue Functions::Unique(arangodb::aql::Query* query, transaction::Methods* trx,
                            VPackFunctionParameters const& parameters) {
+  // cppcheck-suppress variableScope symbolName=AFN
   static char const* AFN = "UNIQUE";
 
   AqlValue const& value = extractFunctionParameterValue(parameters, 0);
@@ -4738,6 +4756,7 @@ AqlValue Functions::Unique(arangodb::aql::Query* query, transaction::Methods* tr
 /// @brief function SORTED_UNIQUE
 AqlValue Functions::SortedUnique(arangodb::aql::Query* query, transaction::Methods* trx,
                                  VPackFunctionParameters const& parameters) {
+  // cppcheck-suppress variableScope symbolName=AFN
   static char const* AFN = "SORTED_UNIQUE";
 
   AqlValue const& value = extractFunctionParameterValue(parameters, 0);
@@ -4772,6 +4791,7 @@ AqlValue Functions::SortedUnique(arangodb::aql::Query* query, transaction::Metho
 /// @brief function SORTED
 AqlValue Functions::Sorted(arangodb::aql::Query* query, transaction::Methods* trx,
                            VPackFunctionParameters const& parameters) {
+  // cppcheck-suppress variableScope symbolName=AFN
   static char const* AFN = "SORTED";
 
   AqlValue const& value = extractFunctionParameterValue(parameters, 0);
@@ -4811,6 +4831,7 @@ AqlValue Functions::Sorted(arangodb::aql::Query* query, transaction::Methods* tr
 /// @brief function UNION
 AqlValue Functions::Union(arangodb::aql::Query* query, transaction::Methods* trx,
                           VPackFunctionParameters const& parameters) {
+  // cppcheck-suppress variableScope symbolName=AFN
   static char const* AFN = "UNION";
 
   transaction::BuilderLeaser builder(trx);
@@ -4851,6 +4872,7 @@ AqlValue Functions::Union(arangodb::aql::Query* query, transaction::Methods* trx
 /// @brief function UNION_DISTINCT
 AqlValue Functions::UnionDistinct(arangodb::aql::Query* query, transaction::Methods* trx,
                                   VPackFunctionParameters const& parameters) {
+  // cppcheck-suppress variableScope symbolName=AFN
   static char const* AFN = "UNION_DISTINCT";
 
   size_t const n = parameters.size();
@@ -4907,6 +4929,7 @@ AqlValue Functions::UnionDistinct(arangodb::aql::Query* query, transaction::Meth
 /// @brief function INTERSECTION
 AqlValue Functions::Intersection(arangodb::aql::Query* query, transaction::Methods* trx,
                                  VPackFunctionParameters const& parameters) {
+  // cppcheck-suppress variableScope symbolName=AFN
   static char const* AFN = "INTERSECTION";
 
   auto options = trx->transactionContextPtr()->getVPackOptions();
@@ -4976,6 +4999,7 @@ AqlValue Functions::Intersection(arangodb::aql::Query* query, transaction::Metho
 /// @brief function OUTERSECTION
 AqlValue Functions::Outersection(arangodb::aql::Query* query, transaction::Methods* trx,
                                  VPackFunctionParameters const& parameters) {
+  // cppcheck-suppress variableScope symbolName=AFN
   static char const* AFN = "OUTERSECTION";
 
   auto options = trx->transactionContextPtr()->getVPackOptions();
@@ -5614,6 +5638,7 @@ AqlValue Functions::GeoMultiLinestring(arangodb::aql::Query* query,
 /// @brief function FLATTEN
 AqlValue Functions::Flatten(arangodb::aql::Query* query, transaction::Methods* trx,
                             VPackFunctionParameters const& parameters) {
+  // cppcheck-suppress variableScope symbolName=AFN
   static char const* AFN = "FLATTEN";
 
   AqlValue const& list = extractFunctionParameterValue(parameters, 0);
@@ -5647,6 +5672,7 @@ AqlValue Functions::Flatten(arangodb::aql::Query* query, transaction::Methods* t
 /// @brief function ZIP
 AqlValue Functions::Zip(arangodb::aql::Query* query, transaction::Methods* trx,
                         VPackFunctionParameters const& parameters) {
+  // cppcheck-suppress variableScope symbolName=AFN
   static char const* AFN = "ZIP";
 
   AqlValue const& keys = extractFunctionParameterValue(parameters, 0);
@@ -5782,6 +5808,7 @@ AqlValue Functions::ParseIdentifier(arangodb::aql::Query* query, transaction::Me
 /// @brief function Slice
 AqlValue Functions::Slice(arangodb::aql::Query* query, transaction::Methods* trx,
                           VPackFunctionParameters const& parameters) {
+  // cppcheck-suppress variableScope symbolName=AFN
   static char const* AFN = "SLICE";
 
   AqlValue const& baseArray = extractFunctionParameterValue(parameters, 0);
@@ -5905,6 +5932,7 @@ AqlValue Functions::Minus(arangodb::aql::Query* query, transaction::Methods* trx
 /// @brief function Document
 AqlValue Functions::Document(arangodb::aql::Query* query, transaction::Methods* trx,
                              VPackFunctionParameters const& parameters) {
+  // cppcheck-suppress variableScope symbolName=AFN
   static char const* AFN = "DOCUMENT";
 
   if (parameters.size() == 1) {
@@ -5980,6 +6008,7 @@ AqlValue Functions::Document(arangodb::aql::Query* query, transaction::Methods* 
 /// @brief function MATCHES
 AqlValue Functions::Matches(arangodb::aql::Query* query, transaction::Methods* trx,
                             VPackFunctionParameters const& parameters) {
+  // cppcheck-suppress variableScope symbolName=AFN
   static char const* AFN = "MATCHES";
 
   AqlValue const& docToFind = extractFunctionParameterValue(parameters, 0);
@@ -6294,6 +6323,7 @@ AqlValue Functions::FirstList(arangodb::aql::Query*, transaction::Methods* trx,
 /// @brief function PUSH
 AqlValue Functions::Push(arangodb::aql::Query* query, transaction::Methods* trx,
                          VPackFunctionParameters const& parameters) {
+  // cppcheck-suppress variableScope symbolName=AFN
   static char const* AFN = "PUSH";
 
   AqlValue const& list = extractFunctionParameterValue(parameters, 0);
@@ -6339,6 +6369,7 @@ AqlValue Functions::Push(arangodb::aql::Query* query, transaction::Methods* trx,
 /// @brief function POP
 AqlValue Functions::Pop(arangodb::aql::Query* query, transaction::Methods* trx,
                         VPackFunctionParameters const& parameters) {
+  // cppcheck-suppress variableScope symbolName=AFN
   static char const* AFN = "POP";
 
   AqlValue const& list = extractFunctionParameterValue(parameters, 0);
@@ -6369,6 +6400,7 @@ AqlValue Functions::Pop(arangodb::aql::Query* query, transaction::Methods* trx,
 /// @brief function APPEND
 AqlValue Functions::Append(arangodb::aql::Query* query, transaction::Methods* trx,
                            VPackFunctionParameters const& parameters) {
+  // cppcheck-suppress variableScope symbolName=AFN
   static char const* AFN = "APPEND";
 
   AqlValue const& list = extractFunctionParameterValue(parameters, 0);
@@ -6435,6 +6467,7 @@ AqlValue Functions::Append(arangodb::aql::Query* query, transaction::Methods* tr
 /// @brief function UNSHIFT
 AqlValue Functions::Unshift(arangodb::aql::Query* query, transaction::Methods* trx,
                             VPackFunctionParameters const& parameters) {
+  // cppcheck-suppress variableScope symbolName=AFN
   static char const* AFN = "UNSHIFT";
 
   AqlValue const& list = extractFunctionParameterValue(parameters, 0);
@@ -6480,6 +6513,7 @@ AqlValue Functions::Unshift(arangodb::aql::Query* query, transaction::Methods* t
 /// @brief function SHIFT
 AqlValue Functions::Shift(arangodb::aql::Query* query, transaction::Methods* trx,
                           VPackFunctionParameters const& parameters) {
+  // cppcheck-suppress variableScope symbolName=AFN
   static char const* AFN = "SHIFT";
 
   AqlValue const& list = extractFunctionParameterValue(parameters, 0);
@@ -6515,6 +6549,7 @@ AqlValue Functions::Shift(arangodb::aql::Query* query, transaction::Methods* trx
 /// @brief function REMOVE_VALUE
 AqlValue Functions::RemoveValue(arangodb::aql::Query* query, transaction::Methods* trx,
                                 VPackFunctionParameters const& parameters) {
+  // cppcheck-suppress variableScope symbolName=AFN
   static char const* AFN = "REMOVE_VALUE";
 
   AqlValue const& list = extractFunctionParameterValue(parameters, 0);
@@ -6569,6 +6604,7 @@ AqlValue Functions::RemoveValue(arangodb::aql::Query* query, transaction::Method
 /// @brief function REMOVE_VALUES
 AqlValue Functions::RemoveValues(arangodb::aql::Query* query, transaction::Methods* trx,
                                  VPackFunctionParameters const& parameters) {
+  // cppcheck-suppress variableScope symbolName=AFN
   static char const* AFN = "REMOVE_VALUES";
 
   AqlValue const& list = extractFunctionParameterValue(parameters, 0);
@@ -6608,6 +6644,7 @@ AqlValue Functions::RemoveValues(arangodb::aql::Query* query, transaction::Metho
 /// @brief function REMOVE_NTH
 AqlValue Functions::RemoveNth(arangodb::aql::Query* query, transaction::Methods* trx,
                               VPackFunctionParameters const& parameters) {
+  // cppcheck-suppress variableScope symbolName=AFN
   static char const* AFN = "REMOVE_NTH";
 
   AqlValue const& list = extractFunctionParameterValue(parameters, 0);
@@ -6688,6 +6725,7 @@ AqlValue Functions::CurrentUser(arangodb::aql::Query*, transaction::Methods* trx
 /// @brief function COLLECTION_COUNT
 AqlValue Functions::CollectionCount(arangodb::aql::Query*, transaction::Methods* trx,
                                     VPackFunctionParameters const& parameters) {
+  // cppcheck-suppress variableScope symbolName=AFN
   static char const* AFN = "COLLECTION_COUNT";
 
   AqlValue const& element = extractFunctionParameterValue(parameters, 0);
@@ -6955,6 +6993,7 @@ AqlValue Functions::Percentile(arangodb::aql::Query* query, transaction::Methods
 /// @brief function RANGE
 AqlValue Functions::Range(arangodb::aql::Query* query, transaction::Methods* trx,
                           VPackFunctionParameters const& parameters) {
+  // cppcheck-suppress variableScope symbolName=AFN
   static char const* AFN = "RANGE";
 
   AqlValue const& left = extractFunctionParameterValue(parameters, 0);
@@ -6998,6 +7037,7 @@ AqlValue Functions::Range(arangodb::aql::Query* query, transaction::Methods* trx
 /// @brief function POSITION
 AqlValue Functions::Position(arangodb::aql::Query* query, transaction::Methods* trx,
                              VPackFunctionParameters const& parameters) {
+  // cppcheck-suppress variableScope symbolName=AFN
   static char const* AFN = "POSITION";
 
   AqlValue const& list = extractFunctionParameterValue(parameters, 0);
@@ -7186,6 +7226,7 @@ AqlValue Functions::PregelResult(arangodb::aql::Query* query, transaction::Metho
 
 AqlValue Functions::Assert(arangodb::aql::Query* query, transaction::Methods* trx,
                            VPackFunctionParameters const& parameters) {
+  // cppcheck-suppress variableScope symbolName=AFN
   static char const* AFN = "ASSERT";
 
   auto const expr = extractFunctionParameterValue(parameters, 0);
@@ -7204,6 +7245,7 @@ AqlValue Functions::Assert(arangodb::aql::Query* query, transaction::Methods* tr
 
 AqlValue Functions::Warn(arangodb::aql::Query* query, transaction::Methods* trx,
                          VPackFunctionParameters const& parameters) {
+  // cppcheck-suppress variableScope symbolName=AFN
   static char const* AFN = "WARN";
 
   auto const expr = extractFunctionParameterValue(parameters, 0);

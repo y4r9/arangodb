@@ -72,6 +72,7 @@ SimpleHttpClient::SimpleHttpClient(GeneralClientConnection* connection,
   }
 }
 
+// cppcheck-suppress uninitMemberVar
 SimpleHttpClient::SimpleHttpClient(std::unique_ptr<GeneralClientConnection>& connection,
                                    SimpleHttpClientParams const& params)
     : SimpleHttpClient(connection.get(), params) {

@@ -87,6 +87,7 @@ MaxMapCountFeature::~MaxMapCountFeature() {
 void MaxMapCountFeature::collectOptions(std::shared_ptr<options::ProgramOptions> options) {
   options->addSection("server", "Server Options");
 
+  // cppcheck-suppress knownConditionTrueFalse symbolName=needsChecking
   if (needsChecking()) {
     options->addOption("--server.check-max-memory-mappings, mappings",
                        "check the maximum number of memory mappings at runtime",
@@ -100,6 +101,7 @@ void MaxMapCountFeature::collectOptions(std::shared_ptr<options::ProgramOptions>
 }
 
 void MaxMapCountFeature::prepare() {
+  // cppcheck-suppress knownConditionTrueFalse symbolName=needsChecking
   if (!needsChecking() || !checkMaxMappings) {
     return;
   }
@@ -139,6 +141,7 @@ void MaxMapCountFeature::prepare() {
 uint64_t MaxMapCountFeature::actualMaxMappings() { return maxMappings; }
 
 uint64_t MaxMapCountFeature::minimumExpectedMaxMappings() {
+  // cppcheck-suppress knownConditionTrueFalse symbolName=needsChecking
   TRI_ASSERT(needsChecking());
 
   uint64_t expected = 65530;  // kernel default
@@ -155,6 +158,7 @@ uint64_t MaxMapCountFeature::minimumExpectedMaxMappings() {
 }
 
 bool MaxMapCountFeature::isNearMaxMappings() {
+  // cppcheck-suppress knownConditionTrueFalse symbolName=needsChecking
   if (!needsChecking() || !checkMaxMappings || mapsFilename.empty()) {
     return false;
   }

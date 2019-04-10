@@ -282,6 +282,7 @@ void Maskings::addMasked(Collection& collection, VPackBuilder& builder,
   addMaskedObject(collection, builder, path, data);
 }
 
+// cppcheck-suppress funcArgOrderDifferent symbolName=addMasked
 void Maskings::addMasked(Collection& collection, basics::StringBuffer& data,
                          VPackSlice const& slice) {
   if (!slice.isObject()) {

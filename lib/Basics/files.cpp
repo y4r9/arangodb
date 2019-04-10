@@ -1572,8 +1572,7 @@ std::string TRI_GetInstallRoot(std::string const& binaryPath, char const* instal
 static bool CopyFileContents(int srcFD, int dstFD, ssize_t fileSize, std::string& error) {
   bool rc = true;
 #if TRI_LINUX_SPLICE
-  bool enableSplice = true;
-  if (enableSplice) {
+  {
     int splicePipe[2];
     ssize_t pipeSize = 0;
     long chunkSendRemain = fileSize;
@@ -1605,8 +1604,8 @@ static bool CopyFileContents(int srcFD, int dstFD, ssize_t fileSize, std::string
     }
     close(splicePipe[0]);
     close(splicePipe[1]);
-  } else
-#endif
+  }
+#else
   {
     // 128k:
     constexpr size_t C128 = 128 * 1024;
@@ -1657,6 +1656,8 @@ static bool CopyFileContents(int srcFD, int dstFD, ssize_t fileSize, std::string
 
     TRI_Free(buf);
   }
+#endif
+
   return rc;
 }
 

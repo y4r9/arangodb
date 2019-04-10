@@ -115,7 +115,7 @@ void RocksDBRecoveryManager::runRecovery() {
 class WBReader final : public rocksdb::WriteBatch::Handler {
  public:
   struct Operations {
-    Operations(rocksdb::SequenceNumber seq) : startSequenceNumber(seq) {}
+    explicit Operations(rocksdb::SequenceNumber seq) : startSequenceNumber(seq) {}
     Operations(Operations const&) = delete;
     Operations& operator=(Operations const&) = delete;
     Operations(Operations&&) = default;
