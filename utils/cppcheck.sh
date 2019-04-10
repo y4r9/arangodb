@@ -11,6 +11,7 @@ cppcheck -j4 \
   --platform=unix64 \
   --inline-suppr \
   --suppress="*:lib/V8/v8-json.cpp" \
+  --suppress="*:lib/V8/v8-json.ll" \
   --suppress="*:lib/Zip/crypt.h" \
   --suppress="*:lib/Zip/iowin32.cpp" \
   --suppress="*:lib/Zip/unzip.cpp" \
@@ -18,6 +19,7 @@ cppcheck -j4 \
   --suppress="*:Aql/grammar.cpp" \
   --suppress="*:Aql/tokens.cpp" \
   --suppress="*:Aql/tokens.ll" \
+  --suppress="*:*yacc*" \
   arangod/ arangosh/ lib/ enterprise/ 2>> cppcheck.tmp
 
 sort cppcheck.tmp | uniq > cppcheck.log
