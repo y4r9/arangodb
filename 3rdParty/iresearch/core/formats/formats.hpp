@@ -31,7 +31,6 @@
 #include "index/index_meta.hpp"
 #include "index/iterators.hpp"
 
-#include "utils/block_pool.hpp"
 #include "utils/io_utils.hpp"
 #include "utils/string.hpp"
 #include "utils/type_id.hpp"
@@ -49,6 +48,7 @@ struct data_input;
 struct index_input;
 typedef std::unordered_set<doc_id_t> document_mask;
 struct postings_writer;
+typedef std::vector<doc_id_t> doc_map;
 
 //////////////////////////////////////////////////////////////////////////////
 /// @class term_meta
@@ -509,6 +509,7 @@ struct IRESEARCH_API flush_state {
   string_ref name; // segment name
   const flags* features; // segment features
   size_t doc_count;
+  const doc_map* docmap;
 };
 
 struct IRESEARCH_API reader_state {

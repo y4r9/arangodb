@@ -25,6 +25,7 @@
 #define IRESEARCH_TL_DOC_WRITER_H
 
 #include "field_data.hpp"
+#include "sorted_column.hpp"
 #include "analysis/token_stream.hpp"
 #include "formats/formats.hpp"
 #include "utils/bitvector.hpp"
@@ -34,48 +35,57 @@
 
 NS_ROOT
 
+class comparer;
 struct segment_meta;
+class segment_writer;
 
 //////////////////////////////////////////////////////////////////////////////
 /// @enum Action
 /// @brief defines how the inserting field should be processed
 //////////////////////////////////////////////////////////////////////////////
-NS_BEGIN(action)
+enum class Action {
+  ////////////////////////////////////////////////////////////////////////////
+  /// @brief Field should be indexed only
+  /// @note Field must satisfy 'Field' concept
+  ////////////////////////////////////////////////////////////////////////////
+  INDEX = 1,
 
-////////////////////////////////////////////////////////////////////////////
-/// @brief Field should be indexed only
-/// @note Field must satisfy 'Field' concept
-////////////////////////////////////////////////////////////////////////////
-struct index_t{};
-#if defined(_MSC_VER) && (_MSC_VER < 1900)
-  static const index_t index = index_t();
-#else
-  CONSTEXPR const index_t index = index_t();
-#endif
+  ////////////////////////////////////////////////////////////////////////////
+  /// @brief Field should be stored only
+  /// @note Field must satisfy 'Attribute' concept
+  ////////////////////////////////////////////////////////////////////////////
+  STORE = 2,
 
-////////////////////////////////////////////////////////////////////////////
-/// @brief Field should be indexed and stored
-/// @note Field must satisfy 'Field' and 'Attribute' concepts
-////////////////////////////////////////////////////////////////////////////
-struct index_store_t{};
-#if defined(_MSC_VER) && (_MSC_VER < 1900)
-  static const index_store_t index_store = index_store_t();
-#else
-  CONSTEXPR const index_store_t index_store = index_store_t();
-#endif
+  ////////////////////////////////////////////////////////////////////////////
+  /// @brief Field should be indexed and stored
+  /// @note Field must satisfy 'Field' concept
+  ////////////////////////////////////////////////////////////////////////////
+  INDEX_AND_STORE = 3, // MSVC2013 doesn't support constexpr
 
-////////////////////////////////////////////////////////////////////////////
-/// @brief Field should be stored only
-/// @note Field must satisfy 'Attribute' concept
-////////////////////////////////////////////////////////////////////////////
-struct store_t{};
-#if defined(_MSC_VER) && (_MSC_VER < 1900)
-  static const store_t store = store_t();
-#else
-  CONSTEXPR const store_t store = store_t();
-#endif
+  ////////////////////////////////////////////////////////////////////////////
+  /// @brief Field should be stored in sorted order
+  /// @note Field must satisfy 'Attribute' concept
+  ////////////////////////////////////////////////////////////////////////////
+  STORE_SORTED = 4,
 
-NS_END // action
+  ////////////////////////////////////////////////////////////////////////////
+  /// @brief Field should be indexed and stored in sorted order
+  /// @note Field must satisfy 'Field' concept
+  ////////////////////////////////////////////////////////////////////////////
+  INDEX_AND_STORE_SORTED = 5, // MSVC2013 doesn't support constexpr
+}; // Action
+
+ENABLE_BITMASK_ENUM(Action);
+
+template<Action action>
+struct action_helper {
+  template<typename Field>
+  static bool insert(segment_writer& /*writer*/, Field& /*field*/) {
+    // unsupported action
+    assert(false);
+    return false;
+  }
+}; // action_helper
 
 ////////////////////////////////////////////////////////////////////////////////
 /// @brief interface for an index writer over a directory
@@ -114,9 +124,9 @@ class IRESEARCH_API segment_writer: util::noncopyable {
     /// @param field attribute to be inserted
     /// @return true, if field was successfully insterted
     ////////////////////////////////////////////////////////////////////////////
-    template<typename Action, typename Field>
-    bool insert(Action action, Field& field) const {
-      return writer_.insert(action, field);
+    template<Action action, typename Field>
+    bool insert(Field& field) const {
+      return writer_.insert<action>(field);
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -127,10 +137,9 @@ class IRESEARCH_API segment_writer: util::noncopyable {
     /// @param field attribute to be inserted
     /// @return true, if field was successfully insterted
     ////////////////////////////////////////////////////////////////////////////
-    template<typename Action, typename Field>
-    bool insert(Action action, Field* field) const {
-      assert(field);
-      return insert(action, *field);
+    template<Action action, typename Field>
+    bool insert(Field* field) const {
+      return writer_.insert<action>(*field);
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -141,10 +150,10 @@ class IRESEARCH_API segment_writer: util::noncopyable {
     /// @param end the end of the fields range
     /// @return true, if the range was successfully insterted
     ////////////////////////////////////////////////////////////////////////////
-    template<typename Action, typename Iterator>
-    bool insert(Action action, Iterator begin, Iterator end) const {
+    template<Action action, typename Iterator>
+    bool insert(Iterator begin, Iterator end) const {
       for (; writer_.valid() && begin != end; ++begin) {
-        insert(action, *begin);
+        insert<action>(*begin);
       }
 
       return writer_.valid();
@@ -155,7 +164,7 @@ class IRESEARCH_API segment_writer: util::noncopyable {
   }; // document
 
   DECLARE_UNIQUE_PTR(segment_writer);
-  DECLARE_FACTORY(directory& dir);
+  DECLARE_FACTORY(directory& dir, const comparer* comparator);
 
   struct update_context {
     size_t generation;
@@ -176,23 +185,9 @@ class IRESEARCH_API segment_writer: util::noncopyable {
     return docs_context_[doc_id - type_limits<type_t::doc_id_t>::min()];
   }
 
-  // adds stored document field
-  template<typename Field>
-  bool insert(action::store_t, Field& field) {
-    return valid_ = valid_ && store_worker(field);
-  }
-
-  // adds indexed document field
-  template<typename Field>
-  bool insert(action::index_t, Field& field) {
-    return valid_ = valid_ && index_worker(field);
-  }
-
-  // adds indexed and stored document field
-  template<typename Field>
-  bool insert(action::index_store_t, Field& field) {
-    // FIXME optimize, do not evaluate field name hash twice
-    return valid_ = valid_ && index_and_store_worker(field);
+  template<Action action, typename Field>
+  bool insert(Field& field) {
+    return valid_ = valid_ && action_helper<action>::insert(*this, field);
   }
 
   // commit document-write transaction
@@ -233,27 +228,67 @@ class IRESEARCH_API segment_writer: util::noncopyable {
   void reset(const segment_meta& meta);
 
  private:
+  template<Action action>
+  friend struct action_helper;
+
   struct column : util::noncopyable {
-    column(const string_ref& name, columnstore_writer& columnstore);
+    column() = default;
 
     column(column&& other) NOEXCEPT
       : name(std::move(other.name)),
-        handle(std::move(other.handle)) {
+        id(other.id) {
     }
 
     std::string name;
-    columnstore_writer::column_t handle;
-  };
+    field_id id;
+  }; // column
 
-  segment_writer(directory& dir) NOEXCEPT;
+  struct stored_column : column {
+    stored_column(
+      const string_ref& name,
+      columnstore_writer& columnstore
+    );
+
+    columnstore_writer::values_writer_f handle;
+  }; // stored_column
+
+  struct sorted_column : column {
+    sorted_column() = default;
+
+    irs::sorted_column handle;
+  }; // sorted_column
+
+  segment_writer(directory& dir, const comparer* comparator) NOEXCEPT;
 
   bool index(
     const hashed_string_ref& name,
-    token_stream& tokens,
-    const flags& features
+    const doc_id_t doc,
+    const flags& features,
+    token_stream& tokens
   );
 
-  template<typename Field>
+  template<bool Sorted, typename Writer>
+  bool store(
+      const hashed_string_ref& name,
+      const doc_id_t doc,
+      Writer& writer
+  ) {
+    assert(doc < type_limits<type_t::doc_id_t>::eof());
+
+    auto& out = (Sorted && fields_.comparator())
+      ? sorted_stream(name, doc)
+      : stream(name, doc);
+
+    if (writer.write(out)) {
+      return true;
+    }
+
+    out.reset();
+
+    return false;
+  }
+
+  template<bool Sorted, typename Field>
   bool store_worker(Field& field) {
     REGISTER_TIMER_DETAILED();
 
@@ -262,18 +297,10 @@ class IRESEARCH_API segment_writer: util::noncopyable {
       std::hash<irs::string_ref>()
     );
 
-    assert(docs_cached() + type_limits<type_t::doc_id_t>::min() - 1 < type_limits<type_t::doc_id_t>::eof()); // user should check return of begin() != eof()
-    auto doc_id =
-      doc_id_t(docs_cached() + type_limits<type_t::doc_id_t>::min() - 1); // -1 for 0-based offset
-    auto& out = stream(doc_id, name);
+    assert(docs_cached() + doc_limits::min() - 1 < doc_limits::eof()); // user should check return of begin() != eof()
+    const auto doc_id = doc_id_t(docs_cached() + doc_limits::min() - 1); // -1 for 0-based offset
 
-    if (field.write(out)) {
-      return true;
-    }
-
-    out.reset();
-
-    return false;
+    return store<Sorted>(name, doc_id, field);
   }
 
   // adds document field
@@ -289,10 +316,13 @@ class IRESEARCH_API segment_writer: util::noncopyable {
     auto& tokens = static_cast<token_stream&>(field.get_tokens());
     const auto& features = static_cast<const flags&>(field.features());
 
-    return index(name, tokens, features);
+    assert(docs_cached() + doc_limits::min() - 1 < doc_limits::eof()); // user should check return of begin() != eof()
+    const auto doc_id = doc_id_t(docs_cached() + doc_limits::min() - 1); // -1 for 0-based offset
+
+    return index(name, doc_id, features, tokens);
   }
 
-  template<typename Field>
+  template<bool Sorted, typename Field>
   bool index_and_store_worker(Field& field) {
     REGISTER_TIMER_DETAILED();
 
@@ -301,46 +331,42 @@ class IRESEARCH_API segment_writer: util::noncopyable {
       std::hash<irs::string_ref>()
     );
 
-    // index field
     auto& tokens = static_cast<token_stream&>(field.get_tokens());
     const auto& features = static_cast<const flags&>(field.features());
 
-    if (!index(name, tokens, features)) {
+    assert(docs_cached() + doc_limits::min() - 1 < doc_limits::eof()); // user should check return of begin() != eof()
+    const auto doc_id = doc_id_t(docs_cached() + doc_limits::min() - 1); // -1 for 0-based offset
+
+    if (!index(name, doc_id, features, tokens)) {
       return false; // indexing failed
     }
 
-    // store field
-    assert(docs_cached() + type_limits<type_t::doc_id_t>::min() - 1 < type_limits<type_t::doc_id_t>::eof()); // user should check return of begin() != eof()
-    auto doc_id =
-      doc_id_t(docs_cached() + type_limits<type_t::doc_id_t>::min() - 1); // -1 for 0-based offset
-    auto& out = stream(doc_id, name);
-
-    if (field.write(out)) {
-      return true;
-    }
-
-    out.reset();
-
-    return false; // store failed
+    return store<Sorted>(name, doc_id, field);
   }
+
+  // returns stream for storing attributes in sorted order
+  columnstore_writer::column_output& sorted_stream(
+    const hashed_string_ref& name,
+    const doc_id_t doc_id);
 
   // returns stream for storing attributes
   columnstore_writer::column_output& stream(
-    doc_id_t doc,
-    const hashed_string_ref& name
+    const hashed_string_ref& name,
+    const doc_id_t doc
   );
 
   void finish(); // finishes document
 
   size_t flush_doc_mask(const segment_meta& meta); // flushes document mask to directory, returns number of masked documens
   void flush_column_meta(const segment_meta& meta); // flushes column meta to directory
-  void flush_fields(); // flushes indexed fields to directory
+  void flush_fields(const doc_map& docmap); // flushes indexed fields to directory
 
   IRESEARCH_API_PRIVATE_VARIABLES_BEGIN
+  sorted_column sort_;
   update_contexts docs_context_;
   bitvector docs_mask_; // invalid/removed doc_ids (e.g. partially indexed due to indexing failure)
   fields_data fields_;
-  std::unordered_map<hashed_string_ref, column> columns_;
+  std::unordered_map<hashed_string_ref, stored_column> columns_;
   std::unordered_set<field_data*> norm_fields_; // document fields for normalization
   std::string seg_name_;
   field_writer::ptr field_writer_;
@@ -351,6 +377,46 @@ class IRESEARCH_API segment_writer: util::noncopyable {
   bool valid_{ true }; // current state
   IRESEARCH_API_PRIVATE_VARIABLES_END
 }; // segment_writer
+
+template<>
+struct action_helper<Action::INDEX> {
+  template<typename Field>
+  static bool insert(segment_writer& writer, Field& field) {
+    return writer.index_worker(field);
+  }
+}; // action_helper
+
+template<>
+struct action_helper<Action::STORE> {
+  template<typename Field>
+  static bool insert(segment_writer& writer, Field& field) {
+    return writer.store_worker<false>(field);
+  }
+}; // action_helper
+
+template<>
+struct action_helper<Action::STORE_SORTED> {
+  template<typename Field>
+  static bool insert(segment_writer& writer, Field& field) {
+    return writer.store_worker<true>(field);
+  }
+}; // action_helper
+
+template<>
+struct action_helper<Action::INDEX_AND_STORE> {
+  template<typename Field>
+  static bool insert(segment_writer& writer, Field& field) {
+    return writer.index_and_store_worker<false>(field);
+  }
+}; // action_helper
+
+template<>
+struct action_helper<Action::INDEX_AND_STORE_SORTED> {
+  template<typename Field>
+  static bool insert(segment_writer& writer, Field& field) {
+    return writer.index_and_store_worker<true>(field);
+  }
+}; // action_helper
 
 NS_END
 

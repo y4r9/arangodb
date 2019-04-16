@@ -39,18 +39,18 @@
 
 NS_ROOT
 
-segment_writer::column::column(
+segment_writer::stored_column::stored_column(
     const string_ref& name, 
     columnstore_writer& columnstore) {
   this->name.assign(name.c_str(), name.size());
-  this->handle = columnstore.push_column();
+  std::tie(id, handle) = columnstore.push_column();
 }
 
 doc_id_t segment_writer::begin(
     const update_context& ctx,
     size_t reserve_rollback_extra /*= 0*/
 ) {
-  assert(docs_cached() + type_limits<type_t::doc_id_t>::min() - 1 < type_limits<type_t::doc_id_t>::eof());
+  assert(docs_cached() + doc_limits::min() - 1 < doc_limits::eof());
   valid_ = true;
   norm_fields_.clear(); // clear norm fields
 
@@ -66,12 +66,11 @@ doc_id_t segment_writer::begin(
 
   docs_context_.emplace_back(ctx);
 
-  return doc_id_t(docs_cached() + type_limits<type_t::doc_id_t>::min() - 1); // -1 for 0-based offset
+  return doc_id_t(docs_cached() + doc_limits::min() - 1); // -1 for 0-based offset
 }
 
-segment_writer::ptr segment_writer::make(directory& dir) {
-  // can't use make_unique becuase of the private constructor
-  return memory::maker<segment_writer>::make(dir);
+segment_writer::ptr segment_writer::make(directory& dir, const comparer* comparator) {
+  return memory::maker<segment_writer>::make(dir, comparator);
 }
 
 size_t segment_writer::memory_active() const NOEXCEPT {
@@ -94,36 +93,39 @@ size_t segment_writer::memory_reserved() const NOEXCEPT {
 }
 
 bool segment_writer::remove(doc_id_t doc_id) {
-  if (!type_limits<type_t::doc_id_t>::valid(doc_id)
-      || (doc_id - type_limits<type_t::doc_id_t>::min()) >= docs_cached()
-      || docs_mask_.test(doc_id - type_limits<type_t::doc_id_t>::min())) {
+  if (!doc_limits::valid(doc_id)
+      || (doc_id - doc_limits::min()) >= docs_cached()
+      || docs_mask_.test(doc_id - doc_limits::min())) {
     return false;
   }
 
-  docs_mask_.set(doc_id - type_limits<type_t::doc_id_t>::min());
+  docs_mask_.set(doc_id - doc_limits::min());
 
   return true;
 }
 
-segment_writer::segment_writer(directory& dir) NOEXCEPT
-  : dir_(dir), initialized_(false) {
+segment_writer::segment_writer(
+    directory& dir,
+    const comparer* comparator
+) NOEXCEPT
+  : fields_(comparator),
+    dir_(dir),
+    initialized_(false) {
 }
 
 bool segment_writer::index(
     const hashed_string_ref& name,
-    token_stream& tokens,
-    const flags& features) {
+    const doc_id_t doc,
+    const flags& features,
+    token_stream& tokens) {
   REGISTER_TIMER_DETAILED();
 
-  assert(docs_cached() + type_limits<type_t::doc_id_t>::min() - 1 < type_limits<type_t::doc_id_t>::eof()); // user should check return of begin() != eof()
-  auto doc_id =
-    doc_id_t(docs_cached() + type_limits<type_t::doc_id_t>::min() - 1); // -1 for 0-based offset
-  auto& slot = fields_.get(name);
+  auto& slot = fields_.emplace(name);
   auto& slot_features = slot.meta().features;
 
   // invert only if new field features are a subset of slot features
   if ((slot.empty() || features.is_subset_of(slot_features)) &&
-      slot.invert(tokens, slot.empty() ? features : slot_features, doc_id)) {
+      slot.invert(tokens, slot.empty() ? features : slot_features, doc)) {
     if (features.check<norm>()) {
       norm_fields_.insert(&slot);
     }
@@ -135,11 +137,25 @@ bool segment_writer::index(
   return false;
 }
 
+columnstore_writer::column_output& segment_writer::sorted_stream(
+    const hashed_string_ref& name,
+    const doc_id_t doc_id) {
+  assert(fields_.comparator()); // already checked in segment_writer::store
+
+  if (sort_.name.empty()) {
+    sort_.name.assign(name.c_str(), name.size()); // reset name
+  }
+
+  sort_.handle.prepare(doc_id);
+  return sort_.handle;
+}
+
 columnstore_writer::column_output& segment_writer::stream(
-    doc_id_t doc_id, const hashed_string_ref& name) {
+    const hashed_string_ref& name,
+    const doc_id_t doc_id) {
   REGISTER_TIMER_DETAILED();
 
-  static auto generator = [](
+  auto generator = [](
       const hashed_string_ref& key,
       const column& value) NOEXCEPT {
     // reuse hash but point ref at value
@@ -153,7 +169,7 @@ columnstore_writer::column_output& segment_writer::stream(
     generator,                                    // key generator
     name,                                         // key
     name, *col_writer_                            // value
-  ).first->second.handle.second(doc_id);
+  ).first->second.handle(doc_id);
 }
 
 void segment_writer::finish() {
@@ -187,11 +203,16 @@ void segment_writer::flush_column_meta(const segment_meta& meta) {
     columns.emplace(&entry.second);
   }
 
+  // ensure sorted column is in column meta
+  if (field_limits::valid(sort_.id)) {
+    columns.emplace(&sort_);
+  }
+
   // flush columns meta
   try {
     col_meta_writer_->prepare(dir_, meta);
     for (auto& column: columns) {
-      col_meta_writer_->write(column->name, column->handle.first);
+      col_meta_writer_->write(column->name, column->id);
     }
     col_meta_writer_->flush();
   } catch (...) {
@@ -201,11 +222,12 @@ void segment_writer::flush_column_meta(const segment_meta& meta) {
   }
 }
 
-void segment_writer::flush_fields() {
+void segment_writer::flush_fields(const doc_map& docmap) {
   flush_state state;
   state.dir = &dir_;
   state.doc_count = docs_cached();
   state.name = seg_name_;
+  state.docmap = fields_.comparator() ? &docmap : nullptr;
 
   try {
     fields_.flush(*field_writer_, state);
@@ -224,10 +246,8 @@ size_t segment_writer::flush_doc_mask(const segment_meta &meta) {
        doc_id < doc_id_end;
        ++doc_id) {
     if (docs_mask_.test(doc_id)) {
-      assert(size_t(integer_traits<doc_id_t>::const_max) >= doc_id + type_limits<type_t::doc_id_t>::min());
-      docs_mask.emplace(
-        doc_id_t(doc_id + type_limits<type_t::doc_id_t>::min())
-      );
+      assert(size_t(integer_traits<doc_id_t>::const_max) >= doc_id + doc_limits::min());
+      docs_mask.emplace(doc_id_t(doc_id + doc_limits::min()));
     }
   }
 
@@ -242,6 +262,18 @@ void segment_writer::flush(index_meta::index_segment_t& segment) {
 
   auto& meta = segment.meta;
 
+  doc_map docmap;
+
+  if (fields_.comparator()) {
+    std::tie(docmap, sort_.id) = sort_.handle.flush(
+      *col_writer_,
+      doc_id_t(docs_cached()),
+      *fields_.comparator()
+    );
+
+    meta.sort = sort_.id;
+  }
+
   // flush columnstore and columns indices
   if (col_writer_->commit() && !columns_.empty()) {
     flush_column_meta(meta);
@@ -250,7 +282,7 @@ void segment_writer::flush(index_meta::index_segment_t& segment) {
 
   // flush fields metadata & inverted data
   if (docs_cached()) {
-    flush_fields();
+    flush_fields(docmap);
   }
 
   // write non-empty document mask

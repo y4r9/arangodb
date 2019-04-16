@@ -1463,6 +1463,9 @@ class index_test_case : public tests::index_test_base {
     {
       struct stored {
         const irs::string_ref& name() { return column_name; }
+        const irs::flags& features() const {
+          return irs::flags::empty_instance();
+        }
         bool write(irs::data_output& out) { return true; }
       } field;
 
@@ -1474,7 +1477,7 @@ class index_test_case : public tests::index_test_base {
         auto doc = ctx.insert();
 
         if (docs_count % 2) {
-          doc.insert(irs::action::store, field);
+          doc.insert<irs::Action::STORE>(field);
         }
       } while (++docs_count < MAX_DOCS); // insert MAX_DOCS/2 documents
 
@@ -2361,6 +2364,9 @@ class index_test_case : public tests::index_test_base {
     {
       struct stored {
         const irs::string_ref& name() { return column_name; }
+        const irs::flags& features() const {
+          return irs::flags::empty_instance();
+        }
         bool write(irs::data_output& out) { return true; }
       } field;
 
@@ -2369,7 +2375,7 @@ class index_test_case : public tests::index_test_base {
       auto ctx = writer->documents();
 
       do {
-        ctx.insert().insert(irs::action::store, field);
+        ctx.insert().insert<irs::Action::STORE>(field);
       } while (++docs_count < MAX_DOCS); // insert MAX_DOCS documents
 
       { irs::index_writer::documents_context(std::move(ctx)); } // force flush of documents()
@@ -2998,6 +3004,10 @@ class index_test_case : public tests::index_test_base {
       struct stored {
         const irs::string_ref& name() { return column_name; }
 
+        const irs::flags& features() const {
+          return irs::flags::empty_instance();
+        }
+
         bool write(irs::data_output& out) {
           irs::write_string(
             out,
@@ -3013,7 +3023,7 @@ class index_test_case : public tests::index_test_base {
       auto ctx = writer->documents();
 
       do {
-        ctx.insert().insert(irs::action::store, field);
+        ctx.insert().insert<irs::Action::STORE>(field);
       } while (++field.value < MAX_DOCS); // insert MAX_DOCS documents
 
       { irs::index_writer::documents_context(std::move(ctx)); } // force flush of documents()
@@ -3822,6 +3832,10 @@ class index_test_case : public tests::index_test_base {
       struct stored {
         const irs::string_ref& name() { return column_name; }
 
+        const irs::flags& features() const {
+          return irs::flags::empty_instance();
+        }
+
         bool write(irs::data_output& out) {
           auto str = std::to_string(value);
           if (value % 2) {
@@ -3839,7 +3853,7 @@ class index_test_case : public tests::index_test_base {
       auto ctx = writer->documents();
 
       do {
-        ctx.insert().insert(irs::action::store, field);
+        ctx.insert().insert<irs::Action::STORE>(field);
       } while (++field.value < MAX_DOCS); // insert MAX_DOCS documents
 
       { irs::index_writer::documents_context(std::move(ctx)); } // force flush of documents()
@@ -4811,6 +4825,10 @@ class index_test_case : public tests::index_test_base {
         }
         const irs::string_ref& name() { return column_name; }
 
+        const irs::flags& features() const {
+          return irs::flags::empty_instance();
+        }
+
         bool write(irs::data_output& out) {
           auto str = std::to_string(value);
           if (value % 2) {
@@ -4829,14 +4847,14 @@ class index_test_case : public tests::index_test_base {
       auto ctx = writer->documents();
 
       do {
-        ctx.insert().insert(irs::action::store, field);
+        ctx.insert().insert<irs::Action::STORE>(field);
       } while (++field.value < BLOCK_SIZE); // insert MAX_DOCS documents
 
-      ctx.insert().insert(irs::action::store, gap); // gap
+      ctx.insert().insert<irs::Action::STORE>(gap); // gap
       ++field.value;
 
       do {
-        ctx.insert().insert(irs::action::store, field);
+        ctx.insert().insert<irs::Action::STORE>(field);
       } while (++field.value <= MAX_DOCS); // insert MAX_DOCS documents
 
       { irs::index_writer::documents_context(std::move(ctx)); } // force flush of documents()
@@ -6017,6 +6035,10 @@ class index_test_case : public tests::index_test_base {
 
         const irs::string_ref& name() NOEXCEPT { return column_name; }
 
+        const irs::flags& features() const {
+          return irs::flags::empty_instance();
+        }
+
         bool write(irs::data_output& out) {
           if (value == BLOCK_SIZE-1) {
             out.write_byte(0);
@@ -6035,15 +6057,15 @@ class index_test_case : public tests::index_test_base {
       auto ctx = writer->documents();
 
       do {
-        ctx.insert().insert(irs::action::store, field);
+        ctx.insert().insert<irs::Action::STORE>(field);
         ++inserted;
       } while (++field.value < BLOCK_SIZE); // insert BLOCK_SIZE documents
 
-      ctx.insert().insert(irs::action::store, gap); // gap
+      ctx.insert().insert<irs::Action::STORE>(gap); // gap
       ++field.value;
 
       do {
-        ctx.insert().insert(irs::action::store, field);
+        ctx.insert().insert<irs::Action::STORE>(field);
         ++inserted;
       } while (++field.value < (1+MAX_DOCS)); // insert BLOCK_SIZE documents
 
@@ -6272,6 +6294,10 @@ class index_test_case : public tests::index_test_base {
       struct stored {
         const irs::string_ref& name() { return column_name; }
 
+        const irs::flags& features() const {
+          return irs::flags::empty_instance();
+        }
+
         bool write(irs::data_output& out) {
           if (value == BLOCK_SIZE-1) {
             out.write_byte(0);
@@ -6288,7 +6314,7 @@ class index_test_case : public tests::index_test_base {
       auto ctx = writer->documents();
 
       do {
-        ctx.insert().insert(irs::action::store, field);
+        ctx.insert().insert<irs::Action::STORE>(field);
       } while (++field.value < MAX_DOCS); // insert MAX_DOCS documents
 
       { irs::index_writer::documents_context(std::move(ctx)); } // force flush of documents()
@@ -6471,6 +6497,10 @@ class index_test_case : public tests::index_test_base {
 
         const irs::string_ref& name() NOEXCEPT { return column_name; }
 
+        const irs::flags& features() const {
+          return irs::flags::empty_instance();
+        }
+
         bool write(irs::data_output& out) {
           irs::write_string(
             out,
@@ -6487,15 +6517,15 @@ class index_test_case : public tests::index_test_base {
       auto ctx = writer->documents();
 
       do {
-        ctx.insert().insert(irs::action::store, field);
+        ctx.insert().insert<irs::Action::STORE>(field);
         ++inserted;
       } while (++field.value < BLOCK_SIZE); // insert BLOCK_SIZE documents
 
-      ctx.insert().insert(irs::action::store, gap); // gap
+      ctx.insert().insert<irs::Action::STORE>(gap); // gap
       ++field.value;
 
       do {
-        ctx.insert().insert(irs::action::store, field);
+        ctx.insert().insert<irs::Action::STORE>(field);
         ++inserted;
       } while (++field.value < (1+MAX_DOCS)); // insert BLOCK_SIZE documents
 
@@ -7518,6 +7548,9 @@ class index_test_case : public tests::index_test_base {
           : column_name(name) {
         }
         const irs::string_ref& name() { return column_name; }
+        const irs::flags& features() const {
+          return irs::flags::empty_instance();
+        }
         bool write(irs::data_output&) { return true; }
         const irs::string_ref column_name;
       } field(column_name), gap("gap");
@@ -7527,13 +7560,13 @@ class index_test_case : public tests::index_test_base {
       auto ctx = writer->documents();
 
       do {
-        ctx.insert().insert(irs::action::store, field);
+        ctx.insert().insert<irs::Action::STORE>(field);
       } while (++docs_count < BLOCK_SIZE); // insert BLOCK_SIZE documents
 
-      ctx.insert().insert(irs::action::store, gap);
+      ctx.insert().insert<irs::Action::STORE>(gap);
 
       do {
-        ctx.insert().insert(irs::action::store, field);
+        ctx.insert().insert<irs::Action::STORE>(field);
       } while (++docs_count < MAX_DOCS); // insert BLOCK_SIZE documents
 
       { irs::index_writer::documents_context(std::move(ctx)); } // force flush of documents()
@@ -8388,6 +8421,10 @@ class index_test_case : public tests::index_test_base {
       struct stored {
         const irs::string_ref& name() { return column_name; }
 
+        const irs::flags& features() const {
+          return irs::flags::empty_instance();
+        }
+
         bool write(irs::data_output& out) {
           auto str = std::to_string(value);
           if (value % 3) {
@@ -8408,7 +8445,7 @@ class index_test_case : public tests::index_test_base {
         auto doc = ctx.insert();
 
         if (field.value % 2) {
-          doc.insert(irs::action::store, field);
+          doc.insert<irs::Action::STORE>(field);
           ++inserted;
         }
       } while (++field.value < MAX_DOCS); // insert MAX_DOCS documents
@@ -9545,7 +9582,7 @@ class index_test_case : public tests::index_test_base {
 
         for (auto& name : names) {
           field.name_ = name;
-          doc.insert(irs::action::index, field);
+          doc.insert<irs::Action::INDEX>(field);
         }
 
         ASSERT_TRUE(doc);
@@ -9726,6 +9763,10 @@ class index_test_case : public tests::index_test_base {
         return name_;
       }
 
+      const irs::flags& features() const {
+        return irs::flags::empty_instance();
+      }
+
       bool write(irs::data_output&) const NOEXCEPT {
         return true;
       }
@@ -9745,7 +9786,7 @@ class index_test_case : public tests::index_test_base {
 
         for (auto& name : names) {
           field.name_ = name;
-          doc.insert(irs::action::store, field);
+          doc.insert<irs::Action::STORE>(field);
         }
 
         ASSERT_TRUE(doc);
@@ -11053,6 +11094,10 @@ class index_test_case : public tests::index_test_base {
         return name_;
       }
 
+      const irs::flags& features() const NOEXCEPT {
+        return irs::flags::empty_instance();
+      }
+
       bool write(irs::data_output& out) const {
         write_string(out, value_);
         return valid_;
@@ -11080,61 +11125,61 @@ class index_test_case : public tests::index_test_base {
       switch (i) {
         case 0: { // doc0
           indexed_field indexed("indexed", "doc0");
-          state &= doc.insert(irs::action::index, indexed);
+          state &= doc.insert<irs::Action::INDEX>(indexed);
           stored_field stored("stored", "doc0");
-          state &= doc.insert(irs::action::store, stored);
+          state &= doc.insert<irs::Action::STORE>(stored);
           indexed_and_stored_field indexed_and_stored("indexed_and_stored", "doc0");
-          state &= doc.insert(irs::action::index_store, indexed_and_stored);
+          state &= doc.insert<irs::Action::INDEX | irs::Action::STORE>(indexed_and_stored);
           ASSERT_TRUE(doc);
         } break;
         case 1: { // doc1
           // indexed and stored fields can be indexed/stored only
           indexed_and_stored_field indexed("indexed", "doc1");
-          state &= doc.insert(irs::action::index, indexed);
+          state &= doc.insert<irs::Action::INDEX>(indexed);
           indexed_and_stored_field stored("stored", "doc1");
-          state &= doc.insert(irs::action::store, stored);
+          state &= doc.insert<irs::Action::STORE>(stored);
           ASSERT_TRUE(doc);
         } break;
         case 2: { // doc2 (will be dropped since it contains invalid stored field)
           indexed_and_stored_field indexed("indexed", "doc2");
-          state &= doc.insert(irs::action::index, indexed);
+          state &= doc.insert<irs::Action::INDEX>(indexed);
           stored_field stored("stored", "doc2", false);
-          state &= doc.insert(irs::action::store, stored);
+          state &= doc.insert<irs::Action::STORE>(stored);
           ASSERT_FALSE(doc);
         } break;
         case 3: { // doc3 (will be dropped since it contains invalid indexed field)
           indexed_field indexed("indexed", "doc3", false);
-          state &= doc.insert(irs::action::index, indexed);
+          state &= doc.insert<irs::Action::INDEX>(indexed);
           stored_field stored("stored", "doc3");
-          state &= doc.insert(irs::action::store, stored);
+          state &= doc.insert<irs::Action::STORE>(stored);
           ASSERT_FALSE(doc);
         } break;
         case 4: { // doc4 (will be dropped since it contains invalid indexed and stored field)
           indexed_and_stored_field indexed_and_stored("indexed", "doc4", false, false);
-          state &= doc.insert(irs::action::index_store, indexed_and_stored);
+          state &= doc.insert<irs::Action::INDEX | irs::Action::STORE>(indexed_and_stored);
           stored_field stored("stored", "doc4");
-          state &= doc.insert(irs::action::store, stored);
+          state &= doc.insert<irs::Action::STORE>(stored);
           ASSERT_FALSE(doc);
         } break;
         case 5: { // doc5 (will be dropped since it contains failed stored field)
           indexed_and_stored_field indexed_and_stored("indexed_and_stored", "doc5", false); // will fail on store, but will pass on index
-          state &= doc.insert(irs::action::index_store, indexed_and_stored);
+          state &= doc.insert<irs::Action::INDEX | irs::Action::STORE>(indexed_and_stored);
           stored_field stored("stored", "doc5");
-          state &= doc.insert(irs::action::store, stored);
+          state &= doc.insert<irs::Action::STORE>(stored);
           ASSERT_FALSE(doc);
         } break;
         case 6: { // doc6 (will be dropped since it contains failed indexed field)
           indexed_and_stored_field indexed_and_stored("indexed_and_stored", "doc6", true, false); // will fail on index, but will pass on store
-          state &= doc.insert(irs::action::index_store, indexed_and_stored);
+          state &= doc.insert<irs::Action::INDEX | irs::Action::STORE>(indexed_and_stored);
           stored_field stored("stored", "doc6");
-          state &= doc.insert(irs::action::store, stored);
+          state &= doc.insert<irs::Action::STORE>(stored);
           ASSERT_FALSE(doc);
         } break;
         case 7: { // valid insertion of last doc will mark bulk insert result as valid
           indexed_and_stored_field indexed_and_stored("indexed_and_stored", "doc7", true, true); // will be indexed, and will be stored
-          state &= doc.insert(irs::action::index_store, indexed_and_stored);
+          state &= doc.insert<irs::Action::INDEX | irs::Action::STORE>(indexed_and_stored);
           stored_field stored("stored", "doc7");
-          state &= doc.insert(irs::action::store, stored);
+          state &= doc.insert<irs::Action::STORE>(stored);
           ASSERT_TRUE(doc);
         } break;
       }
@@ -11560,13 +11605,13 @@ TEST_P(index_test_case, concurrent_add_remove_overlap_commit_mt) {
 
       {
         auto doc = ctx.insert();
-        doc.insert(irs::action::index, doc1->indexed.begin(), doc1->indexed.end());
-        doc.insert(irs::action::store, doc1->indexed.begin(), doc1->indexed.end());
+        doc.insert<irs::Action::INDEX>(doc1->indexed.begin(), doc1->indexed.end());
+        doc.insert<irs::Action::STORE>(doc1->indexed.begin(), doc1->indexed.end());
       }
       {
         auto doc = ctx.insert();
-        doc.insert(irs::action::index, doc2->indexed.begin(), doc2->indexed.end());
-        doc.insert(irs::action::store, doc2->indexed.begin(), doc2->indexed.end());
+        doc.insert<irs::Action::INDEX>(doc2->indexed.begin(), doc2->indexed.end());
+        doc.insert<irs::Action::STORE>(doc2->indexed.begin(), doc2->indexed.end());
       }
 
       // commit from a separate thread before end of add
@@ -11621,13 +11666,13 @@ TEST_P(index_test_case, concurrent_add_remove_overlap_commit_mt) {
 
       {
         auto doc = ctx.insert();
-        doc.insert(irs::action::index, doc1->indexed.begin(), doc1->indexed.end());
-        doc.insert(irs::action::store, doc1->indexed.begin(), doc1->indexed.end());
+        doc.insert<irs::Action::INDEX>(doc1->indexed.begin(), doc1->indexed.end());
+        doc.insert<irs::Action::STORE>(doc1->indexed.begin(), doc1->indexed.end());
       }
       {
         auto doc = ctx.insert();
-        doc.insert(irs::action::index, doc2->indexed.begin(), doc2->indexed.end());
-        doc.insert(irs::action::store, doc2->indexed.begin(), doc2->indexed.end());
+        doc.insert<irs::Action::INDEX>(doc2->indexed.begin(), doc2->indexed.end());
+        doc.insert<irs::Action::STORE>(doc2->indexed.begin(), doc2->indexed.end());
       }
     }
 
@@ -11664,7 +11709,8 @@ TEST_P(index_test_case, document_context) {
     std::condition_variable cond;
     std::mutex cond_mutex;
     std::mutex mutex;
-    irs::string_ref const& name() { return irs::string_ref::EMPTY; }
+    const irs::string_ref& name() { return irs::string_ref::EMPTY; }
+    const irs::flags& features() const { return irs::flags::empty_instance(); }
     bool write(irs::data_output& out) {
       {
         SCOPED_LOCK(cond_mutex);
@@ -11681,10 +11727,10 @@ TEST_P(index_test_case, document_context) {
     SCOPED_LOCK_NAMED(field.cond_mutex, field_cond_lock); // wait for insertion to start
     SCOPED_LOCK_NAMED(field.mutex, field_lock); // prevent field from finishing
 
-    writer->documents().insert().insert(irs::action::store, doc1->stored.begin(), doc1->stored.end()); // ensure segment is prsent in the active flush_context
+    writer->documents().insert().insert<irs::Action::STORE>(doc1->stored.begin(), doc1->stored.end()); // ensure segment is prsent in the active flush_context
 
     std::thread thread0([&writer, &field]()->void {
-      writer->documents().insert().insert(irs::action::store, field);
+      writer->documents().insert().insert<irs::Action::STORE>(field);
     });
 
     ASSERT_EQ(std::cv_status::no_timeout, field.cond.wait_for(field_cond_lock, std::chrono::milliseconds(1000))); // wait for insertion to start
@@ -11705,7 +11751,7 @@ TEST_P(index_test_case, document_context) {
 
     ASSERT_EQ(std::cv_status::timeout, result); // verify commit() blocks
     field_lock.unlock();
-    ASSERT_EQ(std::cv_status::no_timeout, field.cond.wait_for(field_cond_lock, std::chrono::milliseconds(1000))); // verify commit() finishes
+    ASSERT_EQ(std::cv_status::no_timeout, field.cond.wait_for(field_cond_lock, std::chrono::milliseconds(10000))); // verify commit() finishes
     // FIXME TODO add once segment_context will not block flush_all()
     //ASSERT_TRUE(stop);
     thread0.join();
@@ -11725,7 +11771,7 @@ TEST_P(index_test_case, document_context) {
     SCOPED_LOCK_NAMED(field.mutex, field_lock); // prevent field from finishing
 
     std::thread thread0([&writer, &query_doc1, &field]()->void {
-      writer->documents().replace(*query_doc1.filter).insert(irs::action::store, field);
+      writer->documents().replace(*query_doc1.filter).insert<irs::Action::STORE>(field);
     });
 
     ASSERT_EQ(std::cv_status::no_timeout, field.cond.wait_for(field_cond_lock, std::chrono::milliseconds(1000))); // wait for insertion to start
@@ -11746,7 +11792,7 @@ TEST_P(index_test_case, document_context) {
 
     ASSERT_EQ(std::cv_status::timeout, result);
     field_lock.unlock();
-    ASSERT_EQ(std::cv_status::no_timeout, field.cond.wait_for(field_cond_lock, std::chrono::milliseconds(1000))); // verify commit() finishes
+    ASSERT_EQ(std::cv_status::no_timeout, field.cond.wait_for(field_cond_lock, std::chrono::milliseconds(10000))); // verify commit() finishes
     // FIXME TODO add once segment_context will not block flush_all()
     //ASSERT_TRUE(commit);
     thread0.join();
@@ -11769,7 +11815,7 @@ TEST_P(index_test_case, document_context) {
       writer->documents().replace(
         *query_doc1.filter,
         [&field](irs::segment_writer::document& doc)->bool {
-          doc.insert(irs::action::store, field);
+          doc.insert<irs::Action::STORE>(field);
           return false;
         }
       );
@@ -11793,7 +11839,7 @@ TEST_P(index_test_case, document_context) {
 
     ASSERT_EQ(std::cv_status::timeout, result);
     field_lock.unlock();
-    ASSERT_EQ(std::cv_status::no_timeout, field.cond.wait_for(field_cond_lock, std::chrono::milliseconds(1000))); // verify commit() finishes
+    ASSERT_EQ(std::cv_status::no_timeout, field.cond.wait_for(field_cond_lock, std::chrono::milliseconds(10000))); // verify commit() finishes
     // FIXME TODO add once segment_context will not block flush_all()
     //ASSERT_TRUE(commit);
     thread0.join();
@@ -11816,7 +11862,7 @@ TEST_P(index_test_case, document_context) {
       field.cond.notify_all();
     });
 
-    ASSERT_EQ(std::cv_status::no_timeout, field.cond.wait_for(field_cond_lock, std::chrono::milliseconds(1000))); // verify commit() finishes
+    ASSERT_EQ(std::cv_status::no_timeout, field.cond.wait_for(field_cond_lock, std::chrono::milliseconds(10000))); // verify commit() finishes
     { irs::index_writer::documents_context(std::move(ctx)); } // release ctx before join() in case of test failure
     thread1.join();
 
@@ -11862,7 +11908,7 @@ TEST_P(index_test_case, document_context) {
       field.cond.notify_all();
     });
 
-    auto result = field.cond.wait_for(field_cond_lock, std::chrono::milliseconds(1000)); // verify commit() finishes FIXME TODO remove once segment_context will not block flush_all()
+    auto result = field.cond.wait_for(field_cond_lock, std::chrono::milliseconds(10000)); // verify commit() finishes FIXME TODO remove once segment_context will not block flush_all()
 
     // MSVC 2015/2017 seems to sporadically notify condition variables without explicit request FIXME TODO remove once segment_context will not block flush_all()
     MSVC2015_ONLY(while(!commit && result == std::cv_status::no_timeout) result = field.cond.wait_for(field_cond_lock, std::chrono::milliseconds(100)));
@@ -11908,8 +11954,8 @@ TEST_P(index_test_case, document_context) {
     SCOPED_LOCK_NAMED(field.cond_mutex, field_cond_lock); // wait for insertion to start
     {
       auto doc = ctx.replace(*(query_doc1.filter));
-      doc.insert(irs::action::index, doc2->indexed.begin(), doc2->indexed.end());
-      doc.insert(irs::action::store, doc2->stored.begin(), doc2->stored.end());
+      doc.insert<irs::Action::INDEX>(doc2->indexed.begin(), doc2->indexed.end());
+      doc.insert<irs::Action::STORE>(doc2->stored.begin(), doc2->stored.end());
     }
     std::atomic<bool> commit(false); // FIXME TODO remove once segment_context will not block flush_all()
     std::thread thread1([&writer, &field, &commit]()->void {
@@ -11919,7 +11965,7 @@ TEST_P(index_test_case, document_context) {
       field.cond.notify_all();
     });
 
-    auto result = field.cond.wait_for(field_cond_lock, std::chrono::milliseconds(1000)); // verify commit() finishes FIXME TODO remove once segment_context will not block flush_all()
+    auto result = field.cond.wait_for(field_cond_lock, std::chrono::milliseconds(10000)); // verify commit() finishes FIXME TODO remove once segment_context will not block flush_all()
 
     // MSVC 2015/2017 seems to sporadically notify condition variables without explicit request FIXME TODO remove once segment_context will not block flush_all()
     MSVC2015_ONLY(while(!commit && result == std::cv_status::no_timeout) result = field.cond.wait_for(field_cond_lock, std::chrono::milliseconds(100)));
@@ -11966,8 +12012,8 @@ TEST_P(index_test_case, document_context) {
     ctx.replace(
       *(query_doc1.filter),
       [&doc2](irs::segment_writer::document& doc)->bool {
-        doc.insert(irs::action::index, doc2->indexed.begin(), doc2->indexed.end());
-        doc.insert(irs::action::store, doc2->stored.begin(), doc2->stored.end());
+        doc.insert<irs::Action::INDEX>(doc2->indexed.begin(), doc2->indexed.end());
+        doc.insert<irs::Action::STORE>(doc2->stored.begin(), doc2->stored.end());
         return false;
       }
     );
@@ -12021,8 +12067,8 @@ TEST_P(index_test_case, document_context) {
       ctx.reset();
       {
         auto doc = ctx.insert();
-        ASSERT_TRUE(doc.insert(irs::action::index, doc1->indexed.begin(), doc1->indexed.end()));
-        ASSERT_TRUE(doc.insert(irs::action::store, doc1->stored.begin(), doc1->stored.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::INDEX>(doc1->indexed.begin(), doc1->indexed.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::STORE>(doc1->stored.begin(), doc1->stored.end()));
       }
     }
 
@@ -12059,8 +12105,8 @@ TEST_P(index_test_case, document_context) {
 
       {
         auto doc = ctx.insert();
-        ASSERT_TRUE(doc.insert(irs::action::index, doc2->indexed.begin(), doc2->indexed.end()));
-        ASSERT_TRUE(doc.insert(irs::action::store, doc2->stored.begin(), doc2->stored.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::INDEX>(doc2->indexed.begin(), doc2->indexed.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::STORE>(doc2->stored.begin(), doc2->stored.end()));
       }
       ctx.reset();
     }
@@ -12093,14 +12139,14 @@ TEST_P(index_test_case, document_context) {
 
       {
         auto doc = ctx.insert();
-        ASSERT_TRUE(doc.insert(irs::action::index, doc1->indexed.begin(), doc1->indexed.end()));
-        ASSERT_TRUE(doc.insert(irs::action::store, doc1->stored.begin(), doc1->stored.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::INDEX>(doc1->indexed.begin(), doc1->indexed.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::STORE>(doc1->stored.begin(), doc1->stored.end()));
       }
       ctx.reset();
       {
         auto doc = ctx.insert();
-        ASSERT_TRUE(doc.insert(irs::action::index, doc2->indexed.begin(), doc2->indexed.end()));
-        ASSERT_TRUE(doc.insert(irs::action::store, doc2->stored.begin(), doc2->stored.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::INDEX>(doc2->indexed.begin(), doc2->indexed.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::STORE>(doc2->stored.begin(), doc2->stored.end()));
       }
     }
 
@@ -12137,20 +12183,20 @@ TEST_P(index_test_case, document_context) {
 
       {
         auto doc = ctx.insert();
-        ASSERT_TRUE(doc.insert(irs::action::index, doc2->indexed.begin(), doc2->indexed.end()));
-        ASSERT_TRUE(doc.insert(irs::action::store, doc2->stored.begin(), doc2->stored.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::INDEX>(doc2->indexed.begin(), doc2->indexed.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::STORE>(doc2->stored.begin(), doc2->stored.end()));
       }
       ctx.reset();
       {
         auto doc = ctx.insert();
-        ASSERT_TRUE(doc.insert(irs::action::index, doc3->indexed.begin(), doc3->indexed.end()));
-        ASSERT_TRUE(doc.insert(irs::action::store, doc3->stored.begin(), doc3->stored.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::INDEX>(doc3->indexed.begin(), doc3->indexed.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::STORE>(doc3->stored.begin(), doc3->stored.end()));
       }
       ctx.reset();
       {
         auto doc = ctx.insert();
-        ASSERT_TRUE(doc.insert(irs::action::index, doc4->indexed.begin(), doc4->indexed.end()));
-        ASSERT_TRUE(doc.insert(irs::action::store, doc4->stored.begin(), doc4->stored.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::INDEX>(doc4->indexed.begin(), doc4->indexed.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::STORE>(doc4->stored.begin(), doc4->stored.end()));
       }
     }
 
@@ -12192,19 +12238,19 @@ TEST_P(index_test_case, document_context) {
 
       {
         auto doc = ctx.insert();
-        ASSERT_TRUE(doc.insert(irs::action::index, doc2->indexed.begin(), doc2->indexed.end()));
-        ASSERT_TRUE(doc.insert(irs::action::store, doc2->stored.begin(), doc2->stored.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::INDEX>(doc2->indexed.begin(), doc2->indexed.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::STORE>(doc2->stored.begin(), doc2->stored.end()));
       }
       {
         auto doc = ctx.insert();
-        ASSERT_TRUE(doc.insert(irs::action::index, doc3->indexed.begin(), doc3->indexed.end()));
-        ASSERT_TRUE(doc.insert(irs::action::store, doc3->stored.begin(), doc3->stored.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::INDEX>(doc3->indexed.begin(), doc3->indexed.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::STORE>(doc3->stored.begin(), doc3->stored.end()));
       }
       ctx.reset();
       {
         auto doc = ctx.insert();
-        ASSERT_TRUE(doc.insert(irs::action::index, doc4->indexed.begin(), doc4->indexed.end()));
-        ASSERT_TRUE(doc.insert(irs::action::store, doc4->stored.begin(), doc4->stored.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::INDEX>(doc4->indexed.begin(), doc4->indexed.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::STORE>(doc4->stored.begin(), doc4->stored.end()));
       }
     }
 
@@ -12299,8 +12345,8 @@ TEST_P(index_test_case, document_context) {
       ctx.reset();
       {
         auto doc = ctx.insert();
-        ASSERT_TRUE(doc.insert(irs::action::index, doc2->indexed.begin(), doc2->indexed.end()));
-        ASSERT_TRUE(doc.insert(irs::action::store, doc2->stored.begin(), doc2->stored.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::INDEX>(doc2->indexed.begin(), doc2->indexed.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::STORE>(doc2->stored.begin(), doc2->stored.end()));
       }
     }
 
@@ -12344,21 +12390,21 @@ TEST_P(index_test_case, document_context) {
 
       {
         auto doc = ctx.insert();
-        ASSERT_TRUE(doc.insert(irs::action::index, doc2->indexed.begin(), doc2->indexed.end()));
-        ASSERT_TRUE(doc.insert(irs::action::store, doc2->stored.begin(), doc2->stored.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::INDEX>(doc2->indexed.begin(), doc2->indexed.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::STORE>(doc2->stored.begin(), doc2->stored.end()));
       }
       ctx.remove(*(query_doc1.filter));
       {
         auto doc = ctx.insert();
-        ASSERT_TRUE(doc.insert(irs::action::index, doc3->indexed.begin(), doc3->indexed.end()));
-        ASSERT_TRUE(doc.insert(irs::action::store, doc3->stored.begin(), doc3->stored.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::INDEX>(doc3->indexed.begin(), doc3->indexed.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::STORE>(doc3->stored.begin(), doc3->stored.end()));
       }
       ctx.remove(*(query_doc2.filter));
       ctx.reset();
       {
         auto doc = ctx.insert();
-        ASSERT_TRUE(doc.insert(irs::action::index, doc4->indexed.begin(), doc4->indexed.end()));
-        ASSERT_TRUE(doc.insert(irs::action::store, doc4->stored.begin(), doc4->stored.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::INDEX>(doc4->indexed.begin(), doc4->indexed.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::STORE>(doc4->stored.begin(), doc4->stored.end()));
       }
     }
 
@@ -12415,8 +12461,8 @@ TEST_P(index_test_case, document_context) {
 
       {
         auto doc = ctx.replace(*(query_doc1.filter));
-        ASSERT_TRUE(doc.insert(irs::action::index, doc2->indexed.begin(), doc2->indexed.end()));
-        ASSERT_TRUE(doc.insert(irs::action::store, doc2->stored.begin(), doc2->stored.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::INDEX>(doc2->indexed.begin(), doc2->indexed.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::STORE>(doc2->stored.begin(), doc2->stored.end()));
       }
       ctx.reset();
     }
@@ -12455,14 +12501,14 @@ TEST_P(index_test_case, document_context) {
 
       {
         auto doc = ctx.replace(*(query_doc1.filter));
-        ASSERT_TRUE(doc.insert(irs::action::index, doc2->indexed.begin(), doc2->indexed.end()));
-        ASSERT_TRUE(doc.insert(irs::action::store, doc2->stored.begin(), doc2->stored.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::INDEX>(doc2->indexed.begin(), doc2->indexed.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::STORE>(doc2->stored.begin(), doc2->stored.end()));
       }
       ctx.reset();
       {
         auto doc = ctx.insert();
-        ASSERT_TRUE(doc.insert(irs::action::index, doc3->indexed.begin(), doc3->indexed.end()));
-        ASSERT_TRUE(doc.insert(irs::action::store, doc3->stored.begin(), doc3->stored.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::INDEX>(doc3->indexed.begin(), doc3->indexed.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::STORE>(doc3->stored.begin(), doc3->stored.end()));
       }
     }
 
@@ -12506,19 +12552,19 @@ TEST_P(index_test_case, document_context) {
 
       {
         auto doc = ctx.replace(*(query_doc1.filter));
-        ASSERT_TRUE(doc.insert(irs::action::index, doc2->indexed.begin(), doc2->indexed.end()));
-        ASSERT_TRUE(doc.insert(irs::action::store, doc2->stored.begin(), doc2->stored.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::INDEX>(doc2->indexed.begin(), doc2->indexed.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::STORE>(doc2->stored.begin(), doc2->stored.end()));
       }
       {
         auto doc = ctx.replace(*(query_doc2.filter));
-        ASSERT_TRUE(doc.insert(irs::action::index, doc3->indexed.begin(), doc3->indexed.end()));
-        ASSERT_TRUE(doc.insert(irs::action::store, doc3->stored.begin(), doc3->stored.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::INDEX>(doc3->indexed.begin(), doc3->indexed.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::STORE>(doc3->stored.begin(), doc3->stored.end()));
       }
       ctx.reset();
       {
         auto doc = ctx.insert();
-        ASSERT_TRUE(doc.insert(irs::action::index, doc4->indexed.begin(), doc4->indexed.end()));
-        ASSERT_TRUE(doc.insert(irs::action::store, doc4->stored.begin(), doc4->stored.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::INDEX>(doc4->indexed.begin(), doc4->indexed.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::STORE>(doc4->stored.begin(), doc4->stored.end()));
       }
     }
 
@@ -12576,8 +12622,8 @@ TEST_P(index_test_case, document_context) {
       ctx.replace(
         *(query_doc1.filter),
         [&doc2](irs::segment_writer::document& doc)->bool {
-          doc.insert(irs::action::index, doc2->indexed.begin(), doc2->indexed.end());
-          doc.insert(irs::action::store, doc2->stored.begin(), doc2->stored.end());
+          doc.insert<irs::Action::INDEX>(doc2->indexed.begin(), doc2->indexed.end());
+          doc.insert<irs::Action::STORE>(doc2->stored.begin(), doc2->stored.end());
           return false;
         }
       );
@@ -12619,16 +12665,16 @@ TEST_P(index_test_case, document_context) {
       ctx.replace(
         *(query_doc1.filter),
         [&doc2](irs::segment_writer::document& doc)->bool {
-          doc.insert(irs::action::index, doc2->indexed.begin(), doc2->indexed.end());
-          doc.insert(irs::action::store, doc2->stored.begin(), doc2->stored.end());
+          doc.insert<irs::Action::INDEX>(doc2->indexed.begin(), doc2->indexed.end());
+          doc.insert<irs::Action::STORE>(doc2->stored.begin(), doc2->stored.end());
           return false;
         }
       );
       ctx.reset();
       {
         auto doc = ctx.insert();
-        ASSERT_TRUE(doc.insert(irs::action::index, doc3->indexed.begin(), doc3->indexed.end()));
-        ASSERT_TRUE(doc.insert(irs::action::store, doc3->stored.begin(), doc3->stored.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::INDEX>(doc3->indexed.begin(), doc3->indexed.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::STORE>(doc3->stored.begin(), doc3->stored.end()));
       }
     }
 
@@ -12673,24 +12719,24 @@ TEST_P(index_test_case, document_context) {
       ctx.replace(
         *(query_doc1.filter),
         [&doc2](irs::segment_writer::document& doc)->bool {
-          doc.insert(irs::action::index, doc2->indexed.begin(), doc2->indexed.end());
-          doc.insert(irs::action::store, doc2->stored.begin(), doc2->stored.end());
+          doc.insert<irs::Action::INDEX>(doc2->indexed.begin(), doc2->indexed.end());
+          doc.insert<irs::Action::STORE>(doc2->stored.begin(), doc2->stored.end());
           return false;
         }
       );
       ctx.replace(
         *(query_doc2.filter),
         [&doc3](irs::segment_writer::document& doc)->bool {
-          doc.insert(irs::action::index, doc3->indexed.begin(), doc3->indexed.end());
-          doc.insert(irs::action::store, doc3->stored.begin(), doc3->stored.end());
+          doc.insert<irs::Action::INDEX>(doc3->indexed.begin(), doc3->indexed.end());
+          doc.insert<irs::Action::STORE>(doc3->stored.begin(), doc3->stored.end());
           return false;
         }
       );
       ctx.reset();
       {
         auto doc = ctx.insert();
-        ASSERT_TRUE(doc.insert(irs::action::index, doc4->indexed.begin(), doc4->indexed.end()));
-        ASSERT_TRUE(doc.insert(irs::action::store, doc4->stored.begin(), doc4->stored.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::INDEX>(doc4->indexed.begin(), doc4->indexed.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::STORE>(doc4->stored.begin(), doc4->stored.end()));
       }
     }
 
@@ -12743,13 +12789,13 @@ TEST_P(index_test_case, document_context) {
 
       {
         auto doc = ctx.insert();
-        ASSERT_TRUE(doc.insert(irs::action::index, doc1->indexed.begin(), doc1->indexed.end()));
-        ASSERT_TRUE(doc.insert(irs::action::store, doc1->stored.begin(), doc1->stored.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::INDEX>(doc1->indexed.begin(), doc1->indexed.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::STORE>(doc1->stored.begin(), doc1->stored.end()));
       }
       {
         auto doc = ctx.insert();
-        ASSERT_TRUE(doc.insert(irs::action::index, doc2->indexed.begin(), doc2->indexed.end()));
-        ASSERT_TRUE(doc.insert(irs::action::store, doc2->stored.begin(), doc2->stored.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::INDEX>(doc2->indexed.begin(), doc2->indexed.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::STORE>(doc2->stored.begin(), doc2->stored.end()));
       }
     }
 
@@ -12807,14 +12853,14 @@ TEST_P(index_test_case, document_context) {
 
       {
         auto doc = ctx.insert();
-        ASSERT_TRUE(doc.insert(irs::action::index, doc2->indexed.begin(), doc2->indexed.end()));
-        ASSERT_TRUE(doc.insert(irs::action::store, doc2->stored.begin(), doc2->stored.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::INDEX>(doc2->indexed.begin(), doc2->indexed.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::STORE>(doc2->stored.begin(), doc2->stored.end()));
       }
       writer->commit();
       {
         auto doc = ctx.insert();
-        ASSERT_TRUE(doc.insert(irs::action::index, doc3->indexed.begin(), doc3->indexed.end()));
-        ASSERT_TRUE(doc.insert(irs::action::store, doc3->stored.begin(), doc3->stored.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::INDEX>(doc3->indexed.begin(), doc3->indexed.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::STORE>(doc3->stored.begin(), doc3->stored.end()));
       }
     }
 
@@ -12884,13 +12930,13 @@ TEST_P(index_test_case, document_context) {
 
       {
         auto doc = ctx.insert();
-        ASSERT_TRUE(doc.insert(irs::action::index, doc1->indexed.begin(), doc1->indexed.end()));
-        ASSERT_TRUE(doc.insert(irs::action::store, doc1->stored.begin(), doc1->stored.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::INDEX>(doc1->indexed.begin(), doc1->indexed.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::STORE>(doc1->stored.begin(), doc1->stored.end()));
       }
       {
         auto doc = ctx.insert();
-        ASSERT_TRUE(doc.insert(irs::action::index, doc2->indexed.begin(), doc2->indexed.end()));
-        ASSERT_TRUE(doc.insert(irs::action::store, doc2->stored.begin(), doc2->stored.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::INDEX>(doc2->indexed.begin(), doc2->indexed.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::STORE>(doc2->stored.begin(), doc2->stored.end()));
       }
     }
 
@@ -12948,14 +12994,14 @@ TEST_P(index_test_case, document_context) {
 
       {
         auto doc = ctx.insert();
-        ASSERT_TRUE(doc.insert(irs::action::index, doc2->indexed.begin(), doc2->indexed.end()));
-        ASSERT_TRUE(doc.insert(irs::action::store, doc2->stored.begin(), doc2->stored.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::INDEX>(doc2->indexed.begin(), doc2->indexed.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::STORE>(doc2->stored.begin(), doc2->stored.end()));
       }
       writer->commit();
       {
         auto doc = ctx.insert();
-        ASSERT_TRUE(doc.insert(irs::action::index, doc3->indexed.begin(), doc3->indexed.end()));
-        ASSERT_TRUE(doc.insert(irs::action::store, doc3->stored.begin(), doc3->stored.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::INDEX>(doc3->indexed.begin(), doc3->indexed.end()));
+        ASSERT_TRUE(doc.insert<irs::Action::STORE>(doc3->stored.begin(), doc3->stored.end()));
       }
     }
 
@@ -13022,8 +13068,7 @@ TEST_P(index_test_case, document_context) {
       doc1->stored.begin(), doc1->stored.end()
     ));
     writer->commit(); // ensure flush() is called
-    writer->documents().insert().insert(
-      irs::action::store,
+    writer->documents().insert().insert<irs::Action::STORE>(
       doc2->stored.begin(),
       doc2->stored.end()
     ); // document without any indexed attributes (reuse segment writer)
@@ -14263,8 +14308,8 @@ TEST_P(index_test_case, doc_update) {
     writer->documents().replace(
       *query_doc1.filter,
       [&doc2](irs::segment_writer::document& doc)->bool {
-        doc.insert(irs::action::index, doc2->indexed.begin(), doc2->indexed.end());
-        doc.insert(irs::action::store, doc2->stored.begin(), doc2->stored.end());
+        doc.insert<irs::Action::INDEX>(doc2->indexed.begin(), doc2->indexed.end());
+        doc.insert<irs::Action::STORE>(doc2->stored.begin(), doc2->stored.end());
         return false;
       }
     );
@@ -14301,8 +14346,8 @@ TEST_P(index_test_case, doc_update) {
     writer->documents().replace(
       *query_doc1.filter,
       [&docs, &i](irs::segment_writer::document& doc)->bool {
-        doc.insert(irs::action::index, docs[i]->indexed.begin(), docs[i]->indexed.end());
-        doc.insert(irs::action::store, docs[i]->stored.begin(), docs[i]->stored.end());
+        doc.insert<irs::Action::INDEX>(docs[i]->indexed.begin(), docs[i]->indexed.end());
+        doc.insert<irs::Action::STORE>(docs[i]->stored.begin(), docs[i]->stored.end());
         return ++i < docs.size();
       }
     );
@@ -14342,8 +14387,8 @@ TEST_P(index_test_case, doc_update) {
     ASSERT_ANY_THROW(writer->documents().replace(
       *query_doc1.filter,
       [&docs, &i](irs::segment_writer::document& doc)->bool {
-        doc.insert(irs::action::index, docs[i]->indexed.begin(), docs[i]->indexed.end());
-        doc.insert(irs::action::store, docs[i]->stored.begin(), docs[i]->stored.end());
+        doc.insert<irs::Action::INDEX>(docs[i]->indexed.begin(), docs[i]->indexed.end());
+        doc.insert<irs::Action::STORE>(docs[i]->stored.begin(), docs[i]->stored.end());
         if (++i >= docs.size()) throw "some error";
         return true;
       }
@@ -15912,7 +15957,7 @@ TEST_P(index_test_case, consolidate_invalid_candidate) {
 
   // invalid candidate
   {
-    const irs::segment_meta meta("foo", nullptr, 6, 5, false, irs::segment_meta::file_set());
+    const irs::segment_meta meta("foo", nullptr, 6, 5, false, irs::segment_meta::file_set(), irs::field_limits::invalid());
 
     auto invalid_candidate_policy = [&meta](
         std::set<const irs::segment_meta*>& candidates,
@@ -18497,8 +18542,8 @@ TEST_P(index_test_case, consolidate_segment_versions) {
       auto ctx = writer->documents();
       {
         auto doc = ctx.insert();
-        doc.insert(irs::action::index, doc1->indexed.begin(), doc1->indexed.end());
-        doc.insert(irs::action::store, doc1->stored.begin(), doc1->stored.end());
+        doc.insert<irs::Action::INDEX>(doc1->indexed.begin(), doc1->indexed.end());
+        doc.insert<irs::Action::STORE>(doc1->stored.begin(), doc1->stored.end());
       }
 
       ASSERT_TRUE(writer->consolidate(irs::index_utils::consolidation_policy(irs::index_utils::consolidate_count())));
@@ -18558,8 +18603,8 @@ TEST_P(index_test_case, consolidate_segment_versions) {
       auto ctx = writer->documents();
       {
         auto doc = ctx.insert();
-        doc.insert(irs::action::index, doc1->indexed.begin(), doc1->indexed.end());
-        doc.insert(irs::action::store, doc1->stored.begin(), doc1->stored.end());
+        doc.insert<irs::Action::INDEX>(doc1->indexed.begin(), doc1->indexed.end());
+        doc.insert<irs::Action::STORE>(doc1->stored.begin(), doc1->stored.end());
       }
 
       ASSERT_TRUE(writer->consolidate(irs::index_utils::consolidation_policy(irs::index_utils::consolidate_count())));
@@ -18618,8 +18663,8 @@ TEST_P(index_test_case, consolidate_segment_versions) {
       auto ctx = writer->documents();
       {
         auto doc = ctx.insert();
-        doc.insert(irs::action::index, doc1->indexed.begin(), doc1->indexed.end());
-        doc.insert(irs::action::store, doc1->stored.begin(), doc1->stored.end());
+        doc.insert<irs::Action::INDEX>(doc1->indexed.begin(), doc1->indexed.end());
+        doc.insert<irs::Action::STORE>(doc1->stored.begin(), doc1->stored.end());
       }
     }
 
@@ -18677,8 +18722,8 @@ TEST_P(index_test_case, consolidate_segment_versions) {
       auto ctx = writer->documents();
       {
         auto doc = ctx.insert();
-        doc.insert(irs::action::index, doc1->indexed.begin(), doc1->indexed.end());
-        doc.insert(irs::action::store, doc1->stored.begin(), doc1->stored.end());
+        doc.insert<irs::Action::INDEX>(doc1->indexed.begin(), doc1->indexed.end());
+        doc.insert<irs::Action::STORE>(doc1->stored.begin(), doc1->stored.end());
       }
     }
 
@@ -18737,8 +18782,8 @@ TEST_P(index_test_case, consolidate_segment_versions) {
       auto ctx = writer->documents();
       {
         auto doc = ctx.insert();
-        doc.insert(irs::action::index, doc1->indexed.begin(), doc1->indexed.end());
-        doc.insert(irs::action::store, doc1->stored.begin(), doc1->stored.end());
+        doc.insert<irs::Action::INDEX>(doc1->indexed.begin(), doc1->indexed.end());
+        doc.insert<irs::Action::STORE>(doc1->stored.begin(), doc1->stored.end());
       }
     }
 
@@ -18747,8 +18792,8 @@ TEST_P(index_test_case, consolidate_segment_versions) {
       auto ctx = writer->documents();
       {
         auto doc = ctx.insert();
-        doc.insert(irs::action::index, doc2->indexed.begin(), doc2->indexed.end());
-        doc.insert(irs::action::store, doc2->stored.begin(), doc2->stored.end());
+        doc.insert<irs::Action::INDEX>(doc2->indexed.begin(), doc2->indexed.end());
+        doc.insert<irs::Action::STORE>(doc2->stored.begin(), doc2->stored.end());
       }
       writer->commit(); // flush segment (version 0) before releasing 'ctx'
 
@@ -18846,8 +18891,8 @@ TEST_P(index_test_case, consolidate_segment_versions) {
       auto ctx = writer->documents();
       {
         auto doc = ctx.insert();
-        doc.insert(irs::action::index, doc1->indexed.begin(), doc1->indexed.end());
-        doc.insert(irs::action::store, doc1->stored.begin(), doc1->stored.end());
+        doc.insert<irs::Action::INDEX>(doc1->indexed.begin(), doc1->indexed.end());
+        doc.insert<irs::Action::STORE>(doc1->stored.begin(), doc1->stored.end());
       }
     }
 
@@ -18856,8 +18901,8 @@ TEST_P(index_test_case, consolidate_segment_versions) {
       auto ctx = writer->documents();
       {
         auto doc = ctx.insert();
-        doc.insert(irs::action::index, doc2->indexed.begin(), doc2->indexed.end());
-        doc.insert(irs::action::store, doc2->stored.begin(), doc2->stored.end());
+        doc.insert<irs::Action::INDEX>(doc2->indexed.begin(), doc2->indexed.end());
+        doc.insert<irs::Action::STORE>(doc2->stored.begin(), doc2->stored.end());
       }
       writer->commit(); // flush segment (version 0) before releasing 'ctx'
 
@@ -18954,8 +18999,8 @@ TEST_P(index_test_case, consolidate_segment_versions) {
       auto ctx = writer->documents();
       {
         auto doc = ctx.insert();
-        doc.insert(irs::action::index, doc1->indexed.begin(), doc1->indexed.end());
-        doc.insert(irs::action::store, doc1->stored.begin(), doc1->stored.end());
+        doc.insert<irs::Action::INDEX>(doc1->indexed.begin(), doc1->indexed.end());
+        doc.insert<irs::Action::STORE>(doc1->stored.begin(), doc1->stored.end());
       }
     }
 
@@ -18964,8 +19009,8 @@ TEST_P(index_test_case, consolidate_segment_versions) {
       auto ctx = writer->documents();
       {
         auto doc = ctx.insert();
-        doc.insert(irs::action::index, doc2->indexed.begin(), doc2->indexed.end());
-        doc.insert(irs::action::store, doc2->stored.begin(), doc2->stored.end());
+        doc.insert<irs::Action::INDEX>(doc2->indexed.begin(), doc2->indexed.end());
+        doc.insert<irs::Action::STORE>(doc2->stored.begin(), doc2->stored.end());
       }
       writer->commit(); // flush segment (version 0) before releasing 'ctx'
 
@@ -18980,8 +19025,8 @@ TEST_P(index_test_case, consolidate_segment_versions) {
         {
           auto ctx = writer->documents();
           auto doc = ctx.insert();
-          doc.insert(irs::action::index, doc3->indexed.begin(), doc3->indexed.end());
-          doc.insert(irs::action::store, doc3->stored.begin(), doc3->stored.end());
+          doc.insert<irs::Action::INDEX>(doc3->indexed.begin(), doc3->indexed.end());
+          doc.insert<irs::Action::STORE>(doc3->stored.begin(), doc3->stored.end());
         }
         writer->commit(); // flush 2nd segment (version 0)
       };
@@ -19112,8 +19157,8 @@ TEST_P(index_test_case, consolidate_segment_versions) {
       auto ctx = writer->documents();
       {
         auto doc = ctx.insert();
-        doc.insert(irs::action::index, doc1->indexed.begin(), doc1->indexed.end());
-        doc.insert(irs::action::store, doc1->stored.begin(), doc1->stored.end());
+        doc.insert<irs::Action::INDEX>(doc1->indexed.begin(), doc1->indexed.end());
+        doc.insert<irs::Action::STORE>(doc1->stored.begin(), doc1->stored.end());
       }
     }
 
@@ -19122,8 +19167,8 @@ TEST_P(index_test_case, consolidate_segment_versions) {
       auto ctx = writer->documents();
       {
         auto doc = ctx.insert();
-        doc.insert(irs::action::index, doc2->indexed.begin(), doc2->indexed.end());
-        doc.insert(irs::action::store, doc2->stored.begin(), doc2->stored.end());
+        doc.insert<irs::Action::INDEX>(doc2->indexed.begin(), doc2->indexed.end());
+        doc.insert<irs::Action::STORE>(doc2->stored.begin(), doc2->stored.end());
       }
       writer->commit(); // flush segment (version 0) before releasing 'ctx'
     }
@@ -19219,8 +19264,8 @@ TEST_P(index_test_case, consolidate_segment_versions) {
       auto ctx = writer->documents();
       {
         auto doc = ctx.insert();
-        doc.insert(irs::action::index, doc1->indexed.begin(), doc1->indexed.end());
-        doc.insert(irs::action::store, doc1->stored.begin(), doc1->stored.end());
+        doc.insert<irs::Action::INDEX>(doc1->indexed.begin(), doc1->indexed.end());
+        doc.insert<irs::Action::STORE>(doc1->stored.begin(), doc1->stored.end());
       }
     }
 
@@ -19229,8 +19274,8 @@ TEST_P(index_test_case, consolidate_segment_versions) {
       auto ctx = writer->documents();
       {
         auto doc = ctx.insert();
-        doc.insert(irs::action::index, doc2->indexed.begin(), doc2->indexed.end());
-        doc.insert(irs::action::store, doc2->stored.begin(), doc2->stored.end());
+        doc.insert<irs::Action::INDEX>(doc2->indexed.begin(), doc2->indexed.end());
+        doc.insert<irs::Action::STORE>(doc2->stored.begin(), doc2->stored.end());
       }
       writer->commit(); // flush segment (version 0) before releasing 'ctx'
     }
@@ -19296,8 +19341,8 @@ TEST_P(index_test_case, consolidate_segment_versions) {
       auto ctx = writer->documents();
       {
         auto doc = ctx.insert();
-        doc.insert(irs::action::index, doc1->indexed.begin(), doc1->indexed.end());
-        doc.insert(irs::action::store, doc1->stored.begin(), doc1->stored.end());
+        doc.insert<irs::Action::INDEX>(doc1->indexed.begin(), doc1->indexed.end());
+        doc.insert<irs::Action::STORE>(doc1->stored.begin(), doc1->stored.end());
       }
     }
 
@@ -19306,8 +19351,8 @@ TEST_P(index_test_case, consolidate_segment_versions) {
       auto ctx = writer->documents();
       {
         auto doc = ctx.insert();
-        doc.insert(irs::action::index, doc2->indexed.begin(), doc2->indexed.end());
-        doc.insert(irs::action::store, doc2->stored.begin(), doc2->stored.end());
+        doc.insert<irs::Action::INDEX>(doc2->indexed.begin(), doc2->indexed.end());
+        doc.insert<irs::Action::STORE>(doc2->stored.begin(), doc2->stored.end());
       }
       writer->commit(); // flush segment (version 0) before releasing 'ctx'
     }
@@ -19324,8 +19369,8 @@ TEST_P(index_test_case, consolidate_segment_versions) {
       {
         auto ctx = writer->documents();
         auto doc = ctx.insert();
-        doc.insert(irs::action::index, doc3->indexed.begin(), doc3->indexed.end());
-        doc.insert(irs::action::store, doc3->stored.begin(), doc3->stored.end());
+        doc.insert<irs::Action::INDEX>(doc3->indexed.begin(), doc3->indexed.end());
+        doc.insert<irs::Action::STORE>(doc3->stored.begin(), doc3->stored.end());
       }
       writer->commit(); // flush 2nd segment (version 0)
     };
@@ -19457,8 +19502,8 @@ TEST_P(index_test_case, consolidate_segment_versions) {
       auto ctx = writer->documents();
       {
         auto doc = ctx.insert();
-        doc.insert(irs::action::index, doc1->indexed.begin(), doc1->indexed.end());
-        doc.insert(irs::action::store, doc1->stored.begin(), doc1->stored.end());
+        doc.insert<irs::Action::INDEX>(doc1->indexed.begin(), doc1->indexed.end());
+        doc.insert<irs::Action::STORE>(doc1->stored.begin(), doc1->stored.end());
       }
     }
 
@@ -19467,8 +19512,8 @@ TEST_P(index_test_case, consolidate_segment_versions) {
       auto ctx = writer->documents();
       {
         auto doc = ctx.insert();
-        doc.insert(irs::action::index, doc2->indexed.begin(), doc2->indexed.end());
-        doc.insert(irs::action::store, doc2->stored.begin(), doc2->stored.end());
+        doc.insert<irs::Action::INDEX>(doc2->indexed.begin(), doc2->indexed.end());
+        doc.insert<irs::Action::STORE>(doc2->stored.begin(), doc2->stored.end());
       }
       writer->commit(); // flush segment (version 0) before releasing 'ctx'
     }
@@ -19486,8 +19531,8 @@ TEST_P(index_test_case, consolidate_segment_versions) {
       {
         auto ctx = writer->documents();
         auto doc = ctx.insert();
-        doc.insert(irs::action::index, doc3->indexed.begin(), doc3->indexed.end());
-        doc.insert(irs::action::store, doc3->stored.begin(), doc3->stored.end());
+        doc.insert<irs::Action::INDEX>(doc3->indexed.begin(), doc3->indexed.end());
+        doc.insert<irs::Action::STORE>(doc3->stored.begin(), doc3->stored.end());
       }
 
       // segment 2 (version 1)
@@ -19495,8 +19540,8 @@ TEST_P(index_test_case, consolidate_segment_versions) {
         auto ctx = writer->documents();
         {
           auto doc = ctx.insert();
-          doc.insert(irs::action::index, doc4->indexed.begin(), doc4->indexed.end());
-          doc.insert(irs::action::store, doc4->stored.begin(), doc4->stored.end());
+          doc.insert<irs::Action::INDEX>(doc4->indexed.begin(), doc4->indexed.end());
+          doc.insert<irs::Action::STORE>(doc4->stored.begin(), doc4->stored.end());
         }
         writer->commit(); // flush 2nd segment (version 0) before releasing 'ctx'
       }
@@ -19673,13 +19718,13 @@ TEST_P(index_test_case, consolidate_segment_versions) {
       auto ctx = writer->documents();
       {
         auto doc = ctx.insert();
-        doc.insert(irs::action::index, doc1->indexed.begin(), doc1->indexed.end());
-        doc.insert(irs::action::store, doc1->stored.begin(), doc1->stored.end());
+        doc.insert<irs::Action::INDEX>(doc1->indexed.begin(), doc1->indexed.end());
+        doc.insert<irs::Action::STORE>(doc1->stored.begin(), doc1->stored.end());
       }
       {
         auto doc = ctx.insert();
-        doc.insert(irs::action::index, doc2->indexed.begin(), doc2->indexed.end());
-        doc.insert(irs::action::store, doc2->stored.begin(), doc2->stored.end());
+        doc.insert<irs::Action::INDEX>(doc2->indexed.begin(), doc2->indexed.end());
+        doc.insert<irs::Action::STORE>(doc2->stored.begin(), doc2->stored.end());
       }
     }
 
@@ -19688,13 +19733,13 @@ TEST_P(index_test_case, consolidate_segment_versions) {
       auto ctx = writer->documents();
       {
         auto doc = ctx.insert();
-        doc.insert(irs::action::index, doc3->indexed.begin(), doc3->indexed.end());
-        doc.insert(irs::action::store, doc3->stored.begin(), doc3->stored.end());
+        doc.insert<irs::Action::INDEX>(doc3->indexed.begin(), doc3->indexed.end());
+        doc.insert<irs::Action::STORE>(doc3->stored.begin(), doc3->stored.end());
       }
       {
         auto doc = ctx.insert();
-        doc.insert(irs::action::index, doc4->indexed.begin(), doc4->indexed.end());
-        doc.insert(irs::action::store, doc4->stored.begin(), doc4->stored.end());
+        doc.insert<irs::Action::INDEX>(doc4->indexed.begin(), doc4->indexed.end());
+        doc.insert<irs::Action::STORE>(doc4->stored.begin(), doc4->stored.end());
       }
 
       writer->commit(); // flush segment (version 0) before releasing 'ctx'
@@ -19826,13 +19871,13 @@ TEST_P(index_test_case, consolidate_segment_versions) {
       auto ctx = writer->documents();
       {
         auto doc = ctx.insert();
-        doc.insert(irs::action::index, doc1->indexed.begin(), doc1->indexed.end());
-        doc.insert(irs::action::store, doc1->stored.begin(), doc1->stored.end());
+        doc.insert<irs::Action::INDEX>(doc1->indexed.begin(), doc1->indexed.end());
+        doc.insert<irs::Action::STORE>(doc1->stored.begin(), doc1->stored.end());
       }
       {
         auto doc = ctx.insert();
-        doc.insert(irs::action::index, doc2->indexed.begin(), doc2->indexed.end());
-        doc.insert(irs::action::store, doc2->stored.begin(), doc2->stored.end());
+        doc.insert<irs::Action::INDEX>(doc2->indexed.begin(), doc2->indexed.end());
+        doc.insert<irs::Action::STORE>(doc2->stored.begin(), doc2->stored.end());
       }
     }
 
@@ -19841,13 +19886,13 @@ TEST_P(index_test_case, consolidate_segment_versions) {
       auto ctx = writer->documents();
       {
         auto doc = ctx.insert();
-        doc.insert(irs::action::index, doc3->indexed.begin(), doc3->indexed.end());
-        doc.insert(irs::action::store, doc3->stored.begin(), doc3->stored.end());
+        doc.insert<irs::Action::INDEX>(doc3->indexed.begin(), doc3->indexed.end());
+        doc.insert<irs::Action::STORE>(doc3->stored.begin(), doc3->stored.end());
       }
       {
         auto doc = ctx.insert();
-        doc.insert(irs::action::index, doc4->indexed.begin(), doc4->indexed.end());
-        doc.insert(irs::action::store, doc4->stored.begin(), doc4->stored.end());
+        doc.insert<irs::Action::INDEX>(doc4->indexed.begin(), doc4->indexed.end());
+        doc.insert<irs::Action::STORE>(doc4->stored.begin(), doc4->stored.end());
       }
 
       writer->commit(); // flush segment (version 0) before releasing 'ctx'
@@ -19949,13 +19994,13 @@ TEST_P(index_test_case, consolidate_segment_versions) {
       auto ctx = writer->documents();
       {
         auto doc = ctx.insert();
-        doc.insert(irs::action::index, doc1->indexed.begin(), doc1->indexed.end());
-        doc.insert(irs::action::store, doc1->stored.begin(), doc1->stored.end());
+        doc.insert<irs::Action::INDEX>(doc1->indexed.begin(), doc1->indexed.end());
+        doc.insert<irs::Action::STORE>(doc1->stored.begin(), doc1->stored.end());
       }
       {
         auto doc = ctx.insert();
-        doc.insert(irs::action::index, doc2->indexed.begin(), doc2->indexed.end());
-        doc.insert(irs::action::store, doc2->stored.begin(), doc2->stored.end());
+        doc.insert<irs::Action::INDEX>(doc2->indexed.begin(), doc2->indexed.end());
+        doc.insert<irs::Action::STORE>(doc2->stored.begin(), doc2->stored.end());
       }
     }
 
@@ -19964,13 +20009,13 @@ TEST_P(index_test_case, consolidate_segment_versions) {
       auto ctx = writer->documents();
       {
         auto doc = ctx.insert();
-        doc.insert(irs::action::index, doc3->indexed.begin(), doc3->indexed.end());
-        doc.insert(irs::action::store, doc3->stored.begin(), doc3->stored.end());
+        doc.insert<irs::Action::INDEX>(doc3->indexed.begin(), doc3->indexed.end());
+        doc.insert<irs::Action::STORE>(doc3->stored.begin(), doc3->stored.end());
       }
       {
         auto doc = ctx.insert();
-        doc.insert(irs::action::index, doc4->indexed.begin(), doc4->indexed.end());
-        doc.insert(irs::action::store, doc4->stored.begin(), doc4->stored.end());
+        doc.insert<irs::Action::INDEX>(doc4->indexed.begin(), doc4->indexed.end());
+        doc.insert<irs::Action::STORE>(doc4->stored.begin(), doc4->stored.end());
       }
 
       writer->commit(); // flush segment (version 0) before releasing 'ctx'
@@ -21682,8 +21727,8 @@ TEST_P(index_test_case, segment_options) {
     {
       auto doc = ctx.insert();
       ASSERT_TRUE(
-        doc.insert(irs::action::index, doc1->indexed.begin(), doc1->indexed.end())
-        && doc.insert(irs::action::store, doc1->stored.begin(), doc1->stored.end())
+        doc.insert<irs::Action::INDEX>(doc1->indexed.begin(), doc1->indexed.end())
+        && doc.insert<irs::Action::STORE>(doc1->stored.begin(), doc1->stored.end())
       );
     }
 

@@ -23,6 +23,7 @@
 
 #include "store/mmap_directory.hpp"
 #include "store/store_utils.hpp"
+#include "utils/singleton.hpp"
 
 #include "IResearchCommon.h"
 #include "IResearchFeature.h"
@@ -33,6 +34,7 @@
 #include "Aql/QueryCache.h"
 #include "Basics/LocalTaskQueue.h"
 #include "Basics/StaticStrings.h"
+#include "Basics/VelocyPackHelper.h"
 #include "Cluster/ClusterInfo.h"
 #include "MMFiles/MMFilesCollection.h"
 #include "RestServer/DatabaseFeature.h"
@@ -60,6 +62,20 @@ const irs::string_ref IRESEARCH_STORE_FORMAT("1_1");
 
 typedef irs::async_utils::read_write_mutex::read_mutex ReadMutex;
 typedef irs::async_utils::read_write_mutex::write_mutex WriteMutex;
+
+////////////////////////////////////////////////////////////////////////////////
+/// @class VPackComparer
+////////////////////////////////////////////////////////////////////////////////
+class VPackComparer : public irs::comparer,
+                      public irs::singleton<VPackComparer> {
+ protected:
+  virtual bool less(const irs::bytes_ref& lhs, const irs::bytes_ref& rhs) const {
+    VPackSlice const lhsSlice(lhs.c_str());
+    VPackSlice const rhsSlice(rhs.c_str());
+
+    return arangodb::basics::VelocyPackHelper::compare(lhsSlice, rhsSlice, true) < 0;
+  }
+}; // Comparer
 
 ////////////////////////////////////////////////////////////////////////////////
 /// @brief container storing the link state for a given TransactionState
@@ -185,13 +201,17 @@ inline arangodb::Result insertDocument(irs::index_writer::documents_context& ctx
   // User fields
   while (body.valid()) {
     if (arangodb::iresearch::ValueStorage::NONE == field._storeValues) {
-      doc.insert(irs::action::index, field);
+      doc.insert<irs::Action::INDEX>(field);
     } else {
-      doc.insert(irs::action::index_store, field);
+      doc.insert<irs::Action::INDEX_AND_STORE>(field);
     }
 
     ++body;
   }
+
+  // if (sorted) {
+  //doc.insert<irs::Action::STORE_SORTED>(field);
+  //}
 
   // System fields
 
@@ -200,7 +220,7 @@ inline arangodb::Result insertDocument(irs::index_writer::documents_context& ctx
 
   // reuse the 'Field' instance stored inside the 'FieldIterator'
   arangodb::iresearch::Field::setPkValue(const_cast<arangodb::iresearch::Field&>(field), docPk);
-  doc.insert(irs::action::index_store, field);
+  doc.insert<irs::Action::INDEX_AND_STORE>(field);
 
   if (!doc) {
     return arangodb::Result(
@@ -1067,10 +1087,16 @@ arangodb::Result IResearchLink::initDataStore(InitCallback const& initCallback) 
   irs::index_writer::init_options options;
 
   options.lock_repository = false; // do not lock index, ArangoDB has it's own lock
+  // if (sorted) {
+  //   options.comparator = &VPackComparer::instance();
+  // }
 
   // create writer before reader to ensure data directory is present
   _dataStore._writer = irs::index_writer::make( // open writer
-    *(_dataStore._directory), format, irs::OM_CREATE | irs::OM_APPEND, options // args
+    *(_dataStore._directory),
+    format,
+    irs::OM_CREATE | irs::OM_APPEND,
+    options // args
   );
 
   if (!_dataStore._writer) {
