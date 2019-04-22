@@ -79,7 +79,7 @@ var arangodb = require('@arangodb');
 var ArangoError = arangodb.ArangoError;
 
 exports.checkRequestResult = function (requestResult) {
-  if (requestResult === undefined) {
+  if (requestResult == undefined) {
     throw new ArangoError({
       'error': true,
       'code': 500,
