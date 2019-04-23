@@ -29,11 +29,10 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 const jsunity = require("jsunity");
-const db = require("@arangodb").db;
 const deriveTestSuite = require('@arangodb/test-helper').deriveTestSuite;
 const base = require("fs").join(require('internal').pathForTesting('common'),
-  'aql', 'aql-view-arangosearch-disabled-cluster.js');
-require("internal").load(base);
+  'aql', 'aql-view-arangosearch-cluster.inc');
+const IResearchAqlTestSuite = require("internal").load(base);
 
 ////////////////////////////////////////////////////////////////////////////////
 /// @brief executes the test suite
@@ -51,7 +50,7 @@ jsunity.run(function IResearchAqlTestSuite_s4_r3() {
 
   // order for multiple shards is nondeterministic
   suite.testInTokensFilterSortTFIDF_FourShardsReplTwo = function () {
-    var result = db._query(
+    var result = require('internal').db._query(
       "FOR doc IN UnitTestsView SEARCH ANALYZER(doc.text IN TOKENS('the quick brown', 'text_en'), 'text_en') OPTIONS { waitForSync : true } SORT TFIDF(doc) LIMIT 4 RETURN doc"
     ).toArray();
 
