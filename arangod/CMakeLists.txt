@@ -365,6 +365,7 @@ SET(ARANGOD_SOURCES
   GeneralServer/ListenTask.cpp
   GeneralServer/RestHandler.cpp
   GeneralServer/RestHandlerFactory.cpp
+  GeneralServer/ServerSecurityFeature.cpp
   GeneralServer/SocketSslTcp.cpp
   GeneralServer/SocketTask.cpp
   GeneralServer/Task.cpp
@@ -533,6 +534,7 @@ SET(ARANGOD_SOURCES
   StorageEngine/TransactionCollection.cpp
   StorageEngine/TransactionState.cpp
   StorageEngine/WalAccess.cpp
+  Transaction/ClusterUtils.cpp
   Transaction/Context.cpp
   Transaction/CountCache.cpp
   Transaction/Helpers.cpp
