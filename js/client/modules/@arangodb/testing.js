@@ -731,7 +731,7 @@ function iterateTests(cases, options, jsonReply) {
     print("not cleaning up since we didn't start the server ourselves\n");
   }
 
-  if (options.extremeVerbosity === true) {
+  /*if (options.extremeVerbosity === true)*/ {
     try {
       print(yaml.safeDump(JSON.parse(JSON.stringify(results))));
     } catch (err) {
