@@ -159,6 +159,8 @@ std::unique_ptr<graph::BaseOptions> createTraversalOptions(aql::Query* query,
                 "due to unpredictable results. Use 'path' "
                 "or 'none' instead");
           }
+        } else if (name == "returnVertexIdOnly") {
+          options->returnVertexIdOnly = true;
         }
       }
     }

@@ -49,7 +49,8 @@ TraverserOptions::TraverserOptions(aql::Query* query)
       maxDepth(1),
       useBreadthFirst(false),
       uniqueVertices(UniquenessLevel::NONE),
-      uniqueEdges(UniquenessLevel::PATH) {}
+      uniqueEdges(UniquenessLevel::PATH),
+      returnVertexIdOnly(false) {}
 
 TraverserOptions::TraverserOptions(aql::Query* query, VPackSlice const& obj)
     : BaseOptions(query),
@@ -59,7 +60,8 @@ TraverserOptions::TraverserOptions(aql::Query* query, VPackSlice const& obj)
       maxDepth(1),
       useBreadthFirst(false),
       uniqueVertices(UniquenessLevel::NONE),
-      uniqueEdges(UniquenessLevel::PATH) {
+      uniqueEdges(UniquenessLevel::PATH),
+      returnVertexIdOnly(false) {
   TRI_ASSERT(obj.isObject());
 
 #ifdef ARANGODB_ENABLE_MAINTAINER_MODE
@@ -98,6 +100,8 @@ TraverserOptions::TraverserOptions(aql::Query* query, VPackSlice const& obj)
   } else {
     uniqueEdges = TraverserOptions::UniquenessLevel::PATH;
   }
+
+  returnVertexIdOnly = VPackHelper::getBooleanValue(obj, "returnVertexIdOnly", false);
 }
 
 arangodb::traverser::TraverserOptions::TraverserOptions(arangodb::aql::Query* query,
@@ -109,7 +113,8 @@ arangodb::traverser::TraverserOptions::TraverserOptions(arangodb::aql::Query* qu
       maxDepth(1),
       useBreadthFirst(false),
       uniqueVertices(UniquenessLevel::NONE),
-      uniqueEdges(UniquenessLevel::PATH) {
+      uniqueEdges(UniquenessLevel::PATH),
+      returnVertexIdOnly(false) {
 #ifdef ARANGODB_ENABLE_MAINTAINER_MODE
   VPackSlice type = info.get("type");
   TRI_ASSERT(type.isString());
@@ -175,6 +180,11 @@ arangodb::traverser::TraverserOptions::TraverserOptions(arangodb::aql::Query* qu
     default:
       THROW_ARANGO_EXCEPTION_MESSAGE(TRI_ERROR_BAD_PARAMETER,
                                      "The options require a uniqueEdges");
+  }
+
+  read = info.get("returnVertexIdOnly");
+  if (read.isBoolean()) {
+    returnVertexIdOnly = read.getBoolean();
   }
 
   read = info.get("depthLookupInfo");
@@ -243,7 +253,8 @@ arangodb::traverser::TraverserOptions::TraverserOptions(TraverserOptions const& 
       maxDepth(other.maxDepth),
       useBreadthFirst(other.useBreadthFirst),
       uniqueVertices(other.uniqueVertices),
-      uniqueEdges(other.uniqueEdges) {
+      uniqueEdges(other.uniqueEdges),
+      returnVertexIdOnly(other.returnVertexIdOnly) {
   TRI_ASSERT(other._baseLookupInfos.empty());
   TRI_ASSERT(other._depthLookupInfo.empty());
   TRI_ASSERT(other._vertexExpressions.empty());
@@ -294,6 +305,8 @@ void TraverserOptions::toVelocyPack(VPackBuilder& builder) const {
   }
 
   builder.add("type", VPackValue("traversal"));
+
+  builder.add("returnVertexIdOnly", VPackValue(returnVertexIdOnly));
 }
 
 void TraverserOptions::toVelocyPackIndexes(VPackBuilder& builder) const {
@@ -356,6 +369,8 @@ void TraverserOptions::buildEngineInfo(VPackBuilder& result) const {
       result.add(VPackValue(2));
       break;
   }
+
+  result.add("returnVertexIdOnly", VPackValue(returnVertexIdOnly));
 
   if (!_depthLookupInfo.empty()) {
     result.add(VPackValue("depthLookupInfo"));

@@ -90,6 +90,8 @@ struct TraverserOptions : public graph::BaseOptions {
 
   UniquenessLevel uniqueEdges;
 
+  bool returnVertexIdOnly;
+
   explicit TraverserOptions(aql::Query* query);
 
   TraverserOptions(aql::Query* query, arangodb::velocypack::Slice const& definition);

@@ -99,7 +99,7 @@ void InternalRestTraverserHandler::createEngine() {
   }
 
   auto ctx = transaction::StandaloneContext::Create(_vocbase);
-  auto id = _registry->createNew(_vocbase, std::move(ctx), body, 600.0, true);
+  auto id = _registry->createNew(_vocbase, ctx, body, 600.0, true);
 
   TRI_ASSERT(id != 0);
   VPackBuilder resultBuilder;
