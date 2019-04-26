@@ -290,6 +290,8 @@ function main (argv) {
     print('failed to write test result: ' + x.message);
   }
 
+  fs.write(testOutputDirectory + '/UNITTEST_RESULT.json', j, true);
+
   if (options.writeXmlReport) {
     let j;
 
@@ -299,7 +301,6 @@ function main (argv) {
       j = inspect(res);
     }
 
-    fs.write(testOutputDirectory + '/UNITTEST_RESULT.json', j, true);
 
     try {
       let isCluster = false;

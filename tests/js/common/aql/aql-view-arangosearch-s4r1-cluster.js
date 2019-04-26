@@ -55,6 +55,7 @@ jsunity.run(function IResearchAqlTestSuite_s4_r1() {
     ).toArray();
 
     assertEqual(result.length, 4);
+    fail();
   };
 
   return suite;
