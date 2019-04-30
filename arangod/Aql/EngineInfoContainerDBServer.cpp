@@ -1120,6 +1120,13 @@ bool EngineInfoContainerDBServer::canSetupParallel() const {
     return true;
   }
   return false;
+
+namespace {
+  struct NoopCb final : public arangodb::ClusterCommCallback {
+    bool operator()(ClusterCommResult*) override{
+      return true;
+    }
+  };
 }
 
 /**
@@ -1159,15 +1166,21 @@ void EngineInfoContainerDBServer::cleanupEngines(std::shared_ptr<ClusterComm> cc
   // Shutdown traverser engines
   url = "/_db/" + arangodb::basics::StringUtils::urlEncode(dbname) +
         "/_internal/traverser/";
+  std::unordered_map<std::string, std::string> headers;
   std::shared_ptr<std::string> noBody;
+  
+  CoordTransactionID coordinatorTransactionID = TRI_NewTickServer();
+  auto cb = std::make_shared<::NoopCb>();
+  
+  constexpr double shortTimeout = 10.0;  // Picked arbitrarily
   for (auto const& gn : _graphNodes) {
     auto allEngines = gn->engines();
     for (auto const& engine : *allEngines) {
-      requests.emplace_back(engine.first, rest::RequestType::DELETE_REQ,
-                            url + basics::StringUtils::itoa(engine.second), noBody);
+      cc->asyncRequest("", coordinatorTransactionID, engine.first, rest::RequestType::DELETE_REQ,
+                       url + basics::StringUtils::itoa(engine.second), noBody, headers, cb,
+                       shortTimeout, false, 2.0);
     }
   }
-
-  cc->fireAndForgetRequests(requests);
+  
   queryIds.clear();
 }
