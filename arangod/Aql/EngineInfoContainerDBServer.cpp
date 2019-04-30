@@ -37,11 +37,11 @@
 #include "Cluster/ServerState.h"
 #include "Cluster/TraverserEngineRegistry.h"
 #include "Graph/BaseOptions.h"
+#include "IResearch/IResearchViewNode.h"
 #include "RestServer/QueryRegistryFeature.h"
 #include "StorageEngine/TransactionState.h"
 #include "VocBase/LogicalCollection.h"
 #include "VocBase/ticks.h"
-#include "IResearch/IResearchViewNode.h"
 
 #include "ClusterEngine/ClusterEngine.h"
 #include "StorageEngine/EngineSelectorFeature.h"
@@ -50,6 +50,10 @@ using namespace arangodb;
 using namespace arangodb::aql;
 
 namespace {
+
+struct NoopCb final : public arangodb::ClusterCommCallback {
+  bool operator()(ClusterCommResult*) override { return true; }
+};
 
 const double SETUP_TIMEOUT = 90.0;
 
@@ -230,7 +234,7 @@ void EngineInfoContainerDBServer::EngineInfo::serializeSnippet(
       viewNode->shards() = shards;
     } else
 
-    if (ExecutionNode::REMOTE == nodeType) {
+        if (ExecutionNode::REMOTE == nodeType) {
       auto rem = ExecutionNode::castTo<RemoteNode*>(clone);
       // update the remote node with the information about the query
       rem->server("server:" + arangodb::ServerState::instance()->getId());
@@ -994,8 +998,7 @@ Result EngineInfoContainerDBServer::buildEngines(MapRemoteToSnippet& queryIds,
                             std::make_shared<std::string>(infoBuilder.toJson()));
     }
     size_t nrDone = 0;
-    size_t nrGood =
-        cc->performRequests(requests, SETUP_TIMEOUT, nrDone, Logger::AQL, false);
+    cc->performRequests(requests, SETUP_TIMEOUT, nrDone, Logger::AQL, false);
     for (auto const& req : requests) {
       auto res = req.result;
       auto it = dbServerMapping.find(res.serverID);
@@ -1120,13 +1123,6 @@ bool EngineInfoContainerDBServer::canSetupParallel() const {
     return true;
   }
   return false;
-
-namespace {
-  struct NoopCb final : public arangodb::ClusterCommCallback {
-    bool operator()(ClusterCommResult*) override{
-      return true;
-    }
-  };
 }
 
 /**
@@ -1168,19 +1164,20 @@ void EngineInfoContainerDBServer::cleanupEngines(std::shared_ptr<ClusterComm> cc
         "/_internal/traverser/";
   std::unordered_map<std::string, std::string> headers;
   std::shared_ptr<std::string> noBody;
-  
+
   CoordTransactionID coordinatorTransactionID = TRI_NewTickServer();
   auto cb = std::make_shared<::NoopCb>();
-  
+
   constexpr double shortTimeout = 10.0;  // Picked arbitrarily
   for (auto const& gn : _graphNodes) {
     auto allEngines = gn->engines();
     for (auto const& engine : *allEngines) {
-      cc->asyncRequest("", coordinatorTransactionID, engine.first, rest::RequestType::DELETE_REQ,
-                       url + basics::StringUtils::itoa(engine.second), noBody, headers, cb,
-                       shortTimeout, false, 2.0);
+      cc->asyncRequest("", coordinatorTransactionID, engine.first,
+                       rest::RequestType::DELETE_REQ,
+                       url + basics::StringUtils::itoa(engine.second), noBody,
+                       headers, cb, shortTimeout, false, 2.0);
     }
   }
-  
+
   queryIds.clear();
 }
