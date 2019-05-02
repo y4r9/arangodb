@@ -127,6 +127,11 @@ class InputAqlItemRow {
 
   inline bool blockHasMoreRows() const noexcept { return !isLastRowInBlock(); }
 
+  inline void next() noexcept {
+    TRI_ASSERT(isInitialized());
+    TRI_ASSERT(!isLastRowInBlock());
+    ++_baseIndex;
+  }
 
 #ifdef ARANGODB_ENABLE_MAINTAINER_MODE
   /**

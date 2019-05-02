@@ -85,6 +85,8 @@ class SingleRowFetcher {
   TEST_VIRTUAL std::pair<ExecutionState, InputAqlItemRow> fetchRow(
       size_t atMost = ExecutionBlock::DefaultBatchSize());
 
+  ExecutionState nextRow(InputAqlItemRow& row, size_t atMost = ExecutionBlock::DefaultBatchSize());
+
   // TODO enable_if<passBlocksThrough>
   std::pair<ExecutionState, SharedAqlItemBlockPtr> fetchBlockForPassthrough(size_t atMost);
 
@@ -169,6 +171,9 @@ class SingleRowFetcher {
   RegisterId getNrInputRegisters() const {
     return _dependencyProxy->getNrInputRegisters();
   }
+
+  bool blockIsValid() const;
+
   bool indexIsValid() const;
 
   bool isLastRowInBlock() const {
@@ -225,8 +230,36 @@ std::pair<ExecutionState, InputAqlItemRow> SingleRowFetcher<passBlocksThrough>::
 }
 
 template <bool passBlocksThrough>
+ExecutionState SingleRowFetcher<passBlocksThrough>::nextRow(InputAqlItemRow& row,
+                                                            size_t atMost) {
+  TRI_ASSERT(row == _currentRow);
+
+  ++_rowIndex;
+
+  if (ADB_UNLIKELY(!indexIsValid())) {
+    ExecutionState state;
+    std::tie(state, row) = fetchRow(atMost);
+    return state;
+  }
+
+  row.next();
+  _currentRow.next();
+
+  if (ADB_UNLIKELY(isLastRowInBlock())) {
+    return _upstreamState;
+  }
+
+  return ExecutionState::HASMORE;
+}
+
+template <bool passBlocksThrough>
+bool SingleRowFetcher<passBlocksThrough>::blockIsValid() const {
+  return _currentBlock != nullptr;
+}
+
+template <bool passBlocksThrough>
 bool SingleRowFetcher<passBlocksThrough>::indexIsValid() const {
-  return _currentBlock != nullptr && _rowIndex < _currentBlock->size();
+  return blockIsValid() && _rowIndex < _currentBlock->size();
 }
 
 }  // namespace aql

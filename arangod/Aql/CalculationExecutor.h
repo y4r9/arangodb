@@ -189,10 +189,11 @@ template <CalculationType calculationType>
 inline std::pair<ExecutionState, typename CalculationExecutor<calculationType>::Stats>
 CalculationExecutor<calculationType>::produceRows(OutputAqlItemRow& output) {
   ExecutionState state = ExecutionState::HASMORE;
+  InputAqlItemRow row = InputAqlItemRow{CreateInvalidInputRowHint{}};
 
   while (state == ExecutionState::HASMORE && !output.isFull()) {
-    InputAqlItemRow row = InputAqlItemRow{CreateInvalidInputRowHint{}};
-    std::tie(state, row) = _fetcher.fetchRow();
+    state = _fetcher.nextRow(row);
+    // std::tie(state, row) = _fetcher.fetchRow();
 
     if (state == ExecutionState::WAITING) {
       TRI_ASSERT(!row);
