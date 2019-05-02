@@ -191,19 +191,19 @@ CalculationExecutor<calculationType>::produceRows(OutputAqlItemRow& output) {
   ExecutionState state = ExecutionState::HASMORE;
   InputAqlItemRow row = InputAqlItemRow{CreateInvalidInputRowHint{}};
 
-  while (state == ExecutionState::HASMORE && !output.isFull()) {
+  while (!output.isFull() && state == ExecutionState::HASMORE) {
     state = _fetcher.nextRow(row);
     // std::tie(state, row) = _fetcher.fetchRow();
 
     if (state == ExecutionState::WAITING) {
       TRI_ASSERT(!row);
-      TRI_ASSERT(!_infos.getQuery().hasEnteredContext());
+      TRI_ASSERT(!_hasEnteredContext);
       break;
     }
 
     if (!row) {
       TRI_ASSERT(state == ExecutionState::DONE);
-      TRI_ASSERT(!_infos.getQuery().hasEnteredContext());
+      TRI_ASSERT(!_hasEnteredContext);
       break;
     }
 

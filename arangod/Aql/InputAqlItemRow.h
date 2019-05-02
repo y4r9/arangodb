@@ -73,7 +73,7 @@ class InputAqlItemRow {
    * @return Reference to the AqlValue stored in that variable.
    */
   inline const AqlValue& getValue(RegisterId registerId) const {
-    TRI_ASSERT(isInitialized());
+    TRI_ASSERT(indexIsValid());
     TRI_ASSERT(registerId < getNrRegisters());
     return block().getValueReference(_baseIndex, registerId);
   }
@@ -86,7 +86,7 @@ class InputAqlItemRow {
    * @return The AqlValue stored in that variable. It is invalidated in source.
    */
   inline AqlValue stealValue(RegisterId registerId) {
-    TRI_ASSERT(isInitialized());
+    TRI_ASSERT(indexIsValid());
     TRI_ASSERT(registerId < getNrRegisters());
     AqlValue const& a = block().getValueReference(_baseIndex, registerId);
     if (!a.isEmpty() && a.requiresDestruction()) {
@@ -111,25 +111,25 @@ class InputAqlItemRow {
 
   bool isInitialized() const noexcept { return _block != nullptr; }
 
+  bool indexIsValid() const noexcept { return isInitialized() &&  _baseIndex < block().size(); }
+
   explicit operator bool() const noexcept { return isInitialized(); }
 
   inline bool isFirstRowInBlock() const noexcept {
-    TRI_ASSERT(isInitialized());
-    TRI_ASSERT(_baseIndex < block().size());
+    TRI_ASSERT(indexIsValid());
     return _baseIndex == 0;
   }
 
   inline bool isLastRowInBlock() const noexcept {
-    TRI_ASSERT(isInitialized());
-    TRI_ASSERT(_baseIndex < block().size());
+    TRI_ASSERT(indexIsValid());
     return _baseIndex + 1 == block().size();
   }
 
   inline bool blockHasMoreRows() const noexcept { return !isLastRowInBlock(); }
 
+  // can invalidate row
   inline void next() noexcept {
-    TRI_ASSERT(isInitialized());
-    TRI_ASSERT(!isLastRowInBlock());
+    TRI_ASSERT(indexIsValid());
     ++_baseIndex;
   }
 

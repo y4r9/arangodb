@@ -232,9 +232,10 @@ std::pair<ExecutionState, InputAqlItemRow> SingleRowFetcher<passBlocksThrough>::
 template <bool passBlocksThrough>
 ExecutionState SingleRowFetcher<passBlocksThrough>::nextRow(InputAqlItemRow& row,
                                                             size_t atMost) {
-  TRI_ASSERT(row == _currentRow);
-
-  ++_rowIndex;
+  // Both rows must be equal, with one exception:
+  // row may be uninitialized independent of _currentRow.
+  // If _currentRow is uninitialized, row must be uninitialized, too.
+  TRI_ASSERT(!row.isInitialized() || row == _currentRow);
 
   if (ADB_UNLIKELY(!indexIsValid())) {
     ExecutionState state;
@@ -242,10 +243,15 @@ ExecutionState SingleRowFetcher<passBlocksThrough>::nextRow(InputAqlItemRow& row
     return state;
   }
 
-  row.next();
   _currentRow.next();
+  row.next();
 
-  if (ADB_UNLIKELY(isLastRowInBlock())) {
+  TRI_ASSERT(row == _currentRow);
+  TRI_ASSERT(row == InputAqlItemRow(_currentBlock, _rowIndex));
+
+  ++_rowIndex;
+
+  if (ADB_UNLIKELY(!indexIsValid())) {
     return _upstreamState;
   }
 
