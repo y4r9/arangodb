@@ -188,38 +188,44 @@ inline void CalculationExecutor<CalculationType::Reference>::doEvaluation(
 template <CalculationType calculationType>
 inline std::pair<ExecutionState, typename CalculationExecutor<calculationType>::Stats>
 CalculationExecutor<calculationType>::produceRows(OutputAqlItemRow& output) {
-  ExecutionState state;
-  InputAqlItemRow row = InputAqlItemRow{CreateInvalidInputRowHint{}};
-  std::tie(state, row) = _fetcher.fetchRow();
+  ExecutionState state = ExecutionState::HASMORE;
 
-  if (state == ExecutionState::WAITING) {
-    TRI_ASSERT(!row);
-    TRI_ASSERT(!_infos.getQuery().hasEnteredContext());
-    return {state, NoStats{}};
+  while (state == ExecutionState::HASMORE && !output.isFull()) {
+    InputAqlItemRow row = InputAqlItemRow{CreateInvalidInputRowHint{}};
+    std::tie(state, row) = _fetcher.fetchRow();
+
+    if (state == ExecutionState::WAITING) {
+      TRI_ASSERT(!row);
+      TRI_ASSERT(!_infos.getQuery().hasEnteredContext());
+      break;
+    }
+
+    if (!row) {
+      TRI_ASSERT(state == ExecutionState::DONE);
+      TRI_ASSERT(!_infos.getQuery().hasEnteredContext());
+      break;
+    }
+
+    TRI_ASSERT(!output.isFull());
+    doEvaluation(row, output);
+    TRI_ASSERT(output.produced());
+    output.advanceRow();
+
+    // _hasEnteredContext implies the query has entered the context, but not
+    // the other way round because it may be owned by exterior.
+    TRI_ASSERT(!_hasEnteredContext || _infos.getQuery().hasEnteredContext());
+
+    // The following only affects V8Conditions. If we should exit the V8 context
+    // between blocks, because we might have to wait for client or upstream, then
+    //   hasEnteredContext => state == HASMORE,
+    // as we only leave the context open when there are rows left in the current
+    // block.
+    // Note that _infos.getQuery().hasEnteredContext() may be true, even if
+    // _hasEnteredContext is false, if (and only if) the query context is owned
+    // by exterior.
+    TRI_ASSERT(!shouldExitContextBetweenBlocks() || !_hasEnteredContext ||
+               state == ExecutionState::HASMORE);
   }
-
-  if (!row) {
-    TRI_ASSERT(state == ExecutionState::DONE);
-    TRI_ASSERT(!_infos.getQuery().hasEnteredContext());
-    return {state, NoStats{}};
-  }
-
-  doEvaluation(row, output);
-
-  // _hasEnteredContext implies the query has entered the context, but not
-  // the other way round because it may be owned by exterior.
-  TRI_ASSERT(!_hasEnteredContext || _infos.getQuery().hasEnteredContext());
-
-  // The following only affects V8Conditions. If we should exit the V8 context
-  // between blocks, because we might have to wait for client or upstream, then
-  //   hasEnteredContext => state == HASMORE,
-  // as we only leave the context open when there are rows left in the current
-  // block.
-  // Note that _infos.getQuery().hasEnteredContext() may be true, even if
-  // _hasEnteredContext is false, if (and only if) the query context is owned
-  // by exterior.
-  TRI_ASSERT(!shouldExitContextBetweenBlocks() || !_hasEnteredContext ||
-             state == ExecutionState::HASMORE);
 
   return {state, NoStats{}};
 }
