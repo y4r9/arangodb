@@ -55,10 +55,10 @@ struct CreateInvalidInputRowHint {
 class InputAqlItemRow {
  public:
   // The default constructor contains an invalid item row
-  explicit InputAqlItemRow(CreateInvalidInputRowHint)
+  inline explicit InputAqlItemRow(CreateInvalidInputRowHint) noexcept
       : _block(nullptr), _baseIndex(0) {}
 
-  InputAqlItemRow(
+  inline InputAqlItemRow(
       // cppcheck-suppress passedByValue
       SharedAqlItemBlockPtr block, size_t baseIndex)
       : _block(std::move(block)), _baseIndex(baseIndex) {
@@ -73,7 +73,7 @@ class InputAqlItemRow {
    * @return Reference to the AqlValue stored in that variable.
    */
   inline const AqlValue& getValue(RegisterId registerId) const {
-    TRI_ASSERT(indexIsValid());
+    TRI_ASSERT(isInitialized());
     TRI_ASSERT(registerId < getNrRegisters());
     return block().getValueReference(_baseIndex, registerId);
   }
@@ -86,7 +86,7 @@ class InputAqlItemRow {
    * @return The AqlValue stored in that variable. It is invalidated in source.
    */
   inline AqlValue stealValue(RegisterId registerId) {
-    TRI_ASSERT(indexIsValid());
+    TRI_ASSERT(isInitialized());
     TRI_ASSERT(registerId < getNrRegisters());
     AqlValue const& a = block().getValueReference(_baseIndex, registerId);
     if (!a.isEmpty() && a.requiresDestruction()) {
@@ -97,41 +97,33 @@ class InputAqlItemRow {
     return a;
   }
 
-  std::size_t getNrRegisters() const noexcept { return block().getNrRegs(); }
+  inline std::size_t getNrRegisters() const noexcept { return block().getNrRegs(); }
 
-  bool operator==(InputAqlItemRow const& other) const noexcept {
+  inline bool operator==(InputAqlItemRow const& other) const noexcept {
     TRI_ASSERT(isInitialized());
     return this->_block == other._block && this->_baseIndex == other._baseIndex;
   }
 
-  bool operator!=(InputAqlItemRow const& other) const noexcept {
+  inline bool operator!=(InputAqlItemRow const& other) const noexcept {
     TRI_ASSERT(isInitialized());
     return !(*this == other);
   }
 
-  bool isInitialized() const noexcept { return _block != nullptr; }
+  inline bool isInitialized() const noexcept { return _block != nullptr; }
 
-  bool indexIsValid() const noexcept { return isInitialized() &&  _baseIndex < block().size(); }
-
-  explicit operator bool() const noexcept { return isInitialized(); }
+  inline explicit operator bool() const noexcept { return isInitialized(); }
 
   inline bool isFirstRowInBlock() const noexcept {
-    TRI_ASSERT(indexIsValid());
+    TRI_ASSERT(isInitialized());
     return _baseIndex == 0;
   }
 
   inline bool isLastRowInBlock() const noexcept {
-    TRI_ASSERT(indexIsValid());
+    TRI_ASSERT(isInitialized());
     return _baseIndex + 1 == block().size();
   }
 
   inline bool blockHasMoreRows() const noexcept { return !isLastRowInBlock(); }
-
-  // can invalidate row
-  inline void next() noexcept {
-    TRI_ASSERT(indexIsValid());
-    ++_baseIndex;
-  }
 
 #ifdef ARANGODB_ENABLE_MAINTAINER_MODE
   /**
@@ -152,7 +144,20 @@ class InputAqlItemRow {
   /// Uses the same API as an AqlItemBlock with only a single row
   void toVelocyPack(transaction::Methods* trx, arangodb::velocypack::Builder&) const;
 
- private:
+ protected:
+  template <bool>
+  friend class SingleRowFetcher;
+
+  inline bool moveToNextRow() noexcept {
+    TRI_ASSERT(isInitialized());
+    if (ADB_UNLIKELY(isLastRowInBlock())) {
+      _baseIndex = 0;
+      _block = nullptr;
+      return false;
+    }
+    ++_baseIndex;
+    return true;
+  }
 
   inline AqlItemBlock& block() noexcept {
     TRI_ASSERT(_block != nullptr);
@@ -162,6 +167,30 @@ class InputAqlItemRow {
   inline AqlItemBlock const& block() const noexcept {
     TRI_ASSERT(_block != nullptr);
     return *_block;
+  }
+
+  inline SharedAqlItemBlockPtr& blockPtrRef() noexcept {
+    return _block;
+  }
+
+  inline void reset(SharedAqlItemBlockPtr const& block) noexcept {
+    _block = block;
+    _baseIndex = 0;
+  }
+
+  inline void reset(SharedAqlItemBlockPtr&& block) noexcept {
+    _block = std::move(block);
+    _baseIndex = 0;
+  }
+
+  inline size_t getIndex() const noexcept {
+    return _baseIndex;
+  }
+
+  inline size_t numRowsAfterThis() const noexcept {
+    TRI_ASSERT(isInitialized());
+    TRI_ASSERT(_block->size() > _baseIndex);
+    return _block->size() - _baseIndex - 1;
   }
 
  private:

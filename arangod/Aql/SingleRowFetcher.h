@@ -85,45 +85,67 @@ class SingleRowFetcher {
   TEST_VIRTUAL std::pair<ExecutionState, InputAqlItemRow> fetchRow(
       size_t atMost = ExecutionBlock::DefaultBatchSize());
 
-  ExecutionState nextRow(InputAqlItemRow& row, size_t atMost = ExecutionBlock::DefaultBatchSize());
+  ExecutionState nextRow(size_t atMost = ExecutionBlock::DefaultBatchSize());
 
   // TODO enable_if<passBlocksThrough>
   std::pair<ExecutionState, SharedAqlItemBlockPtr> fetchBlockForPassthrough(size_t atMost);
 
   std::pair<ExecutionState, size_t> preFetchNumberOfRows(size_t atMost) {
-    if (_upstreamState != ExecutionState::DONE && !indexIsValid()) {
-      // We have exhausted the current block and need to fetch a new one
+    if (_upstreamState != ExecutionState::DONE && (!isInitialized() || isLastRowInBlock())) {
+      TRI_ASSERT(_nextBlock == nullptr);
       ExecutionState state;
-      SharedAqlItemBlockPtr newBlock;
-      std::tie(state, newBlock) = fetchBlock(atMost);
+      std::tie(state, _nextBlock) = fetchBlock(atMost);
       // we de not need result as local members are modified
       if (state == ExecutionState::WAITING) {
         return {state, 0};
       }
       // The internal state should be in-line with the returned state.
       TRI_ASSERT(_upstreamState == state);
-      _currentBlock = std::move(newBlock);
-      _rowIndex = 0;
+      TRI_ASSERT(_nextBlock != nullptr || _upstreamState == ExecutionState::DONE);
     }
 
-    // The block before can put upstreamState to DONE.
-    // So we cannot swap the blocks
+    // If upstream is done, we can calculate the number of rows that are left.
     if (_upstreamState == ExecutionState::DONE) {
-      if (!indexIsValid()) {
-        // There is nothing more from upstream
-        return {_upstreamState, 0};
-      }
+      size_t const rowsInCurrentBlock = isInitialized() ? currentRow().numRowsAfterThis() : 0;
+      size_t const rowsInNextBlock = _nextBlock != nullptr ? _nextBlock->size() : 0;
+
+      // While the calculation here would still be correct, we should never have
+      // fetched a new block unless we don't have more in the current one.
+      TRI_ASSERT(rowsInCurrentBlock == 0 || rowsInNextBlock == 0);
+
       // we only have the block in hand, so we can only return that
       // many additional rows
-      TRI_ASSERT(_rowIndex < _currentBlock->size());
-      return {_upstreamState, (std::min)(_currentBlock->size() - _rowIndex, atMost)};
+      return {_upstreamState, (std::min)(rowsInCurrentBlock + rowsInNextBlock, atMost)};
     }
 
     TRI_ASSERT(_upstreamState == ExecutionState::HASMORE);
-    TRI_ASSERT(_currentBlock != nullptr);
+    TRI_ASSERT(_nextBlock != nullptr);
     // Here we can only assume that we have enough from upstream
     // We do not want to pull additional block
     return {_upstreamState, atMost};
+  }
+
+  InputAqlItemRow const& currentRow() const noexcept { return _currentRow; }
+
+ private:
+  /**
+   * @brief Delegates to ExecutionBlock::fetchBlock()
+   */
+  std::pair<ExecutionState, SharedAqlItemBlockPtr> fetchBlock(size_t atMost);
+
+  /**
+   * @brief Delegates to ExecutionBlock::getNrInputRegisters()
+   */
+  inline RegisterId getNrInputRegisters() const {
+    return _dependencyProxy->getNrInputRegisters();
+  }
+
+  inline bool isLastRowInBlock() const noexcept {
+    return _currentRow.isLastRowInBlock();
+  }
+
+  inline bool isInitialized() const noexcept {
+    return _currentRow.isInitialized();
   }
 
  private:
@@ -139,133 +161,62 @@ class SingleRowFetcher {
   ExecutionState _upstreamState;
 
   /**
-   * @brief Input block currently in use. Used for memory management by the
-   *        SingleRowFetcher. May be moved if the Fetcher implementations
-   *        are moved into separate classes.
+   * @brief If not nullptr, this is the next block to use, set by preFetchNumberOfRows().
    */
-  SharedAqlItemBlockPtr _currentBlock;
-
-  /**
-   * @brief Index of the row to be returned next by fetchRow(). This is valid
-   *        iff _currentBlock != nullptr and it's smaller or equal than
-   *        _currentBlock->size(). May be moved if the Fetcher implementations
-   *        are moved into separate classes.
-   */
-  size_t _rowIndex;
+  SharedAqlItemBlockPtr _nextBlock;
 
   /**
    * @brief The current row, as returned last by fetchRow(). Must stay valid
-   *        until the next fetchRow() call.
+   *        until the next nextRow() call.
    */
   InputAqlItemRow _currentRow;
-
- private:
-  /**
-   * @brief Delegates to ExecutionBlock::fetchBlock()
-   */
-  std::pair<ExecutionState, SharedAqlItemBlockPtr> fetchBlock(size_t atMost);
-
-  /**
-   * @brief Delegates to ExecutionBlock::getNrInputRegisters()
-   */
-  RegisterId getNrInputRegisters() const {
-    return _dependencyProxy->getNrInputRegisters();
-  }
-
-  bool blockIsValid() const;
-
-  bool indexIsValid() const;
-
-  bool isLastRowInBlock() const {
-    TRI_ASSERT(indexIsValid());
-    return _rowIndex + 1 == _currentBlock->size();
-  }
-
-  size_t getRowIndex() const {
-    TRI_ASSERT(indexIsValid());
-    return _rowIndex;
-  }
 };
 
 template <bool passBlocksThrough>
 // NOLINTNEXTLINE google-default-arguments
 std::pair<ExecutionState, InputAqlItemRow> SingleRowFetcher<passBlocksThrough>::fetchRow(size_t atMost) {
+  arangodb::aql::ExecutionState state = nextRow(atMost);
+  return {state, _currentRow};
+}
+
+template <bool passBlocksThrough>
+ExecutionState SingleRowFetcher<passBlocksThrough>::nextRow(size_t atMost) {
   // Fetch a new block iff necessary
-  if (!indexIsValid()) {
-    // This returns the AqlItemBlock to the ItemBlockManager before fetching a
-    // new one, so we might reuse it immediately!
-    _currentBlock = nullptr;
-
-    ExecutionState state;
-    SharedAqlItemBlockPtr newBlock;
-    std::tie(state, newBlock) = fetchBlock(atMost);
-    if (state == ExecutionState::WAITING) {
-      return {ExecutionState::WAITING, InputAqlItemRow{CreateInvalidInputRowHint{}}};
-    }
-
-    _currentBlock = std::move(newBlock);
-    _rowIndex = 0;
-  }
-
-  ExecutionState rowState;
-
-  if (_currentBlock == nullptr) {
-    TRI_ASSERT(_upstreamState == ExecutionState::DONE);
-    _currentRow = InputAqlItemRow{CreateInvalidInputRowHint{}};
-    rowState = ExecutionState::DONE;
-  } else {
-    TRI_ASSERT(_currentBlock != nullptr);
-    _currentRow = InputAqlItemRow{_currentBlock, _rowIndex};
-
-    TRI_ASSERT(_upstreamState != ExecutionState::WAITING);
-    if (isLastRowInBlock() && _upstreamState == ExecutionState::DONE) {
-      rowState = ExecutionState::DONE;
+  if (ADB_UNLIKELY(!isInitialized() || isLastRowInBlock())) {
+    if (_nextBlock != nullptr) {
+      // Block was prefetched
+      _currentRow.reset(std::move(_nextBlock));
+      TRI_ASSERT(_nextBlock == nullptr);
     } else {
-      rowState = ExecutionState::HASMORE;
+      // This returns the AqlItemBlock to the ItemBlockManager before fetching a
+      // new one, so we might reuse it immediately!
+      // Also sets the index to 0.
+      _currentRow.reset(nullptr);
+
+      std::tie(std::ignore, _currentRow.blockPtrRef()) = fetchBlock(atMost);
     }
 
-    _rowIndex++;
-  }
-  return {rowState, _currentRow};
-}
-
-template <bool passBlocksThrough>
-ExecutionState SingleRowFetcher<passBlocksThrough>::nextRow(InputAqlItemRow& row,
-                                                            size_t atMost) {
-  // Both rows must be equal, with one exception:
-  // row may be uninitialized independent of _currentRow.
-  // If _currentRow is uninitialized, row must be uninitialized, too.
-  TRI_ASSERT(!row.isInitialized() || row == _currentRow);
-
-  if (ADB_UNLIKELY(!indexIsValid())) {
-    ExecutionState state;
-    std::tie(state, row) = fetchRow(atMost);
-    return state;
+    if (!isInitialized()) {
+      TRI_ASSERT(_upstreamState == ExecutionState::DONE);
+      return ExecutionState::DONE;
+    } else if (isLastRowInBlock()) {
+      return _upstreamState;
+    } else {
+      return ExecutionState::HASMORE;
+    }
   }
 
-  _currentRow.next();
-  row.next();
+  TRI_ASSERT(isInitialized() && !isLastRowInBlock());
+  bool const rowStillValid = _currentRow.moveToNextRow();
+  TRI_ASSERT(rowStillValid);
+  TRI_ASSERT(_currentRow.isInitialized());
 
-  TRI_ASSERT(row == _currentRow);
-  TRI_ASSERT(row == InputAqlItemRow(_currentBlock, _rowIndex));
-
-  ++_rowIndex;
-
-  if (ADB_UNLIKELY(!indexIsValid())) {
-    return _upstreamState;
+  TRI_ASSERT(_upstreamState != ExecutionState::WAITING);
+  if (ADB_UNLIKELY(isLastRowInBlock() && _upstreamState == ExecutionState::DONE)) {
+    return ExecutionState::DONE;
+  } else {
+    return ExecutionState::HASMORE;
   }
-
-  return ExecutionState::HASMORE;
-}
-
-template <bool passBlocksThrough>
-bool SingleRowFetcher<passBlocksThrough>::blockIsValid() const {
-  return _currentBlock != nullptr;
-}
-
-template <bool passBlocksThrough>
-bool SingleRowFetcher<passBlocksThrough>::indexIsValid() const {
-  return blockIsValid() && _rowIndex < _currentBlock->size();
 }
 
 }  // namespace aql
