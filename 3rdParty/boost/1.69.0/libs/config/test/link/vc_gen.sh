@@ -156,15 +156,15 @@ function vc6_gen()
 	
 	debug="yes"
 	libname="liblink_test-${subdir}-sgd-${boost_version}"
-	opts='/nologo /MLd /W3 /Gm /GX /Zi /Od /I..\..\..\..\ /DWIN32 /D_DEBUG /D_MBCS /D_LIB /FD '"$debug_extra"'  '
+	opts='/nologo /MLd /W3 /Gm /GX /Z7 /Od /I..\..\..\..\ /DWIN32 /D_DEBUG /D_MBCS /D_LIB /FD '"$debug_extra"'  '
 	vc6_gen_lib
 	
 	libname="liblink_test-${subdir}-mt-sgd-${boost_version}"
-	opts='/nologo /MTd /W3 /Gm /GX /Zi /Od /I..\..\..\..\ /DWIN32 /D_MT /D_DEBUG /D_MBCS /D_LIB /FD '"$debug_extra"' '
+	opts='/nologo /MTd /W3 /Gm /GX /Z7 /Od /I..\..\..\..\ /DWIN32 /D_MT /D_DEBUG /D_MBCS /D_LIB /FD '"$debug_extra"' '
 	vc6_gen_lib
 	
 	libname="link_test-${subdir}-mt-gd-${boost_version}"
-	opts='/nologo /MDd /W3 /Gm /GX /Zi /Od /I..\..\..\..\ /D_DEBUG /DBOOST_DYN_LINK /DWIN32 /D_WINDOWS /D_MBCS /DUSRDLL /FD '"$debug_extra"' '
+	opts='/nologo /MDd /W3 /Gm /GX /Z7 /Od /I..\..\..\..\ /D_DEBUG /DBOOST_DYN_LINK /DWIN32 /D_WINDOWS /D_MBCS /DUSRDLL /FD '"$debug_extra"' '
 	vc6_gen_dll
 	
 	debug="no"
@@ -179,7 +179,7 @@ function vc6_gen()
 	
 	debug="yes"
 	libname="liblink_test-${subdir}-mt-gd-${boost_version}"
-	opts='/nologo /MDd /W3 /Gm /GX /Zi /Od /I..\..\..\..\ /DBOOST_REGEX_STATIC_LINK /D_DEBUG /DWIN32 /D_WINDOWS /D_MBCS /DUSRDLL /FD '"$debug_extra"' '
+	opts='/nologo /MDd /W3 /Gm /GX /Z7 /Od /I..\..\..\..\ /DBOOST_REGEX_STATIC_LINK /D_DEBUG /DWIN32 /D_WINDOWS /D_MBCS /DUSRDLL /FD '"$debug_extra"' '
 	vc6_gen_lib
 	
 	cat > $out << EOF
@@ -259,11 +259,11 @@ function vc6_stlp_gen()
 	
 	debug="true"
 	libname="liblink_test-${subdir}-mt-sgd-${boost_version}"
-	opts='/nologo /MTd /W3 /Gm /GX /Zi /Od /I$(STLPORT_PATH)\stlport /I..\..\..\..\ /DWIN32 /D_MT /D_DEBUG /D_MBCS /D_LIB '"$debug_extra"' '
+	opts='/nologo /MTd /W3 /Gm /GX /Z7 /Od /I$(STLPORT_PATH)\stlport /I..\..\..\..\ /DWIN32 /D_MT /D_DEBUG /D_MBCS /D_LIB '"$debug_extra"' '
 	vc6_gen_lib
 	
 	libname="link_test-${subdir}-mt-gd-${boost_version}"
-	opts='/nologo /MDd /W3 /Gm /GX /Zi /Od /I$(STLPORT_PATH)\stlport /I..\..\..\..\ /DBOOST_DYN_LINK /D_DEBUG /DWIN32 /D_WINDOWS /D_MBCS /DUSRDLL '"$debug_extra"' '
+	opts='/nologo /MDd /W3 /Gm /GX /Z7 /Od /I$(STLPORT_PATH)\stlport /I..\..\..\..\ /DBOOST_DYN_LINK /D_DEBUG /DWIN32 /D_WINDOWS /D_MBCS /DUSRDLL '"$debug_extra"' '
 	vc6_gen_dll
 	
 	debug="no"
@@ -278,19 +278,19 @@ function vc6_stlp_gen()
 	
 	debug="true"
 	libname="liblink_test-${subdir}-mt-gd-${boost_version}"
-	opts='/nologo /MDd /W3 /Gm /GX /Zi /Od /I$(STLPORT_PATH)\stlport /I..\..\..\..\ /DBOOST_REGEX_STATIC_LINK /D_DEBUG /DWIN32 /D_WINDOWS /D_MBCS /DUSRDLL '"$debug_extra"' '
+	opts='/nologo /MDd /W3 /Gm /GX /Z7 /Od /I$(STLPORT_PATH)\stlport /I..\..\..\..\ /DBOOST_REGEX_STATIC_LINK /D_DEBUG /DWIN32 /D_WINDOWS /D_MBCS /DUSRDLL '"$debug_extra"' '
 	vc6_gen_lib
 
 #  debug STLPort mode:
 #  not yet supported by bjam?
 	debug="yes"
-	opts='/nologo /MDd /W3 /Gm /GX /Zi /Od /I$(STLPORT_PATH)\stlport /I..\..\..\..\ /DBOOST_DYN_LINK /D__STL_DEBUG /D_STLP_DEBUG /D_DEBUG /DWIN32 /D_WINDOWS /D_MBCS /DUSRDLL '"$debug_extra"' '
+	opts='/nologo /MDd /W3 /Gm /GX /Z7 /Od /I$(STLPORT_PATH)\stlport /I..\..\..\..\ /DBOOST_DYN_LINK /D__STL_DEBUG /D_STLP_DEBUG /D_DEBUG /DWIN32 /D_WINDOWS /D_MBCS /DUSRDLL '"$debug_extra"' '
 	libname="link_test-${subdir}-mt-pgd-${boost_version}"
 	vc6_gen_dll
 	libname="liblink_test-${subdir}-mt-spgd-${boost_version}"
-	opts='/nologo /MTd /W3 /Gm /GX /Zi /Od /I$(STLPORT_PATH)\stlport /I..\..\..\..\ /D__STL_DEBUG /D_STLP_DEBUG /DWIN32 /D_MT /D_DEBUG /D_MBCS /D_LIB '"$debug_extra"' '
+	opts='/nologo /MTd /W3 /Gm /GX /Z7 /Od /I$(STLPORT_PATH)\stlport /I..\..\..\..\ /D__STL_DEBUG /D_STLP_DEBUG /DWIN32 /D_MT /D_DEBUG /D_MBCS /D_LIB '"$debug_extra"' '
 	vc6_gen_lib
-	opts='/nologo /MDd /W3 /Gm /GX /Zi /Od /I$(STLPORT_PATH)\stlport /I..\..\..\..\ /DBOOST_REGEX_STATIC_LINK /D__STL_DEBUG /D_STLP_DEBUG /D_DEBUG /DWIN32 /D_WINDOWS /D_MBCS /DUSRDLL '"$debug_extra"' '
+	opts='/nologo /MDd /W3 /Gm /GX /Z7 /Od /I$(STLPORT_PATH)\stlport /I..\..\..\..\ /DBOOST_REGEX_STATIC_LINK /D__STL_DEBUG /D_STLP_DEBUG /D_DEBUG /DWIN32 /D_WINDOWS /D_MBCS /DUSRDLL '"$debug_extra"' '
 	libname="liblink_test-${subdir}-mt-pgd-${boost_version}"
 	vc6_gen_lib
 	

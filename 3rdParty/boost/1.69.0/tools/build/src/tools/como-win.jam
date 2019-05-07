@@ -65,7 +65,7 @@ flags como-win CFLAGS <inlining>on <inlining>full : --inlining ;
 # The following seems to be VC-specific options. At least, when I uncomment
 # then, Comeau with bcc as backend reports that bcc32 invocation failed.
 #
-#flags como-win CFLAGS <debug-symbols>on : /Zi ;
+#flags como-win CFLAGS <debug-symbols>on : /Z7 ;
 #flags como-win CFLAGS <optimization>off : /Od ;
 
 

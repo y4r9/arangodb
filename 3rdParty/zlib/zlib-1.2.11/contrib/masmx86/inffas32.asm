@@ -26,10 +26,10 @@
 ;
 ;
 ;   compile with command line option
-;   ml  /coff /Zi /c /Flinffas32.lst inffas32.asm
+;   ml  /coff /Z7 /c /Flinffas32.lst inffas32.asm
 
 ;   if you define NO_GZIP (see inflate.h), compile with
-;   ml  /coff /Zi /c /Flinffas32.lst /DNO_GUNZIP inffas32.asm
+;   ml  /coff /Z7 /c /Flinffas32.lst /DNO_GUNZIP inffas32.asm
 
 
 ; zlib122sup is 0 fort zlib 1.2.2.1 and lower

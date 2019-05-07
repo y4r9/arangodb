@@ -60,7 +60,7 @@ CC = cl.exe
 
 !IF "$(VC)"=="6"
 CC_NODEBUG  = $(CC) /O2 /DNDEBUG
-CC_DEBUG    = $(CC) /Od /Gm /Zi /D_DEBUG /GZ
+CC_DEBUG    = $(CC) /Od /Gm /Z7 /D_DEBUG /GZ
 CFLAGS      = /I. /I../lib /I../include /nologo /W4 /wd4127 /GX /DWIN32 /YX /FD /c /DBUILDING_LIBCURL
 !ELSE
 CC_NODEBUG  = $(CC) /O2 /DNDEBUG

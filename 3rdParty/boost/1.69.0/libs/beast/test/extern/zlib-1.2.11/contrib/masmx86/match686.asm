@@ -20,7 +20,7 @@
 ;  for using an assembly version of longest_match, you need define ASMV in project
 ;
 ;    compile the asm file running
-;           ml /coff /Zi /c /Flmatch686.lst match686.asm
+;           ml /coff /Z7 /c /Flmatch686.lst match686.asm
 ;    and do not include match686.obj in your project
 ;
 ; note: contrib of zLib 1.2.3 and earlier contained both a deprecated version for

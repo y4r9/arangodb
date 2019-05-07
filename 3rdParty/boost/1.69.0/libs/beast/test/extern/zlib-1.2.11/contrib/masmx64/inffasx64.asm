@@ -6,7 +6,7 @@
 
 
 ; to compile this file, I use option
-;   ml64.exe /Flinffasx64 /c /Zi inffasx64.asm
+;   ml64.exe /Flinffasx64 /c /Z7 inffasx64.asm
 ;   with Microsoft Macro Assembler (x64) for AMD64
 ;
 

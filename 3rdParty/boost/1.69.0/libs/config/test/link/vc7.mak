@@ -120,7 +120,7 @@ liblink_test-vc7-mt-s-1_35_clean :
 #
 ########################################################
 vc7/liblink_test-vc7-sgd-1_35/link_test.obj: link_test.cpp $(ALL_HEADER)
-	cl /c $(INCLUDES) /nologo /MLd /W3 /Gm /GX /Zi /Od /I..\..\..\..\ /DWIN32 /D_DEBUG /D_MBCS /D_LIB /FD /GX /RTC1   $(CXXFLAGS) -Y- -Fo./vc7/liblink_test-vc7-sgd-1_35/ -Fdvc7/liblink_test-vc7-sgd-1_35.pdb link_test.cpp
+	cl /c $(INCLUDES) /nologo /MLd /W3 /Gm /GX /Z7 /Od /I..\..\..\..\ /DWIN32 /D_DEBUG /D_MBCS /D_LIB /FD /GX /RTC1   $(CXXFLAGS) -Y- -Fo./vc7/liblink_test-vc7-sgd-1_35/ -Fdvc7/liblink_test-vc7-sgd-1_35.pdb link_test.cpp
 
 liblink_test-vc7-sgd-1_35_dir :
 	@if not exist "vc7\liblink_test-vc7-sgd-1_35\$(NULL)" mkdir vc7\liblink_test-vc7-sgd-1_35
@@ -135,7 +135,7 @@ liblink_test-vc7-sgd-1_35_clean :
 	link -lib /nologo /out:vc7/liblink_test-vc7-sgd-1_35.lib $(XSFLAGS)  vc7/liblink_test-vc7-sgd-1_35/link_test.obj
 
 ./vc7/liblink_test-vc7-sgd-1_35.exe : main.cpp ./vc7/liblink_test-vc7-sgd-1_35.lib
-	cl $(INCLUDES) /nologo /MLd /W3 /Gm /GX /Zi /Od /I..\..\..\..\ /DWIN32 /D_DEBUG /D_MBCS /D_LIB /FD /GX /RTC1   /DBOOST_LIB_DIAGNOSTIC=1 $(CXXFLAGS) -o ./vc7/liblink_test-vc7-sgd-1_35.exe main.cpp /link /LIBPATH:./vc7
+	cl $(INCLUDES) /nologo /MLd /W3 /Gm /GX /Z7 /Od /I..\..\..\..\ /DWIN32 /D_DEBUG /D_MBCS /D_LIB /FD /GX /RTC1   /DBOOST_LIB_DIAGNOSTIC=1 $(CXXFLAGS) -o ./vc7/liblink_test-vc7-sgd-1_35.exe main.cpp /link /LIBPATH:./vc7
    vc7\liblink_test-vc7-sgd-1_35.exe
 
 ########################################################
@@ -144,7 +144,7 @@ liblink_test-vc7-sgd-1_35_clean :
 #
 ########################################################
 vc7/liblink_test-vc7-mt-sgd-1_35/link_test.obj: link_test.cpp $(ALL_HEADER)
-	cl /c $(INCLUDES) /nologo /MTd /W3 /Gm /GX /Zi /Od /I..\..\..\..\ /DWIN32 /D_MT /D_DEBUG /D_MBCS /D_LIB /FD /GX /RTC1  $(CXXFLAGS) -Y- -Fo./vc7/liblink_test-vc7-mt-sgd-1_35/ -Fdvc7/liblink_test-vc7-mt-sgd-1_35.pdb link_test.cpp
+	cl /c $(INCLUDES) /nologo /MTd /W3 /Gm /GX /Z7 /Od /I..\..\..\..\ /DWIN32 /D_MT /D_DEBUG /D_MBCS /D_LIB /FD /GX /RTC1  $(CXXFLAGS) -Y- -Fo./vc7/liblink_test-vc7-mt-sgd-1_35/ -Fdvc7/liblink_test-vc7-mt-sgd-1_35.pdb link_test.cpp
 
 liblink_test-vc7-mt-sgd-1_35_dir :
 	@if not exist "vc7\liblink_test-vc7-mt-sgd-1_35\$(NULL)" mkdir vc7\liblink_test-vc7-mt-sgd-1_35
@@ -159,7 +159,7 @@ liblink_test-vc7-mt-sgd-1_35_clean :
 	link -lib /nologo /out:vc7/liblink_test-vc7-mt-sgd-1_35.lib $(XSFLAGS)  vc7/liblink_test-vc7-mt-sgd-1_35/link_test.obj
 
 ./vc7/liblink_test-vc7-mt-sgd-1_35.exe : main.cpp ./vc7/liblink_test-vc7-mt-sgd-1_35.lib
-	cl $(INCLUDES) /nologo /MTd /W3 /Gm /GX /Zi /Od /I..\..\..\..\ /DWIN32 /D_MT /D_DEBUG /D_MBCS /D_LIB /FD /GX /RTC1  /DBOOST_LIB_DIAGNOSTIC=1 $(CXXFLAGS) -o ./vc7/liblink_test-vc7-mt-sgd-1_35.exe main.cpp /link /LIBPATH:./vc7
+	cl $(INCLUDES) /nologo /MTd /W3 /Gm /GX /Z7 /Od /I..\..\..\..\ /DWIN32 /D_MT /D_DEBUG /D_MBCS /D_LIB /FD /GX /RTC1  /DBOOST_LIB_DIAGNOSTIC=1 $(CXXFLAGS) -o ./vc7/liblink_test-vc7-mt-sgd-1_35.exe main.cpp /link /LIBPATH:./vc7
    vc7\liblink_test-vc7-mt-sgd-1_35.exe
 
 ########################################################
@@ -168,7 +168,7 @@ liblink_test-vc7-mt-sgd-1_35_clean :
 #
 ########################################################
 vc7/link_test-vc7-mt-gd-1_35/link_test.obj: link_test.cpp $(ALL_HEADER)
-	cl /c $(INCLUDES) /nologo /MDd /W3 /Gm /GX /Zi /Od /I..\..\..\..\ /D_DEBUG /DBOOST_DYN_LINK /DWIN32 /D_WINDOWS /D_MBCS /DUSRDLL /FD /GX /RTC1  $(CXXFLAGS) -Y- -Fo./vc7/link_test-vc7-mt-gd-1_35/ -Fdvc7/link_test-vc7-mt-gd-1_35.pdb link_test.cpp
+	cl /c $(INCLUDES) /nologo /MDd /W3 /Gm /GX /Z7 /Od /I..\..\..\..\ /D_DEBUG /DBOOST_DYN_LINK /DWIN32 /D_WINDOWS /D_MBCS /DUSRDLL /FD /GX /RTC1  $(CXXFLAGS) -Y- -Fo./vc7/link_test-vc7-mt-gd-1_35/ -Fdvc7/link_test-vc7-mt-gd-1_35.pdb link_test.cpp
 
 link_test-vc7-mt-gd-1_35_dir :
 	@if not exist "vc7\link_test-vc7-mt-gd-1_35\$(NULL)" mkdir vc7\link_test-vc7-mt-gd-1_35
@@ -183,7 +183,7 @@ link_test-vc7-mt-gd-1_35_clean :
 	link kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /dll /incremental:yes /pdb:"vc7/link_test-vc7-mt-gd-1_35.pdb" /debug /machine:I386 /out:"vc7/link_test-vc7-mt-gd-1_35.dll" /implib:"vc7/link_test-vc7-mt-gd-1_35.lib" /LIBPATH:$(STLPORT_PATH)\lib $(XLFLAGS)  vc7/link_test-vc7-mt-gd-1_35/link_test.obj
 
 ./vc7/link_test-vc7-mt-gd-1_35.exe : main.cpp ./vc7/link_test-vc7-mt-gd-1_35.lib
-	cl $(INCLUDES) /nologo /MDd /W3 /Gm /GX /Zi /Od /I..\..\..\..\ /D_DEBUG /DBOOST_DYN_LINK /DWIN32 /D_WINDOWS /D_MBCS /DUSRDLL /FD /GX /RTC1  /DBOOST_LIB_DIAGNOSTIC=1 $(CXXFLAGS) -o ./vc7/link_test-vc7-mt-gd-1_35.exe main.cpp /link /LIBPATH:./vc7
+	cl $(INCLUDES) /nologo /MDd /W3 /Gm /GX /Z7 /Od /I..\..\..\..\ /D_DEBUG /DBOOST_DYN_LINK /DWIN32 /D_WINDOWS /D_MBCS /DUSRDLL /FD /GX /RTC1  /DBOOST_LIB_DIAGNOSTIC=1 $(CXXFLAGS) -o ./vc7/link_test-vc7-mt-gd-1_35.exe main.cpp /link /LIBPATH:./vc7
    vc7\link_test-vc7-mt-gd-1_35.exe
 
 ########################################################
@@ -240,7 +240,7 @@ liblink_test-vc7-mt-1_35_clean :
 #
 ########################################################
 vc7/liblink_test-vc7-mt-gd-1_35/link_test.obj: link_test.cpp $(ALL_HEADER)
-	cl /c $(INCLUDES) /nologo /MDd /W3 /Gm /GX /Zi /Od /I..\..\..\..\ /DBOOST_REGEX_STATIC_LINK /D_DEBUG /DWIN32 /D_WINDOWS /D_MBCS /DUSRDLL /FD /GX /RTC1  $(CXXFLAGS) -Y- -Fo./vc7/liblink_test-vc7-mt-gd-1_35/ -Fdvc7/liblink_test-vc7-mt-gd-1_35.pdb link_test.cpp
+	cl /c $(INCLUDES) /nologo /MDd /W3 /Gm /GX /Z7 /Od /I..\..\..\..\ /DBOOST_REGEX_STATIC_LINK /D_DEBUG /DWIN32 /D_WINDOWS /D_MBCS /DUSRDLL /FD /GX /RTC1  $(CXXFLAGS) -Y- -Fo./vc7/liblink_test-vc7-mt-gd-1_35/ -Fdvc7/liblink_test-vc7-mt-gd-1_35.pdb link_test.cpp
 
 liblink_test-vc7-mt-gd-1_35_dir :
 	@if not exist "vc7\liblink_test-vc7-mt-gd-1_35\$(NULL)" mkdir vc7\liblink_test-vc7-mt-gd-1_35
@@ -255,6 +255,6 @@ liblink_test-vc7-mt-gd-1_35_clean :
 	link -lib /nologo /out:vc7/liblink_test-vc7-mt-gd-1_35.lib $(XSFLAGS)  vc7/liblink_test-vc7-mt-gd-1_35/link_test.obj
 
 ./vc7/liblink_test-vc7-mt-gd-1_35.exe : main.cpp ./vc7/liblink_test-vc7-mt-gd-1_35.lib
-	cl $(INCLUDES) /nologo /MDd /W3 /Gm /GX /Zi /Od /I..\..\..\..\ /DBOOST_REGEX_STATIC_LINK /D_DEBUG /DWIN32 /D_WINDOWS /D_MBCS /DUSRDLL /FD /GX /RTC1  /DBOOST_LIB_DIAGNOSTIC=1 $(CXXFLAGS) -o ./vc7/liblink_test-vc7-mt-gd-1_35.exe main.cpp /link /LIBPATH:./vc7
+	cl $(INCLUDES) /nologo /MDd /W3 /Gm /GX /Z7 /Od /I..\..\..\..\ /DBOOST_REGEX_STATIC_LINK /D_DEBUG /DWIN32 /D_WINDOWS /D_MBCS /DUSRDLL /FD /GX /RTC1  /DBOOST_LIB_DIAGNOSTIC=1 $(CXXFLAGS) -o ./vc7/liblink_test-vc7-mt-gd-1_35.exe main.cpp /link /LIBPATH:./vc7
    vc7\liblink_test-vc7-mt-gd-1_35.exe
 

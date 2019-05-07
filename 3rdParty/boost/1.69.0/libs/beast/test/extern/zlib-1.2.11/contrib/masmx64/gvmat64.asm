@@ -36,10 +36,10 @@
 ;         http://www.muppetlabs.com/~breadbox/software/assembly.html
 ;
 ; to compile this file for infozip Zip, I use option:
-;   ml64.exe /Flgvmat64 /c /Zi /DINFOZIP gvmat64.asm
+;   ml64.exe /Flgvmat64 /c /Z7 /DINFOZIP gvmat64.asm
 ;
 ; to compile this file for zLib, I use option:
-;   ml64.exe /Flgvmat64 /c /Zi gvmat64.asm
+;   ml64.exe /Flgvmat64 /c /Z7 gvmat64.asm
 ; Be carrefull to adapt zlib1222add below to your version of zLib
 ;   (if you use a version of zLib before 1.0.4 or after 1.2.2.2, change
 ;    value of zlib1222add later)

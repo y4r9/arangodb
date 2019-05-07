@@ -247,7 +247,7 @@ def InsertLargePdbShims(target_list, target_dicts, vars):
 
       # Update the compiler directives in the shim target.
       compiler = msvs.setdefault('VCCLCompilerTool', {})
-      compiler['DebugInformationFormat'] = '3'
+      compiler['DebugInformationFormat'] = '1'
       compiler['ProgramDataBaseFileName'] = pdb_path
 
       # Set the explicit PDB path in the appropriate configuration of the
