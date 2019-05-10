@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-/// disclaimer
+/// DISCLAIMER
 ///
 /// Copyright 2014-2018 ArangoDB GmbH, Cologne, Germany
 /// Copyright 2004-2014 triAGENS GmbH, Cologne, Germany
@@ -30,12 +30,10 @@
 #include <boost/lockfree/queue.hpp>
 
 #include "Basics/Mutex.h"
-#include "Basics/MutexLocker.h"
 #include "Basics/asio_ns.h"
 #include "Basics/socket-utils.h"
 #include "Endpoint/Endpoint.h"
 #include "GeneralServer/RequestLane.h"
-#include "Logger/Logger.h"
 
 namespace arangodb {
 class JobGuard;
@@ -49,92 +47,6 @@ class Builder;
 namespace rest {
 class GeneralCommTask;
 class SocketTask;
-
-/// @brief JobMaximum
-///
-/// asio_ns::io_context is inefficient if it has more threads than work.  However
-///  there is a time cost in bringing up additional threads.  This code smooths
-///  the number of threads available over a 5 minute period.  It replaces previous
-///  logic that aggressively delete threads, creating latency in uneven loads.
-///
-/// Mostly NOT thread safe.  Intended to be maintained by SchedulerManager thread.
-///
-class JobMaximum {
- public:
-  JobMaximum()
-    : _currentJobMaximum(std::numeric_limits<uint64_t>::max()),
-      _cursorMinute(0),
-      _nextMinute(std::chrono::steady_clock::now() + std::chrono::seconds(60)) {
-    for (int loop = 0; loop < eMinutesTracked; ++loop) {
-      _maxInMinute[loop] = 0;
-    }  // for
-
-    // force max threads for 5 minutes
-    _maxInMinute[eMinutesTracked - 1] = std::numeric_limits<uint64_t>::max();
-  };
-
-  virtual ~JobMaximum(){};
-
-  uint64_t jobMaximum() const {return _currentJobMaximum;};
-
-  void updateJobMaximum(uint64_t openJobs) {
-    bool takeLock = false;
-
-    // only take mutex if likely to change internals
-    //  (not worried if another thread is adjusting values live at this point)
-    takeLock = _nextMinute.load() < std::chrono::steady_clock::now()
-      || _maxInMinute[_cursorMinute] < openJobs;
-
-    if (takeLock) {
-      MUTEX_LOCKER(locker, _updateLock);
-
-      // move to new minute?
-      if (_nextMinute.load() < std::chrono::steady_clock::now()) {
-        advanceCursor();
-      }  // if
-
-      // current have more active that previously measured?
-      if (_maxInMinute[_cursorMinute] < openJobs) {
-        _maxInMinute[_cursorMinute] = openJobs;
-      }  // if
-
-      // now update thread safe variable
-      uint64_t temp = 0;
-      for (int loop = 0; loop < eMinutesTracked; ++loop) {
-        if (temp < _maxInMinute[loop]) {
-          temp = _maxInMinute[loop];
-        }  // if
-      } // for
-      _currentJobMaximum = temp;
-    } // if
-  };
-
-  enum { eMinutesTracked = 6 };
-
- protected:
-  void advanceCursor() {
-    _nextMinute = _nextMinute.load() + std::chrono::seconds(60);
-    _cursorMinute = (_cursorMinute + 1) % eMinutesTracked;
-    LOG_TOPIC(DEBUG, Logger::THREADS)
-        << "JobMaximum::advanceCursor cursorMinute " << _cursorMinute
-        << ", retired period " << _maxInMinute[_cursorMinute]
-        << ", currentJobMaximum " << _currentJobMaximum;
-    _maxInMinute[_cursorMinute] = 0;
-  };
-
-  std::atomic<uint64_t> _maxInMinute[eMinutesTracked];
-  std::atomic<uint64_t> _currentJobMaximum;
-  std::atomic<uint64_t> _cursorMinute;
-  std::atomic<std::chrono::steady_clock::time_point> _nextMinute;
-  Mutex _updateLock;
-
- private:
-  JobMaximum(JobMaximum const&) = delete;
-  JobMaximum(JobMaximum&&) = delete;
-  JobMaximum& operator=(JobMaximum const&) = delete;
-
-};  // class JobMaximum
-
 
 class Scheduler {
   Scheduler(Scheduler const&) = delete;
@@ -381,8 +293,6 @@ class Scheduler {
   // already decremented the nrRunning counter!
   bool threadShouldStop(double now);
 
-  void setJobMax(int jobCount) {_jobTracker.updateJobMaximum(jobCount);};
-
  private:
   void startNewThread();
 
@@ -392,11 +302,7 @@ class Scheduler {
 
   mutable Mutex _threadCreateLock;
   double _lastAllBusyStamp;
-  JobMaximum _jobTracker;
 };
-
-
-
 }  // namespace rest
 }  // namespace arangodb
 

@@ -30,6 +30,7 @@
 #include <thread>
 #include <unordered_set>
 
+#include "Basics/MutexLocker.h"
 #include "Basics/StringUtils.h"
 #include "Basics/Thread.h"
 #include "GeneralServer/RestHandler.h"
@@ -236,9 +237,6 @@ void Scheduler::post(std::function<void(bool)> const callback, bool isHandler) {
   uint64_t old = incQueued();
   old += _fifoSize[FIFO1] + _fifoSize[FIFO2] + _fifoSize[FIFO3];
 
-  // take sample of job load
-  _jobTracker.updateJobMaximum(old);
-
   // reduce queued at the end
   auto guardQueue = scopeGuard([this]() { decQueued(); });
 
@@ -268,11 +266,7 @@ void Scheduler::post(std::function<void(bool)> const callback, bool isHandler) {
 
 // do not pass callback by reference, might get deleted before execution
 void Scheduler::post(asio_ns::io_context::strand& strand, std::function<void()> const callback) {
-  uint64_t old = incQueued();
-  old += _fifoSize[FIFO1] + _fifoSize[FIFO2] + _fifoSize[FIFO3];
-
-  // take sample of job load
-  _jobTracker.updateJobMaximum(old);
+  incQueued();
 
   auto guardQueue = scopeGuard([this]() { decQueued(); });
 
@@ -425,10 +419,6 @@ bool Scheduler::pushToFifo(int64_t fifo, std::function<void(bool)> const& callba
   LOG_TOPIC(TRACE, Logger::THREADS) << "Push element on fifo: " << fifo;
   TRI_ASSERT(0 <= fifo && fifo < NUMBER_FIFOS);
 
-  // take sample of job load
-  uint64_t const counters = _counters.load();
-  _jobTracker.updateJobMaximum(numQueued(counters) + _fifoSize[FIFO1] + _fifoSize[FIFO2] + _fifoSize[FIFO3]);
-
   size_t p = static_cast<size_t>(fifo);
   auto job = std::make_unique<FifoJob>(callback);
 
@@ -514,8 +504,7 @@ bool Scheduler::start() {
   TRI_ASSERT(0 < _minThreads);
   TRI_ASSERT(_minThreads <= _maxThreads);
 
-  // start every thread, then let code tune downward over time
-  for (uint64_t i = 0; i < _maxThreads; ++i) {
+  for (uint64_t i = 0; i < _minThreads; ++i) {
     {
       MUTEX_LOCKER(locker, _threadCreateLock);
       incRunning();
@@ -659,9 +648,10 @@ void Scheduler::rebalanceThreads() {
       }
 
       uint64_t const nrRunning = numRunning(counters);
+      uint64_t const nrWorking = numWorking(counters);
 
       // some threads are idle
-      if (_jobTracker.jobMaximum() <= nrRunning) {
+      if (nrWorking < nrRunning) {
         break;
       }
 
@@ -704,6 +694,7 @@ void Scheduler::threadHasStopped() {
 bool Scheduler::threadShouldStop(double now) {
   // make sure no extra threads are created while we check the timestamp
   // and while we modify nrRunning
+
   MUTEX_LOCKER(locker, _threadCreateLock);
 
   // fetch all counters in one atomic operation
@@ -713,11 +704,6 @@ bool Scheduler::threadShouldStop(double now) {
   if (nrRunning <= _minThreads) {
     // don't stop a thread if we already reached the minimum
     // number of threads
-    return false;
-  }
-
-  if (nrRunning <= _jobTracker.jobMaximum()) {
-    // do not stop a thread if within our 5 minute window of recent maximum
     return false;
   }
 
