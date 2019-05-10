@@ -315,10 +315,12 @@ void ClusterComm::cleanup() {
 
 ////////////////////////////////////////////////////////////////////////////////
 /// @brief start the communication background threads
+///   Hard coded at 3 because more can cause heavy spinning on _raw_spin_lock_irq
+///   on AWS linux machines.  Performance drops under heavy load if greater than 3.
 ////////////////////////////////////////////////////////////////////////////////
 
 void ClusterComm::startBackgroundThreads() {
-  for (unsigned loop = 0; loop < (TRI_numberProcessors() / 8 + 1); ++loop) {
+  for (unsigned loop = 0; loop < 3; ++loop) {
     ClusterCommThread* thread = new ClusterCommThread();
 
     if (thread->start()) {
