@@ -320,7 +320,14 @@ void ClusterComm::cleanup() {
 ////////////////////////////////////////////////////////////////////////////////
 
 void ClusterComm::startBackgroundThreads() {
-  for (unsigned loop = 0; loop < 3; ++loop) {
+  unsigned threadCount;
+  if (ServerState::instance()->isAgent()) {
+    threadCount = 1;
+  } else {
+    threadCount = TRI_numberProcessors() / 8 + 1;
+  } // else
+
+  for (unsigned loop = 0; loop < threadCount; ++loop) {
     ClusterCommThread* thread = new ClusterCommThread();
 
     if (thread->start()) {

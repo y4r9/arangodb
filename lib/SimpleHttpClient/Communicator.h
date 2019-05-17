@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-/// DISCLAIMER
+/// disclaimer
 ///
 /// Copyright 2016 ArangoDB GmbH, Cologne, Germany
 ///
@@ -36,6 +36,9 @@
 #include "SimpleHttpClient/Options.h"
 #include "curl/curl.h"
 
+#include <event2/event.h>
+#include <event2/event_struct.h>
+
 namespace arangodb {
 namespace communicator {
 typedef std::unordered_map<std::string, std::string> HeadersInProgress;
@@ -60,6 +63,8 @@ struct RequestInProgress {
     if (_requestHeaders != nullptr) {
       curl_slist_free_all(_requestHeaders);
     }
+    // event_del(&_ev_conn); handled in remsock?
+
   }
 
   RequestInProgress(RequestInProgress const& other) = delete;
@@ -78,6 +83,9 @@ struct RequestInProgress {
 
   char _errorBuffer[CURL_ERROR_SIZE];
   bool _aborted;
+
+  struct event _ev_conn;
+
 };
 
 struct CurlHandle : public std::enable_shared_from_this<CurlHandle> {
@@ -215,13 +223,19 @@ class Communicator {
 
   struct CurlData {};
 
+ protected:
+  struct event_base *_ev_base;
+  struct event _ev_fifo;
+
  private:
   Mutex _newRequestsLock;
   std::vector<NewRequest> _newRequests;
+  std::atomic<unsigned> _newRequestsCount;
 
   Mutex _handlesLock;
   std::unordered_map<uint64_t, std::shared_ptr<CurlHandle>> _handlesInProgress;
 
+private:
   CURLM* _curl;
   CURLMcode _mc;
   curl_waitfd _wakeup;
@@ -259,6 +273,17 @@ class Communicator {
   static int curlProgress(void*, curl_off_t, curl_off_t, curl_off_t, curl_off_t);
   static void logHttpHeaders(std::string const&, std::string const&);
   static void logHttpBody(std::string const&, std::string const&);
+
+  static int curl_sock_cb(CURL * e, curl_socket_t s, int what, void * comm, void * handle);
+  void addsock(curl_socket_t s, CURL *easy, int action,
+               RequestInProgress *rip);
+  void setsock(curl_socket_t s, CURL *e, int act,
+               RequestInProgress *rip, bool isNew);
+  void remsock(RequestInProgress *rip);
+
+  static void event_cb(int fd, short kind, void *userp);
+  static int multi_timer_cb(CURLM *multi, long timeout_ms, void *g);
+
 };
 }  // namespace communicator
 }  // namespace arangodb
