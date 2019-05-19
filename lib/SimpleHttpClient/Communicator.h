@@ -282,6 +282,7 @@ private:
   void remsock(RequestInProgress *rip);
 
   static void event_cb(int fd, short kind, void *userp);
+  static void fifo_cb(int fd, short kind, void *userp);
   static int multi_timer_cb(CURLM *multi, long timeout_ms, void *g);
 
 };

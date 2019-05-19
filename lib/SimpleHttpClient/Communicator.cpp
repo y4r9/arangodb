@@ -137,7 +137,11 @@ Communicator::Communicator() : _curl(nullptr), _mc(CURLM_OK), _enabled(true) {
   curl_global_init(CURL_GLOBAL_ALL);
   _curl = curl_multi_init();
 
-  _ev_base = event_base_new();
+  struct event_config * cfg =event_config_new();
+  event_config_set_flag(cfg, EVENT_BASE_FLAG_NOLOCK | EVENT_BASE_FLAG_EPOLL_USE_CHANGELIST);
+  _ev_base = event_base_new_with_config(cfg);
+  event_config_free(cfg);
+
   _newRequestsCount = 0;  // this may be redundant
 
   /// start with unlimited, non-closing connection count.  ConnectionCount object will
@@ -151,8 +155,8 @@ Communicator::Communicator() : _curl(nullptr), _mc(CURLM_OK), _enabled(true) {
 
   curl_multi_setopt(_curl, CURLMOPT_SOCKETFUNCTION, curl_sock_cb);
   curl_multi_setopt(_curl, CURLMOPT_SOCKETDATA, this);
-//  curl_multi_setopt(_curl, CURLMOPT_TIMERFUNCTION, multi_timer_cb);
-//  curl_multi_setopt(_curl, CURLMOPT_TIMERDATA, this);
+  curl_multi_setopt(_curl, CURLMOPT_TIMERFUNCTION, multi_timer_cb);
+  curl_multi_setopt(_curl, CURLMOPT_TIMERDATA, this);
 
 
 #ifdef _WIN32
@@ -177,7 +181,7 @@ Communicator::Communicator() : _curl(nullptr), _mc(CURLM_OK), _enabled(true) {
   // TODO: does _wakeup.revents has to be initialized here?
 
   event_assign(&_ev_fifo, _ev_base, _wakeup.fd, EV_READ|EV_PERSIST,
-               event_cb, this);
+               fifo_cb, this);
   event_add(&_ev_fifo, NULL);
 
 }
@@ -220,7 +224,7 @@ Ticket Communicator::addRequest(Destination&& destination,
 
 int Communicator::work_once() {
   std::vector<NewRequest> newRequests;
-  int connections;
+  //  int connections;
 
   // only take mutex if we know something is in the list.
   if (_newRequestsCount) {
@@ -231,52 +235,19 @@ int Communicator::work_once() {
 
   /// make sure there is enough room for every new request to get
   ///  an independent connection
-  connections = connectionCount.newMaxConnections(newRequests.size());
-  curl_multi_setopt(_curl, CURLMOPT_MAXCONNECTS, connections);
+  //  connections = connectionCount.newMaxConnections(newRequests.size());
+  // curl_multi_setopt(_curl, CURLMOPT_MAXCONNECTS, connections);
 
   for (auto& newRequest : newRequests) {
     createRequestInProgress(std::move(newRequest));
   }
 
   int stillRunning = 0;
-#if 0
-  _mc = curl_multi_perform(_curl, &stillRunning);
-  if (_mc != CURLM_OK) {
-    throw std::runtime_error(
-        "Invalid curl multi result while performing! Result was " + std::to_string(_mc));
-  }
 
-  /// use stillRunning as high water mark for open connections needed.
-  ///  curl/lib/multi.c uses stillRunning * 4 to estimate connections retained,
-  ///  starting with *2
-  connectionCount.updateMaxConnections(stillRunning * 2);
-#else
-
-#endif
-  // handle all messages received
-  CURLMsg* msg = nullptr;
-  int msgsLeft = 0;
-
-  while ((msg = curl_multi_info_read(_curl, &msgsLeft))) {
-    if (msg->msg == CURLMSG_DONE) {
-      CURL* handle = msg->easy_handle;
-
-      handleResult(handle, msg->data.result);
-    }
-  }
   return stillRunning;
 }
 
 void Communicator::wait() {
-#if 0
-  static int const MAX_WAIT_MSECS = 1000;  // wait max. 1 seconds
-  int numFds;  // not used here
-  int res = curl_multi_wait(_curl, &_wakeup, 1, MAX_WAIT_MSECS, &numFds);
-  if (res != CURLM_OK) {
-    throw std::runtime_error(
-        "Invalid curl multi result while waiting! Result was " + std::to_string(res));
-  }
-#else
   struct timeval one_sec;
 
   one_sec.tv_sec = 1;
@@ -286,17 +257,7 @@ void Communicator::wait() {
   event_base_loopexit(_ev_base, &one_sec);
 
   event_base_dispatch(_ev_base);
-#endif
 
-  // drain the pipe
-  char a[16];
-#ifdef _WIN32
-  while (0 < recv(_socks[0], a, sizeof(a), 0)) {
-  }
-#else
-  while (0 < read(_fds[0], a, sizeof(a))) {
-  }
-#endif
 }
 
 // -----------------------------------------------------------------------------
@@ -457,7 +418,7 @@ void Communicator::createRequestInProgress(NewRequest&& newRequest) {
       break;
   }
 
-  handleInProgress->_rip->_startTime = TRI_microtime();
+  //  handleInProgress->_rip->_startTime = TRI_microtime();
 
   {
     MUTEX_LOCKER(guard, _handlesLock);
@@ -470,7 +431,9 @@ void Communicator::createRequestInProgress(NewRequest&& newRequest) {
         _handlesInProgress.emplace(newRequest._ticketId, std::move(handleInProgress));
     TRI_ASSERT(result.second);
   }
+  int numRunning;
   curl_multi_add_handle(_curl, handle);
+  curl_multi_socket_action(_curl, CURL_SOCKET_TIMEOUT, 0, &numRunning);
 }
 
 /// new code using lambda and Scheduler
@@ -796,17 +759,18 @@ void Communicator::callSuccessFn(Ticket const& ticketId, Destination const& dest
                                  std::unique_ptr<GeneralResponse> response) {
   // ALMOST the same code as in callErrorFn. just almost so I did copy paste
   // could be generalized but probably that code would be even more verbose
-  auto start = TRI_microtime();
+  //  auto start = TRI_microtime();
   callbacks._onSuccess(std::move(response));
   // callbacks are executed from the curl loop..if they take a long time this
   // blocks all traffic! implement an async solution in that case!
-  auto total = TRI_microtime() - start;
-
+  //auto total = TRI_microtime() - start;
+#if 0
   if (total > CALLBACK_WARN_TIME) {
     LOG_TOPIC(WARN, Logger::COMMUNICATION)
         << ::buildPrefix(ticketId) << "success callback for request to "
         << destination.url() << " took " << (total) << "s";
   }
+#endif  
 }
 
 
@@ -850,9 +814,11 @@ void Communicator::addsock(curl_socket_t s, CURL *easy, int action,
 ///  (from libcurl's hiperfifo.c by Daniel Stenberg)
 void Communicator::setsock(curl_socket_t s, CURL *e, int act,
                            RequestInProgress *rip, bool isNew) {
-  int kind =
-     (act&CURL_POLL_IN?EV_READ:0)|(act&CURL_POLL_OUT?EV_WRITE:0)|EV_PERSIST;
-
+  int kind =    
+     (act&CURL_POLL_IN?EV_READ:0)
+    | (act&CURL_POLL_OUT?EV_WRITE:0)
+    | EV_PERSIST;
+  
   if (!isNew) event_del(&rip->_ev_conn);
   event_assign(&rip->_ev_conn, _ev_base, s, kind, event_cb, this);
   event_add(&rip->_ev_conn, NULL /*struct timeval * */);
@@ -885,9 +851,35 @@ void Communicator::event_cb(int fd, short kind, void *userp) {
         "Invalid curl multi result while performing! Result was " + std::to_string(comm->_mc));
   }
 
+  // handle all messages received
+  CURLMsg* msg = nullptr;
+  int msgsLeft = 0;
+
+  while ((msg = curl_multi_info_read(comm->_curl, &msgsLeft))) {
+    if (msg->msg == CURLMSG_DONE) {
+      CURL* handle = msg->easy_handle;
+
+      comm->handleResult(handle, msg->data.result);
+    }
+  }
+} // Communicator::event_cb
+
+
+void Communicator::fifo_cb(int fd, short kind, void *userp) {
+  Communicator * comm = (Communicator *) userp;
+  // drain the pipe
+  char a[16];
+#ifdef _WIN32
+  while (0 < recv(fd, a, sizeof(a), 0)) {
+  }
+#else
+  while (0 < read(fd, a, sizeof(a))) {
+  }
+#endif
+
   comm->work_once();
 
-} // Communicator::event_cb
+} // Communicator::fifo_cb
 
 
 #if 0
