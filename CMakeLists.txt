@@ -894,6 +894,10 @@ elseif (MSVC)
   set(CMAKE_CXX_FLAGS_RELEASE        "/MT /O2 /Ob2"                      CACHE INTERNAL "C++ release flags")
   set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "/MT /Z7 /O2 /Ob1"                  CACHE INTERNAL "C++ release with debug info flags")
 
+  if (USE_MAINTAINER_MODE)
+    set(CMAKE_VS_GLOBALS "TrackFileAccess=false")
+  endif ()
+
 else ()
   # unknown compiler
   message(STATUS "Compiler type UNKNOWN: ${CMAKE_CXX_COMPILER}")
