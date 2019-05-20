@@ -226,6 +226,7 @@ class Communicator {
  protected:
   struct event_base *_ev_base;
   struct event _ev_fifo;
+  struct event _ev_timer;
 
  private:
   Mutex _newRequestsLock;
@@ -283,6 +284,7 @@ private:
 
   static void event_cb(int fd, short kind, void *userp);
   static void fifo_cb(int fd, short kind, void *userp);
+  static void timer_cb(int fd, short kind, void *userp);
   static int multi_timer_cb(CURLM *multi, long timeout_ms, void *g);
 
 };

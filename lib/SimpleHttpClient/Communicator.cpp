@@ -138,7 +138,7 @@ Communicator::Communicator() : _curl(nullptr), _mc(CURLM_OK), _enabled(true) {
   _curl = curl_multi_init();
 
   struct event_config * cfg =event_config_new();
-  event_config_set_flag(cfg, EVENT_BASE_FLAG_NOLOCK | EVENT_BASE_FLAG_EPOLL_USE_CHANGELIST);
+//  event_config_set_flag(cfg, EVENT_BASE_FLAG_NOLOCK | EVENT_BASE_FLAG_EPOLL_USE_CHANGELIST);
   _ev_base = event_base_new_with_config(cfg);
   event_config_free(cfg);
 
@@ -183,7 +183,7 @@ Communicator::Communicator() : _curl(nullptr), _mc(CURLM_OK), _enabled(true) {
   event_assign(&_ev_fifo, _ev_base, _wakeup.fd, EV_READ|EV_PERSIST,
                fifo_cb, this);
   event_add(&_ev_fifo, NULL);
-
+  evtimer_assign(&_ev_timer, _ev_base, timer_cb, this);
 }
 
 Communicator::~Communicator() {
@@ -770,7 +770,7 @@ void Communicator::callSuccessFn(Ticket const& ticketId, Destination const& dest
         << ::buildPrefix(ticketId) << "success callback for request to "
         << destination.url() << " took " << (total) << "s";
   }
-#endif  
+#endif
 }
 
 
@@ -814,11 +814,11 @@ void Communicator::addsock(curl_socket_t s, CURL *easy, int action,
 ///  (from libcurl's hiperfifo.c by Daniel Stenberg)
 void Communicator::setsock(curl_socket_t s, CURL *e, int act,
                            RequestInProgress *rip, bool isNew) {
-  int kind =    
+  int kind =
      (act&CURL_POLL_IN?EV_READ:0)
     | (act&CURL_POLL_OUT?EV_WRITE:0)
     | EV_PERSIST;
-  
+
   if (!isNew) event_del(&rip->_ev_conn);
   event_assign(&rip->_ev_conn, _ev_base, s, kind, event_cb, this);
   event_add(&rip->_ev_conn, NULL /*struct timeval * */);
@@ -882,31 +882,40 @@ void Communicator::fifo_cb(int fd, short kind, void *userp) {
 } // Communicator::fifo_cb
 
 
-#if 0
 /* Called by libevent when our timeout expires */
 ///  (from libcurl's hiperfifo.c by Daniel Stenberg)
-static void timer_cb(int fd _Unused, short kind _Unused, void *userp) {
-  GlobalInfo *g = (GlobalInfo *)userp;
-  CURLMcode rc;
+void Communicator::timer_cb(int fd, short kind, void *userp) {
+  Communicator * comm = (Communicator *) userp;
+  int runningHandles = 0;
 
-  rc = curl_multi_socket_action(g->multi,
-                                  CURL_SOCKET_TIMEOUT, 0, &g->still_running);
-  mcode_or_die("timer_cb: curl_multi_socket_action", rc);
-  check_multi_info(g);
-}
+  comm->_mc = curl_multi_socket_action(comm->_curl,
+                                  CURL_SOCKET_TIMEOUT, 0, &runningHandles);
+  // check _mc
+#if 0
+  // handle all messages received
+  CURLMsg* msg = nullptr;
+  int msgsLeft = 0;
+
+  while ((msg = curl_multi_info_read(comm->_curl, &msgsLeft))) {
+    if (msg->msg == CURLMSG_DONE) {
+      CURL* handle = msg->easy_handle;
+
+      comm->handleResult(handle, msg->data.result);
+    }
+  }
 #endif
+}
 
 
 /* Update the event timer after curl_multi library calls */
 ///  (from libcurl's hiperfifo.c by Daniel Stenberg)
-int Communicator::multi_timer_cb(CURLM *multi, long timeout_ms, void *g) {
-#if 0
+int Communicator::multi_timer_cb(CURLM *multi, long timeout_ms, void *userp) {
+  Communicator * comm = (Communicator *) userp;
+
   struct timeval timeout;
-  CURLMcode rc;
 
   timeout.tv_sec = timeout_ms/1000;
   timeout.tv_usec = (timeout_ms%1000)*1000;
-  fprintf(MSG_OUT, "multi_timer_cb: Setting timeout to %ld ms\n", timeout_ms);
 
   /*
    * if timeout_ms is -1, just delete the timer
@@ -915,9 +924,9 @@ int Communicator::multi_timer_cb(CURLM *multi, long timeout_ms, void *g) {
    * to the new value
    */
   if(timeout_ms == -1)
-    evtimer_del(&g->timer_event);
+    evtimer_del(&comm->_ev_timer);
   else /* includes timeout zero */
-    evtimer_add(&g->timer_event, &timeout);
-#endif
+    evtimer_add(&comm->_ev_timer, &timeout);
+
   return 0;
 }
