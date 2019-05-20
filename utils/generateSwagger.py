@@ -657,6 +657,10 @@ def resturlparam(cargo, r=Regexen()):
         print >> sys.stderr, "only required is supported in RESTURLPARAM"
         raise Exception("invalid url parameter")
 
+    if pformat.strip() == "":
+        print >> sys.stderr, "format mustn't be empty! Have " + str(parameters)
+        raise Exception("invalid url parameter")
+        
     para = {
         'name': name.strip(),
         'in': 'path',
@@ -785,7 +789,10 @@ def restbodyparam(cargo, r=Regexen()):
     elif ptype == 'object':
         swagger['definitions'][currentDocuBlock]['properties'][name]['additionalProperties'] = {}
     elif ptype != 'string':
-        swagger['definitions'][currentDocuBlock]['properties'][name]['format'] = ptype2
+        if ptype2.strip() ==  "":
+            swagger['definitions'][currentDocuBlock]['properties'][name]['format'] = ptype
+        else:
+            swagger['definitions'][currentDocuBlock]['properties'][name]['format'] = ptype2
 
 
     if required:
@@ -895,7 +902,10 @@ def reststruct(cargo, r=Regexen()):
                                     'description')
 
     elif ptype != 'string' and ptype != 'boolean':
-        swagger['definitions'][className]['properties'][name]['format'] = ptype2
+        if ptype2.strip() ==  "":
+            swagger['definitions'][className]['properties'][name]['format'] = ptype
+        else:
+            swagger['definitions'][className]['properties'][name]['format'] = ptype2
 
     return generic_handler_desc(cargo, r, "restbodyparam", None,
                                 swagger['definitions'][className]['properties'][name],
@@ -1081,7 +1091,10 @@ def restreplybody(cargo, r=Regexen()):
         if len(name) > 0:
             swagger['definitions'][rcBlock]['properties'][name]['additionalProperties'] = {}
     elif ptype != 'string':
-        swagger['definitions'][rcBlock]['properties'][name]['format'] = ptype2
+        if ptype2.strip() ==  "":
+            swagger['definitions'][rcBlock]['properties'][name]['format'] = ptype
+        else:
+            swagger['definitions'][rcBlock]['properties'][name]['format'] = ptype2
 
 
     if len(name) > 0 & required:
