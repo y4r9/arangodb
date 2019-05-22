@@ -2994,7 +2994,7 @@ TEST_F(IResearchAnalyzerFeatureTest, test_upgrade_static_legacy) {
 
     sysDatabase->unprepare();  // unset system vocbase
     EXPECT_TRUE((arangodb::methods::Upgrade::startup(*vocbase, true, false).ok()));  // run upgrade
-    EXPECT_TRUE((false == !vocbase->lookupCollection(ANALYZER_COLLECTION_NAME)));
+    EXPECT_TRUE((vocbase->lookupCollection(ANALYZER_COLLECTION_NAME) != nullptr));
     auto result = arangodb::tests::executeQuery(*vocbase, ANALYZER_COLLECTION_QUERY);
     EXPECT_TRUE((result.result.ok()));
     auto slice = result.data->slice();

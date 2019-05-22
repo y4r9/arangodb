@@ -611,30 +611,19 @@ arangodb::Result PhysicalCollectionMock::insert(
   for (auto& index : _indexes) {
     if (index->type() == arangodb::Index::TRI_IDX_TYPE_EDGE_INDEX) {
       auto* l = static_cast<EdgeIndexMock*>(index.get());
-      if (!l->insert(*trx, docId, arangodb::velocypack::Slice(result.vpack()),
-                     arangodb::Index::OperationMode::normal)
-               .ok()) {
-        return arangodb::Result(TRI_ERROR_BAD_PARAMETER);
-      }
-      continue;
+      return l->insert(*trx, docId, arangodb::velocypack::Slice(result.vpack()),
+                     arangodb::Index::OperationMode::normal);
+
     } else if (index->type() == arangodb::Index::TRI_IDX_TYPE_IRESEARCH_LINK) {
       if (arangodb::ServerState::instance()->isCoordinator()) {
-        auto* l =
-            static_cast<arangodb::iresearch::IResearchLinkCoordinator*>(index.get());
-        if (!l->insert(*trx, docId, arangodb::velocypack::Slice(result.vpack()),
-                       arangodb::Index::OperationMode::normal)
-                 .ok()) {
-          return arangodb::Result(TRI_ERROR_BAD_PARAMETER);
-        }
+        auto* l = static_cast<arangodb::iresearch::IResearchLinkCoordinator*>(index.get());
+        return l->insert(*trx, docId, arangodb::velocypack::Slice(result.vpack()),
+                       arangodb::Index::OperationMode::normal);
       } else {
         auto* l = static_cast<arangodb::iresearch::IResearchMMFilesLink*>(index.get());
-        if (!l->insert(*trx, docId, arangodb::velocypack::Slice(result.vpack()),
-                       arangodb::Index::OperationMode::normal)
-                 .ok()) {
-          return arangodb::Result(TRI_ERROR_BAD_PARAMETER);
-        }
+        return l->insert(*trx, docId, arangodb::velocypack::Slice(result.vpack()),
+                       arangodb::Index::OperationMode::normal);
       }
-      continue;
     }
     TRI_ASSERT(false);
   }
@@ -1158,7 +1147,7 @@ void StorageEngineMock::getDatabases(arangodb::velocypack::Builder& result) {
   result.add(system.slice());
   result.close();
 }
-  
+
 void StorageEngineMock::cleanupReplicationContexts() {
   // nothing to do here
 }
