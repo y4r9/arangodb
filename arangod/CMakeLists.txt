@@ -380,6 +380,7 @@ SET(ARANGOD_SOURCES
   Graph/ClusterTraverserCache.cpp
   Graph/ConstantWeightShortestPathFinder.cpp
   Graph/EdgeCollectionInfo.cpp
+  Graph/EdgeIterator.cpp
   Graph/Graph.cpp
   Graph/GraphManager.cpp
   Graph/GraphOperations.cpp
