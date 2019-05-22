@@ -20,19 +20,31 @@
 /// @author Michael Hackstein
 ////////////////////////////////////////////////////////////////////////////////
 
+#ifndef TEST_GRAPH_TEST_DATA_PROVIDER_H
+#define TEST_GRAPH_TEST_DATA_PROVIDER_H 1
+
 #include "Graph/DataProvider.h"
+
+#include <velocypack/StringRef.h>
 
 namespace arangodb {
 namespace tests {
 class MockDataProvider : public graph::DataProvider {
+ public:
   MockDataProvider() : DataProvider() {}
 
-  ~MockDataProvider() = default;
+  ~MockDataProvider(){};
 
-  EdgeIterator<graph::DataProvider> connectedEdges(StringRef vertex, uint64_t depth) override {
+  graph::EdgeIterator<graph::DataProvider> incidentEdges(velocypack::StringRef vertex,
+                                                         uint64_t depth) override {
     // TODO Implement me
-    return EdgeIterator<this>();
+    return graph::EdgeIterator<this>();
   }
 }
+
+template class arangodb::graph::EdgeIterator<arangodb::graph::DataProvider>;
+
 }  // namespace tests
 }  // namespace arangodb
+
+#endif
