@@ -41,6 +41,8 @@ class EdgeIterator;
  */
 class DataProvider {
  public:
+  using Depth = uint64_t;
+
   DataProvider() {}
 
   virtual ~DataProvider() = default;
@@ -56,7 +58,7 @@ class DataProvider {
    * @param depth The depth of the source vertex in the path
    */
   virtual EdgeIterator<DataProvider> incidentEdges(velocypack::StringRef vertex,
-                                                   uint64_t depth);
+                                                   Depth depth);
 };
 
 }  // namespace graph

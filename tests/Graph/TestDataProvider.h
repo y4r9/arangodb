@@ -36,7 +36,8 @@ class MockDataProvider : public graph::DataProvider {
   ~MockDataProvider(){};
 
   graph::EdgeIterator<graph::DataProvider> incidentEdges(velocypack::StringRef vertex,
-                                                         uint64_t depth) override {
+                                                         Depth depth)
+  {
     // TODO Implement me
     return graph::EdgeIterator<graph::DataProvider>();
   }
