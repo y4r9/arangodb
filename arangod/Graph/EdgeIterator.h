@@ -44,6 +44,7 @@ struct EdgeDocumentToken;
  */
 template <class DataProvider>
 class EdgeIterator {
+ public:
   EdgeIterator() {}
   ~EdgeIterator() {}
 

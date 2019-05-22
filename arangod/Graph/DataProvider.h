@@ -58,6 +58,7 @@ class DataProvider {
   virtual EdgeIterator<DataProvider> incidentEdges(velocypack::StringRef vertex,
                                                    uint64_t depth);
 };
+
 }  // namespace graph
 }  // namespace arangodb
 

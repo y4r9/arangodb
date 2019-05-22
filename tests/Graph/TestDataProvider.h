@@ -38,11 +38,9 @@ class MockDataProvider : public graph::DataProvider {
   graph::EdgeIterator<graph::DataProvider> incidentEdges(velocypack::StringRef vertex,
                                                          uint64_t depth) override {
     // TODO Implement me
-    return graph::EdgeIterator<this>();
+    return graph::EdgeIterator<graph::DataProvider>();
   }
-}
-
-template class arangodb::graph::EdgeIterator<arangodb::graph::DataProvider>;
+};
 
 }  // namespace tests
 }  // namespace arangodb

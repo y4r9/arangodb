@@ -22,6 +22,19 @@
 
 #include "gtest/gtest.h"
 
+#include "Aql/ExecutionState.h"
+#include "Graph/DataProvider.h"
+#include "Graph/EdgeIterator.h"
+
+#include <velocypack/StringRef.h>
+
+namespace arangodb {
+namespace graph {
+// TODO: move this into production cpp file
+template class arangodb::graph::EdgeIterator<arangodb::graph::DataProvider>;
+}  // namespace graph
+}  // namespace arangodb
+
 #include "TestDataProvider.h"
 
 namespace arangodb {
@@ -36,15 +49,16 @@ class BreadthFirstSearchTest : public ::testing::Test {
   ~BreadthFirstSearchTest(){
       // Teardown code
   };
-
-  TEST_F(BreadthFirstSearchTest, it_has_a_short_description_of_the_test_name) {
-    TestDataProvider provider();
-    std::string noVertex = "test";
-    StringRef v(noVertex);
-    auto iterator = provider.next(v, 0);
-    ASSERT_EQ(iterator.getState() == ExecutionState::DONE);
-  };
 };
+
+TEST_F(BreadthFirstSearchTest, it_has_a_short_description_of_the_test_name) {
+  MockDataProvider provider;
+  std::string noVertex = "test";
+  velocypack::StringRef v(noVertex);
+  auto iterator = provider.incidentEdges(v, 0);
+  ASSERT_EQ(iterator.getState(), aql::ExecutionState::DONE);
+}
+
 }  // namespace breadth_first_search_test
 }  // namespace tests
 }  // namespace arangodb
