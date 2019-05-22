@@ -517,10 +517,10 @@ TEST_F(IResearchAnalyzerFeatureTest, test_emplace) {
                              .emplace(result, arangodb::StaticStrings::SystemDatabase + "::test_analyzer0",
                                       "TestAnalyzer", "abc")
                              .ok()));
-    EXPECT_TRUE((false == !result.first));
+    EXPECT_TRUE((result.first != nullptr));
     auto pool = feature.get(arangodb::StaticStrings::SystemDatabase +
                             "::test_analyzer0");
-    EXPECT_TRUE((false == !pool));
+    EXPECT_TRUE((pool != nullptr));
     EXPECT_TRUE((irs::flags() == pool->features()));
   }
 
@@ -533,32 +533,31 @@ TEST_F(IResearchAnalyzerFeatureTest, test_emplace) {
                      .emplace(result, arangodb::StaticStrings::SystemDatabase + "::test_analyzer1",
                               "TestAnalyzer", "abc", irs::flags{irs::frequency::type()})
                      .ok()));
-    EXPECT_TRUE((false == !result.first));
+    EXPECT_TRUE((result.first != nullptr));
     auto pool = feature.get(arangodb::StaticStrings::SystemDatabase +
                             "::test_analyzer1");
-    EXPECT_TRUE((false == !pool));
+    EXPECT_TRUE((pool != nullptr));
     EXPECT_TRUE((irs::flags({irs::frequency::type()}) == pool->features()));
     EXPECT_TRUE(
         (true == feature
                      .emplace(result, arangodb::StaticStrings::SystemDatabase + "::test_analyzer1",
                               "TestAnalyzer", "abc", irs::flags{irs::frequency::type()})
                      .ok()));
-    EXPECT_TRUE((false == !result.first));
-    EXPECT_TRUE((false == !feature.get(arangodb::StaticStrings::SystemDatabase + "::test_analyzer1")));
+    EXPECT_TRUE((result.first != nullptr));
+    EXPECT_TRUE((feature.get(arangodb::StaticStrings::SystemDatabase + "::test_analyzer1")) != nullptr);
   }
 
   // add duplicate invalid (same name+type different properties)
   {
     arangodb::iresearch::IResearchAnalyzerFeature::EmplaceResult result;
     arangodb::iresearch::IResearchAnalyzerFeature feature(server);
-    EXPECT_TRUE((true == feature
-                             .emplace(result, arangodb::StaticStrings::SystemDatabase + "::test_analyzer2",
+    EXPECT_TRUE((feature.emplace(result, arangodb::StaticStrings::SystemDatabase + "::test_analyzer2",
                                       "TestAnalyzer", "abc")
                              .ok()));
-    EXPECT_TRUE((false == !result.first));
+    EXPECT_TRUE((result.first != nullptr));
     auto pool = feature.get(arangodb::StaticStrings::SystemDatabase +
                             "::test_analyzer2");
-    EXPECT_TRUE((false == !pool));
+    EXPECT_TRUE((pool != nullptr));
     EXPECT_TRUE((irs::flags() == pool->features()));
     EXPECT_TRUE((false == feature
                               .emplace(result, arangodb::StaticStrings::SystemDatabase + "::test_analyzer2",
@@ -575,10 +574,10 @@ TEST_F(IResearchAnalyzerFeatureTest, test_emplace) {
                              .emplace(result, arangodb::StaticStrings::SystemDatabase + "::test_analyzer2",
                                       "TestAnalyzer", "abc")
                              .ok()));
-    EXPECT_TRUE((false == !result.first));
+    EXPECT_TRUE((result.first != nullptr));
     auto pool = feature.get(arangodb::StaticStrings::SystemDatabase +
                             "::test_analyzer2");
-    EXPECT_TRUE((false == !pool));
+    EXPECT_TRUE((pool != nullptr));
     EXPECT_TRUE((irs::flags() == pool->features()));
     EXPECT_TRUE(
         (false == feature
@@ -596,10 +595,10 @@ TEST_F(IResearchAnalyzerFeatureTest, test_emplace) {
                              .emplace(result, arangodb::StaticStrings::SystemDatabase + "::test_analyzer3",
                                       "TestAnalyzer", "abc")
                              .ok()));
-    EXPECT_TRUE((false == !result.first));
+    EXPECT_TRUE((result.first != nullptr));
     auto pool = feature.get(arangodb::StaticStrings::SystemDatabase +
                             "::test_analyzer3");
-    EXPECT_TRUE((false == !pool));
+    EXPECT_TRUE((pool != nullptr));
     EXPECT_TRUE((irs::flags() == pool->features()));
     EXPECT_TRUE((false == feature
                               .emplace(result, arangodb::StaticStrings::SystemDatabase + "::test_analyzer3",
@@ -612,33 +611,30 @@ TEST_F(IResearchAnalyzerFeatureTest, test_emplace) {
   {
     arangodb::iresearch::IResearchAnalyzerFeature::EmplaceResult result;
     arangodb::iresearch::IResearchAnalyzerFeature feature(server);
-    EXPECT_TRUE((false == feature
-                              .emplace(result, arangodb::StaticStrings::SystemDatabase + "::test_analyzer4",
-                                       "TestAnalyzer", "")
-                              .ok()));
-    EXPECT_TRUE((true == !feature.get(arangodb::StaticStrings::SystemDatabase + "::test_analyzer4")));
+    EXPECT_FALSE((feature.emplace(result, arangodb::StaticStrings::SystemDatabase + "::test_analyzer4",
+                                  "TestAnalyzer", "").ok()
+                ));
+    EXPECT_TRUE((feature.get(arangodb::StaticStrings::SystemDatabase + "::test_analyzer4")) == nullptr);
   }
 
   // add invalid (instance creation exception)
   {
     arangodb::iresearch::IResearchAnalyzerFeature::EmplaceResult result;
     arangodb::iresearch::IResearchAnalyzerFeature feature(server);
-    EXPECT_TRUE((false == feature
-                              .emplace(result, arangodb::StaticStrings::SystemDatabase + "::test_analyzer5",
+    EXPECT_FALSE((feature.emplace(result, arangodb::StaticStrings::SystemDatabase + "::test_analyzer5",
                                        "TestAnalyzer", irs::string_ref::NIL)
                               .ok()));
-    EXPECT_TRUE((true == !feature.get(arangodb::StaticStrings::SystemDatabase + "::test_analyzer5")));
+    EXPECT_TRUE((feature.get(arangodb::StaticStrings::SystemDatabase + "::test_analyzer5") == nullptr));
   }
 
   // add invalid (not registred)
   {
     arangodb::iresearch::IResearchAnalyzerFeature::EmplaceResult result;
     arangodb::iresearch::IResearchAnalyzerFeature feature(server);
-    EXPECT_TRUE((false == feature
-                              .emplace(result, arangodb::StaticStrings::SystemDatabase + "::test_analyzer6",
+    EXPECT_FALSE((feature.emplace(result, arangodb::StaticStrings::SystemDatabase + "::test_analyzer6",
                                        "invalid", irs::string_ref::NIL)
                               .ok()));
-    EXPECT_TRUE((true == !feature.get(arangodb::StaticStrings::SystemDatabase + "::test_analyzer6")));
+    EXPECT_TRUE((feature.get(arangodb::StaticStrings::SystemDatabase + "::test_analyzer6")) == nullptr);
   }
 
   // add valid inRecovery (failure)
@@ -649,33 +645,30 @@ TEST_F(IResearchAnalyzerFeatureTest, test_emplace) {
     StorageEngineMock::inRecoveryResult = true;
     auto restore = irs::make_finally(
         [&before]() -> void { StorageEngineMock::inRecoveryResult = before; });
-    EXPECT_TRUE((true == feature
-                             .emplace(result, arangodb::StaticStrings::SystemDatabase + "::test_analyzer8",
+    EXPECT_TRUE((feature.emplace(result, arangodb::StaticStrings::SystemDatabase + "::test_analyzer8",
                                       "TestAnalyzer", "abc")
                              .ok()));
-    EXPECT_TRUE((true == !feature.get(arangodb::StaticStrings::SystemDatabase + "::test_analyzer8")));
+    EXPECT_TRUE((feature.get(arangodb::StaticStrings::SystemDatabase + "::test_analyzer8")) == nullptr);
   }
 
   // add invalid (unsupported feature)
   {
     arangodb::iresearch::IResearchAnalyzerFeature::EmplaceResult result;
     arangodb::iresearch::IResearchAnalyzerFeature feature(server);
-    EXPECT_TRUE((false == feature
-                              .emplace(result, arangodb::StaticStrings::SystemDatabase + "::test_analyzer9",
-                                       "TestAnalyzer", "abc", {irs::document::type()})
+    EXPECT_FALSE((feature.emplace(result, arangodb::StaticStrings::SystemDatabase + "::test_analyzer9",
+                                   "TestAnalyzer", "abc", {irs::document::type()})
                               .ok()));
-    EXPECT_TRUE((true == !feature.get(arangodb::StaticStrings::SystemDatabase + "::test_analyzer9")));
+    EXPECT_TRUE((feature.get(arangodb::StaticStrings::SystemDatabase + "::test_analyzer9")) == nullptr);
   }
 
   // add invalid ('position' without 'frequency')
   {
     arangodb::iresearch::IResearchAnalyzerFeature::EmplaceResult result;
     arangodb::iresearch::IResearchAnalyzerFeature feature(server);
-    EXPECT_TRUE((false == feature
-                              .emplace(result, arangodb::StaticStrings::SystemDatabase + "::test_analyzer10",
+    EXPECT_FALSE((feature.emplace(result, arangodb::StaticStrings::SystemDatabase + "::test_analyzer10",
                                        "TestAnalyzer", "abc", {irs::position::type()})
                               .ok()));
-    EXPECT_TRUE((true == !feature.get(arangodb::StaticStrings::SystemDatabase + "::test_analyzer10")));
+    EXPECT_TRUE((feature.get(arangodb::StaticStrings::SystemDatabase + "::test_analyzer10") == nullptr));
   }
 
   // add invalid (properties too large)
@@ -683,23 +676,20 @@ TEST_F(IResearchAnalyzerFeatureTest, test_emplace) {
     arangodb::iresearch::IResearchAnalyzerFeature::EmplaceResult result;
     arangodb::iresearch::IResearchAnalyzerFeature feature(server);
     std::string properties(1024 * 1024 + 1, 'x');  // +1 char longer then limit
-    EXPECT_TRUE((false == feature
-                              .emplace(result, arangodb::StaticStrings::SystemDatabase + "::test_analyzer11",
+    EXPECT_FALSE((feature.emplace(result, arangodb::StaticStrings::SystemDatabase + "::test_analyzer11",
                                        "TestAnalyzer", properties)
                               .ok()));
-    EXPECT_TRUE((true == !feature.get(arangodb::StaticStrings::SystemDatabase + "::test_analyzer11")));
+    EXPECT_TRUE((feature.get(arangodb::StaticStrings::SystemDatabase + "::test_analyzer11") == nullptr));
   }
 
   // add invalid (name has invalid char)
   {
     arangodb::iresearch::IResearchAnalyzerFeature::EmplaceResult result;
     arangodb::iresearch::IResearchAnalyzerFeature feature(server);
-    EXPECT_TRUE((false == feature
-                              .emplace(result, arangodb::StaticStrings::SystemDatabase + "::test_analyzer12+",
+    EXPECT_FALSE((feature.emplace(result, arangodb::StaticStrings::SystemDatabase + "::test_analyzer12+",
                                        "TestAnalyzer", "abc")
                               .ok()));
-    EXPECT_TRUE((true == !feature.get(arangodb::StaticStrings::SystemDatabase +
-                                      "::test_analyzer12+")));
+    EXPECT_TRUE((feature.get(arangodb::StaticStrings::SystemDatabase + "::test_analyzer12+") == nullptr));
   }
 
   // add static analyzer
@@ -707,16 +697,15 @@ TEST_F(IResearchAnalyzerFeatureTest, test_emplace) {
     arangodb::iresearch::IResearchAnalyzerFeature::EmplaceResult result;
     arangodb::iresearch::IResearchAnalyzerFeature feature(server);
     feature.prepare();  // add static analyzers
-    EXPECT_TRUE((true == feature
-                             .emplace(result, "identity", "identity", irs::string_ref::NIL,
+    EXPECT_TRUE((feature.emplace(result, "identity", "identity", irs::string_ref::NIL,
                                       irs::flags{irs::frequency::type(), irs::norm::type()})
                              .ok()));
-    EXPECT_TRUE((false == !result.first));
+    EXPECT_TRUE((result.first != nullptr));
     auto pool = feature.get("identity");
-    EXPECT_TRUE((false == !pool));
+    EXPECT_TRUE((pool != nullptr));
     EXPECT_TRUE((irs::flags({irs::norm::type(), irs::frequency::type()}) == pool->features()));
     auto analyzer = pool->get();
-    EXPECT_TRUE((false == !analyzer));
+    EXPECT_TRUE((analyzer != nullptr));
   }
 }
 
@@ -758,11 +747,11 @@ TEST_F(IResearchAnalyzerFeatureTest, test_get) {
     {
       auto pool = feature.get(arangodb::StaticStrings::SystemDatabase +
                               "::test_analyzer");
-      ASSERT_TRUE((false == !pool));
+      ASSERT_TRUE((pool != nullptr));
       EXPECT_TRUE((irs::flags() == pool->features()));
       EXPECT_TRUE("abc" == pool->properties());
       auto analyzer = pool.get();
-      EXPECT_TRUE((false == !analyzer));
+      EXPECT_TRUE((analyzer != nullptr));
     }
 
     // get global
@@ -770,11 +759,11 @@ TEST_F(IResearchAnalyzerFeatureTest, test_get) {
       auto pool = feature.get(arangodb::StaticStrings::SystemDatabase +
                                   "::test_analyzer",
                               *sysVocbase, *sysVocbase);
-      ASSERT_TRUE((false == !pool));
+      ASSERT_TRUE((pool != nullptr));
       EXPECT_TRUE((irs::flags() == pool->features()));
       EXPECT_TRUE("abc" == pool->properties());
       auto analyzer = pool.get();
-      EXPECT_TRUE((false == !analyzer));
+      EXPECT_TRUE((analyzer != nullptr));
     }
 
     // get global
@@ -782,41 +771,41 @@ TEST_F(IResearchAnalyzerFeatureTest, test_get) {
       auto pool = feature.get(arangodb::StaticStrings::SystemDatabase +
                                   "::test_analyzer",
                               *vocbase, *sysVocbase);
-      ASSERT_TRUE((false == !pool));
+      ASSERT_TRUE((pool != nullptr));
       EXPECT_TRUE((irs::flags() == pool->features()));
       EXPECT_TRUE("abc" == pool->properties());
       auto analyzer = pool.get();
-      EXPECT_TRUE((false == !analyzer));
+      EXPECT_TRUE((analyzer != nullptr));
     }
 
     // get global
     {
       auto pool = feature.get("::test_analyzer", *vocbase, *sysVocbase);
-      ASSERT_TRUE((false == !pool));
+      ASSERT_TRUE((pool != nullptr));
       EXPECT_TRUE((irs::flags() == pool->features()));
       EXPECT_TRUE("abc" == pool->properties());
       auto analyzer = pool.get();
-      EXPECT_TRUE((false == !analyzer));
+      EXPECT_TRUE((analyzer != nullptr));
     }
 
     // get local
     {
       auto pool = feature.get("test_analyzer", *vocbase, *sysVocbase);
-      ASSERT_TRUE((false == !pool));
+      ASSERT_TRUE((pool != nullptr));
       EXPECT_TRUE((irs::flags() == pool->features()));
       EXPECT_TRUE("def" == pool->properties());
       auto analyzer = pool.get();
-      EXPECT_TRUE((false == !analyzer));
+      EXPECT_TRUE((analyzer != nullptr));
     }
 
     // get local
     {
       auto pool = feature.get(vocbase->name() + "::test_analyzer", *vocbase, *sysVocbase);
-      ASSERT_TRUE((false == !pool));
+      ASSERT_TRUE((pool != nullptr));
       EXPECT_TRUE((irs::flags() == pool->features()));
       EXPECT_TRUE("def" == pool->properties());
       auto analyzer = pool.get();
-      EXPECT_TRUE((false == !analyzer));
+      EXPECT_TRUE((analyzer != nullptr));
     }
 
     // get invalid
@@ -836,21 +825,21 @@ TEST_F(IResearchAnalyzerFeatureTest, test_get) {
     // get static analyzer
     {
       auto pool = feature.get("identity");
-      ASSERT_TRUE((false == !pool));
+      ASSERT_TRUE((pool != nullptr));
       EXPECT_TRUE((irs::flags({irs::norm::type(), irs::frequency::type()}) ==
                    pool->features()));
       auto analyzer = pool->get();
-      EXPECT_TRUE((false == !analyzer));
+      EXPECT_TRUE((analyzer != nullptr));
     }
 
     // get static analyzer
     {
       auto pool = feature.get("identity", *sysVocbase, *sysVocbase);
-      ASSERT_TRUE((false == !pool));
+      ASSERT_TRUE((pool != nullptr));
       EXPECT_TRUE((irs::flags({irs::norm::type(), irs::frequency::type()}) ==
                    pool->features()));
       auto analyzer = pool->get();
-      EXPECT_TRUE((false == !analyzer));
+      EXPECT_TRUE((analyzer != nullptr));
     }
   }
 
@@ -1145,11 +1134,11 @@ TEST_F(IResearchAnalyzerFeatureTest, test_identity) {
   // test static 'identity'
   {
     auto pool = arangodb::iresearch::IResearchAnalyzerFeature::identity();
-    EXPECT_TRUE((false == !pool));
+    EXPECT_TRUE((pool != nullptr));
     EXPECT_TRUE((irs::flags({irs::norm::type(), irs::frequency::type()}) == pool->features()));
     EXPECT_TRUE(("identity" == pool->name()));
     auto analyzer = pool->get();
-    EXPECT_TRUE((false == !analyzer));
+    EXPECT_TRUE((analyzer != nullptr));
     auto& term = analyzer->attributes().get<irs::term_attribute>();
     EXPECT_TRUE((false == !term));
     EXPECT_TRUE((!analyzer->next()));
@@ -1170,11 +1159,11 @@ TEST_F(IResearchAnalyzerFeatureTest, test_identity) {
     feature.prepare();  // add static analyzers
     EXPECT_TRUE((false == !feature.get("identity")));
     auto pool = feature.get("identity");
-    ASSERT_TRUE((false == !pool));
+    ASSERT_TRUE((pool != nullptr));
     EXPECT_TRUE((irs::flags({irs::norm::type(), irs::frequency::type()}) == pool->features()));
     EXPECT_TRUE(("identity" == pool->name()));
     auto analyzer = pool->get();
-    EXPECT_TRUE((false == !analyzer));
+    EXPECT_TRUE((analyzer != nullptr));
     auto& term = analyzer->attributes().get<irs::term_attribute>();
     EXPECT_TRUE((false == !term));
     EXPECT_TRUE((!analyzer->next()));
@@ -1392,11 +1381,11 @@ TEST_F(IResearchAnalyzerFeatureTest, test_static_analyzer_features) {
     for (auto& analyzerEntry : staticAnalyzers()) {
       EXPECT_TRUE((false == !feature.get(analyzerEntry.first)));
       auto pool = feature.get(analyzerEntry.first);
-      ASSERT_TRUE((false == !pool));
+      ASSERT_TRUE((pool != nullptr));
       EXPECT_TRUE(analyzerEntry.second.features == pool->features());
       EXPECT_TRUE(analyzerEntry.first == pool->name());
       auto analyzer = pool->get();
-      EXPECT_TRUE((false == !analyzer));
+      EXPECT_TRUE((analyzer != nullptr));
       auto& term = analyzer->attributes().get<irs::term_attribute>();
       EXPECT_TRUE((false == !term));
     }
@@ -1709,7 +1698,7 @@ trx.commit();
                            .emplace(result, arangodb::StaticStrings::SystemDatabase + "::test_analyzerA",
                                     "TestAnalyzer", "abc", {irs::frequency::type()})
                            .ok()));
-  EXPECT_TRUE((false == !result.first));
+  EXPECT_TRUE((result.first != nullptr));
   EXPECT_TRUE((false == !feature.get(arangodb::StaticStrings::SystemDatabase + "::test_analyzerA")));
   EXPECT_TRUE((false == !vocbase->lookupCollection(ANALYZER_COLLECTION_NAME)));
   arangodb::OperationOptions options;
@@ -2574,7 +2563,7 @@ TEST_F(IResearchAnalyzerFeatureTest, test_start) {
                                .emplace(result, arangodb::StaticStrings::SystemDatabase + "::test_analyzer",
                                         "identity", "abc")
                                .ok()));
-      EXPECT_TRUE((false == !result.first));
+      EXPECT_TRUE((result.first != nullptr));
       collection = vocbase->lookupCollection(ANALYZER_COLLECTION_NAME);
       EXPECT_TRUE((nullptr != collection));
     }
@@ -2664,7 +2653,7 @@ TEST_F(IResearchAnalyzerFeatureTest, test_start) {
                                .emplace(result, arangodb::StaticStrings::SystemDatabase + "::test_analyzer",
                                         "identity", "abc")
                                .ok()));
-      EXPECT_TRUE((false == !result.first));
+      EXPECT_TRUE((result.first != nullptr));
       collection = vocbase->lookupCollection(ANALYZER_COLLECTION_NAME);
       EXPECT_TRUE((nullptr != collection));
     }
@@ -2763,7 +2752,7 @@ TEST_F(IResearchAnalyzerFeatureTest, test_tokens) {
                            ->emplace(result, arangodb::StaticStrings::SystemDatabase + "::test_analyzer",
                                      "TestAnalyzer", "abc")
                            .ok()));
-  ASSERT_TRUE((false == !result.first));
+  ASSERT_TRUE((result.first != nullptr));
 
   // test tokenization
   {
@@ -3474,7 +3463,7 @@ TEST_F(IResearchAnalyzerFeatureTest, test_upgrade_static_legacy) {
     sysDatabase->unprepare();  // unset system vocbase
     EXPECT_ANY_THROW((ci->getCollection(vocbase->name(), ANALYZER_COLLECTION_NAME)));  // throws on missing collection
     EXPECT_TRUE((arangodb::methods::Upgrade::clusterBootstrap(*vocbase).ok()));  // run upgrade
-    EXPECT_TRUE((false == !ci->getCollection(vocbase->name(), ANALYZER_COLLECTION_NAME)));
+    EXPECT_TRUE((ci->getCollection(vocbase->name(), ANALYZER_COLLECTION_NAME) != nullptr));
     EXPECT_TRUE((true == clusterComm._responses.empty()));
 
     for (auto& entry : clusterComm._requests) {
@@ -4535,17 +4524,17 @@ TEST_F(IResearchAnalyzerFeatureTest, test_visit) {
                            .emplace(result, arangodb::StaticStrings::SystemDatabase + "::test_analyzer0",
                                     "TestAnalyzer", "abc0")
                            .ok()));
-  EXPECT_TRUE((false == !result.first));
+  EXPECT_TRUE((result.first != nullptr));
   EXPECT_TRUE((true == feature
                            .emplace(result, arangodb::StaticStrings::SystemDatabase + "::test_analyzer1",
                                     "TestAnalyzer", "abc1")
                            .ok()));
-  EXPECT_TRUE((false == !result.first));
+  EXPECT_TRUE((result.first != nullptr));
   EXPECT_TRUE((true == feature
                            .emplace(result, arangodb::StaticStrings::SystemDatabase + "::test_analyzer2",
                                     "TestAnalyzer", "abc2")
                            .ok()));
-  EXPECT_TRUE((false == !result.first));
+  EXPECT_TRUE((result.first != nullptr));
 
   // full visitation
   {
@@ -4607,17 +4596,17 @@ TEST_F(IResearchAnalyzerFeatureTest, test_visit) {
                              .emplace(result, "vocbase2::test_analyzer3",
                                       "TestAnalyzer", "abc3")
                              .ok()));
-    EXPECT_TRUE((false == !result.first));
+    EXPECT_TRUE((result.first != nullptr));
     EXPECT_TRUE((true == feature
                              .emplace(result, "vocbase2::test_analyzer4",
                                       "TestAnalyzer", "abc4")
                              .ok()));
-    EXPECT_TRUE((false == !result.first));
+    EXPECT_TRUE((result.first != nullptr));
     EXPECT_TRUE((true == feature
                              .emplace(result, "vocbase1::test_analyzer5",
                                       "TestAnalyzer", "abc5")
                              .ok()));
-    EXPECT_TRUE((false == !result.first));
+    EXPECT_TRUE((result.first != nullptr));
   }
 
   // full visitation limited to a vocbase (empty)
