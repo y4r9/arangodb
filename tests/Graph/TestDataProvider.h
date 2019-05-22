@@ -29,11 +29,11 @@
 
 namespace arangodb {
 namespace tests {
-class MockDataProvider : public graph::DataProvider {
+class MockDataProvider final : public graph::DataProvider {
  public:
   MockDataProvider() : DataProvider() {}
 
-  ~MockDataProvider(){};
+  ~MockDataProvider() = default;
 
   graph::EdgeIterator<graph::DataProvider> incidentEdges(velocypack::StringRef vertex,
                                                          Depth depth)
