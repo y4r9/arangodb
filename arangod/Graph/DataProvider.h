@@ -24,7 +24,14 @@
 #define ARANGOD_GRAPH_DATA_PROVIDER_H 1
 
 namespace arangodb {
+
+namespace velocypack {
+class StringRef;
+}
 namespace graph {
+
+template <class Provider>
+class EdgeIterator;
 
 /**
  * This class is an abstraction to access the Graph-Data
@@ -33,6 +40,7 @@ namespace graph {
  * s.t. we can implement the graph algorithms independently
  */
 class DataProvider {
+ public:
   DataProvider() {}
 
   virtual ~DataProvider() = default;
@@ -47,7 +55,8 @@ class DataProvider {
    * @param vertex The source vertex edges should originate from
    * @param depth The depth of the source vertex in the path
    */
-  virtual EdgeIterator<DataProvider> connectedEdges(StringRef vertex, uint64_t depth);
+  virtual EdgeIterator<DataProvider> incidentEdges(velocypack::StringRef vertex,
+                                                   uint64_t depth);
 };
 }  // namespace graph
 }  // namespace arangodb

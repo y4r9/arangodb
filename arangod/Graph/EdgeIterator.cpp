@@ -20,17 +20,28 @@
 /// @author Michael Hackstein
 ////////////////////////////////////////////////////////////////////////////////
 
-namespace arangodb;
-namespace arangodb::graph;
+#include "EdgeIterator.h"
+
+#include "Aql/ExecutionState.h"
+#include "Graph/EdgeDocumentToken.h"
+
+#include <velocypack/StringRef.h>
+
+using namespace arangodb;
+using namespace arangodb::aql;
+using namespace arangodb::graph;
+using namespace arangodb::velocypack;
 
 template <class DataProvider>
-ExecutionState EdgeIterator<DataProvider>::next(std::function<void(EdgeToken, StringRef)> const& callback) {
+ExecutionState EdgeIterator<DataProvider>::next(
+    std::function<void(EdgeDocumentToken, StringRef)> const& callback) {
   // TODO implement me
   return ExecutionState::DONE;
 }
 
 template <class DataProvider>
-ExecutionState EdgeIterator<DataProvider>::all(std::function<void(EdgeToken, StringRef)> const& callback) {
+ExecutionState EdgeIterator<DataProvider>::all(
+    std::function<void(EdgeDocumentToken, StringRef)> const& callback) {
   // TODO implement me
   return ExecutionState::DONE;
 }

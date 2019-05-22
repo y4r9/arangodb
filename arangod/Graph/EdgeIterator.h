@@ -23,8 +23,21 @@
 #ifndef ARANGOD_GRAPH_EDGE_ITERATOR_H
 #define ARANGOD_GRAPH_EDGE_ITERATOR_H 1
 
+#include "Basics/Common.h"
+
 namespace arangodb {
+namespace velocypack {
+class StringRef;
+}
+
+namespace aql {
+enum class ExecutionState;
+}
+
 namespace graph {
+
+struct EdgeDocumentToken;
+
 /**
  * This class is supposed to iterate over a list
  * of edges connected to a vertex at a given depth.
@@ -38,7 +51,7 @@ class EdgeIterator {
    * Call the callback with next pair of Edge + ConnectedVertexId
    * Will return the getState value.
    */
-  ExecutionState next(std::function<void(EdgeToken, StringRef)> const& callback);
+  aql::ExecutionState next(std::function<void(EdgeDocumentToken, velocypack::StringRef)> const& callback);
 
   /**
    * Call the callback on all Edge + ConnectedVertexId tokens.
@@ -47,7 +60,7 @@ class EdgeIterator {
    * 2) WAITING -> did an async call, and needs to be reactivated after
    * response. In this case the callback might have been triggered.
    */
-  ExecutionState all(std::function<void(EdgeToken, StringRef)> callback);
+  aql::ExecutionState all(std::function<void(EdgeDocumentToken, velocypack::StringRef)> const& callback);
 
   /**
    * Returns the state of this iterator.
@@ -56,7 +69,7 @@ class EdgeIterator {
    * 2) HASMORE -> more edges ask again
    * 3) WAITING -> did an async call and needs to be reactivated after response
    */
-  ExecutionState getState() const;
+  aql::ExecutionState getState() const;
 };
 }  // namespace graph
 }  // namespace arangodb
