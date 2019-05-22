@@ -25,6 +25,7 @@
 #include "Aql/ExecutionState.h"
 #include "Graph/DataProvider.h"
 #include "Graph/EdgeIterator.h"
+#include "Logger/Logger.h"
 
 #include <velocypack/StringRef.h>
 
@@ -40,6 +41,7 @@ template class arangodb::graph::EdgeIterator<arangodb::graph::DataProvider>;
 namespace arangodb {
 namespace tests {
 namespace breadth_first_search_test {
+
 class BreadthFirstSearchTest : public ::testing::Test {
  protected:
   BreadthFirstSearchTest(){
@@ -53,9 +55,15 @@ class BreadthFirstSearchTest : public ::testing::Test {
 
 TEST_F(BreadthFirstSearchTest, it_has_a_short_description_of_the_test_name) {
   MockDataProvider provider;
-  std::string noVertex = "test";
-  velocypack::StringRef v(noVertex);
+  auto printer = [](graph::EdgeDocumentToken const token, velocypack::StringRef) {
+    std::cout << "HUHU" << velocypack::Slice{token.vpack()}.toJson() << std::endl;
+  };
+
+  auto const origin = provider.node_name(1ul);
+  velocypack::StringRef v(origin);
   auto iterator = provider.incidentEdges(v, 0);
+  iterator.all(printer);
+
   ASSERT_EQ(iterator.getState(), aql::ExecutionState::DONE);
 }
 
