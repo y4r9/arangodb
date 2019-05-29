@@ -149,10 +149,8 @@ class GeneralCommTask : public SocketTask {
 
   auth::TokenCache::Entry _authToken;
 
-  ////////////////////////////////////////////////////////////////////////////////
-  /// @brief checks the access rights for a specified path, includes automatic
-  ///        exceptions for /_api/users to allow logins without authorization
-  ////////////////////////////////////////////////////////////////////////////////
+  // checks the access rights for a specified path, includes automatic
+  // exceptions for /_api/users to allow logins without authorization
   rest::ResponseCode canAccessPath(GeneralRequest&) const;
 
  private:

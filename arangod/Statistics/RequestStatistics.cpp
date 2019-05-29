@@ -208,8 +208,8 @@ std::string RequestStatistics::timingsCsv() {
   ss << std::setprecision(9) << std::fixed << "read," << (_readEnd - _readStart)
      << ",queue," << (_queueEnd - _queueStart) << ",queue-size," << _queueSize
      << ",request," << (_requestEnd - _requestStart) << ",total,"
-     << (StatisticsFeature::time() - _readStart) << ",error,"
-     << (_executeError ? "true" : "false");
+     << (StatisticsFeature::time() - _readStart) << ",write,"
+     << (_writeEnd - _writeStart) << ",error," << (_executeError ? "true" : "false");
 
   return ss.str();
 }
