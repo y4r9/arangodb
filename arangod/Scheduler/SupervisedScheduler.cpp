@@ -117,6 +117,7 @@ SupervisedScheduler::SupervisedScheduler(uint64_t minThreads, uint64_t maxThread
 SupervisedScheduler::~SupervisedScheduler() {}
 
 bool SupervisedScheduler::queue(RequestLane lane, std::function<void()> handler, bool allowDirectHandling) {
+  /* FCTEST
   if (!isDirectDeadlockLane(lane) && 
       allowDirectHandling &&
       !ServerState::instance()->isClusterRole() &&
@@ -133,6 +134,7 @@ bool SupervisedScheduler::queue(RequestLane lane, std::function<void()> handler,
       throw;
     }
   }
+  */
 
   size_t queueNo = static_cast<size_t>(PriorityRequestLane(lane));
 

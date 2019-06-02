@@ -46,6 +46,9 @@ RestVersionHandler::RestVersionHandler(GeneralRequest* request, GeneralResponse*
 RestStatus RestVersionHandler::execute() {
   VPackBuilder result;
 
+  // FCTEST
+  double t = TRI_microtime();
+
   ServerSecurityFeature* security =
       application_features::ApplicationServer::getFeature<ServerSecurityFeature>(
           "ServerSecurity");
@@ -89,5 +92,8 @@ RestStatus RestVersionHandler::execute() {
   }    // allowInfo
   result.close();
   generateResult(rest::ResponseCode::OK, result.slice());
+
+  while (TRI_microtime() - t < 0.0001) {}
+  
   return RestStatus::DONE;
 }
