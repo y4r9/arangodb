@@ -210,8 +210,7 @@ function limitSuite() {
       const start = Date.now();
       queries.forEach(function (query) {
         //assertEqual(query[1], AQL_EXECUTE(query[0]).json.length, query);
-        const result = db._profileQuery(query[0]).toArray();
-        assertEqual(query[1], result.length, query);
+        db._profileQuery(query[0]);
       });
       const end = Date.now();
       const duration = (end - start)/1000;
