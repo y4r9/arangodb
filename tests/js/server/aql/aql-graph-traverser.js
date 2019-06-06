@@ -207,9 +207,15 @@ function limitSuite() {
         ['FOR v IN ' + gn + 'v FOR e IN 1..1 OUTBOUND v._id ' + gn + 'e LIMIT 10000, 1000 RETURN e', 0]
       ];
 
+      const start = Date.now();
       queries.forEach(function (query) {
-        assertEqual(query[1], AQL_EXECUTE(query[0]).json.length, query);
+        //assertEqual(query[1], AQL_EXECUTE(query[0]).json.length, query);
+        const result = db._profileQuery(query[0]).toArray();
+        assertEqual(query[1], result.length, query);
       });
+      const end = Date.now();
+      const duration = (end - start)/1000;
+      assertTrue(queries.length * 20 > duration);
     },
 
     testLimitsMultiEdges: function () {
