@@ -197,6 +197,8 @@ DBServerAgencySyncResult DBServerAgencySync::execute() {
     tmp = arangodb::maintenance::phaseOne(plan->slice(), local.slice(),
                                           serverId, *mfeature, rb);
     auto endTimePhaseOne = std::chrono::steady_clock::now();
+    LOG_TOPIC(DEBUG, Logger::CLUSTER_PERFORMANCE) << "Phase one took " <<
+      std::chrono::duration<double>(endTimePhaseOne - startTimePhaseOne).count();
     LOG_TOPIC(DEBUG, Logger::MAINTENANCE)
         << "DBServerAgencySync::phaseOne done";
 
@@ -235,8 +237,13 @@ DBServerAgencySyncResult DBServerAgencySync::execute() {
 
     LOG_TOPIC(DEBUG, Logger::MAINTENANCE) << "DBServerAgencySync::phaseTwo";
 
+    
+    auto startTimePhaseTwo = std::chrono::steady_clock::now();
     tmp = arangodb::maintenance::phaseTwo(plan->slice(), current->slice(),
                                           local.slice(), serverId, *mfeature, rb);
+    auto endTimePhaseTwo = std::chrono::steady_clock::now();
+    LOG_TOPIC(DEBUG, Logger::CLUSTER_PERFORMANCE) << "Phase one took " <<
+      std::chrono::duration<double>(endTimePhaseTwo - startTimePhaseTwo).count();
 
     LOG_TOPIC(DEBUG, Logger::MAINTENANCE)
         << "DBServerAgencySync::phaseTwo done";
