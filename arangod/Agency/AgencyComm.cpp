@@ -1440,11 +1440,17 @@ AgencyCommResult AgencyComm::sendWithFailover(arangodb::rest::RequestType method
       // try to send transaction; if we fail completely, retry
       try {
         std::string bodyString;
+        bool debugLength = false;
         if (!body.isNone()) {
           bodyString = body.toJson();
+                  
+          debugLength = (body.length() == 1 && body[0].length() == 1 && body[0][0].isString() &&
+           (body[0][0].copyString() == "arango/Plan" ||
+           body[0][0].copyString() == "arango/Current"));
+
         }
         url = initialUrl;  // Attention: overwritten by redirect below!
-        result = send(connection.get(), method, conTimeout, url, bodyString);
+        result = send(connection.get(), method, conTimeout, url, bodyString, debugLength);
 #ifdef ARANGODB_ENABLE_MAINTAINER_MODE
         if (!clientIds.empty()) {
           if (clientIds[0] == "INTEGRATION_TEST_INQUIRY_ERROR_0") {
@@ -1585,7 +1591,8 @@ AgencyCommResult AgencyComm::sendWithFailover(arangodb::rest::RequestType method
 
 AgencyCommResult AgencyComm::send(arangodb::httpclient::GeneralClientConnection* connection,
                                   arangodb::rest::RequestType method, double timeout,
-                                  std::string const& url, std::string const& body) {
+                                  std::string const& url, std::string const& body, bool debugLength) {
+  debugLength = false;
   TRI_ASSERT(connection != nullptr);
 
   if (method == arangodb::rest::RequestType::GET ||
@@ -1664,6 +1671,11 @@ AgencyCommResult AgencyComm::send(arangodb::httpclient::GeneralClientConnection*
   basics::StringBuffer& sb = response->getBody();
   result._body = std::string(sb.c_str(), sb.length());
 
+  if (debugLength) {
+    LOG_TOPIC(DEBUG, Logger::CLUSTER_PERFORMANCE)
+      << "Response contains " << result._body.size();
+  }
+  
   LOG_TOPIC(TRACE, Logger::AGENCYCOMM)
       << "request to agency returned status code " << result._statusCode
       << ", message: '" << result._message << "', body: '" << result._body << "'";

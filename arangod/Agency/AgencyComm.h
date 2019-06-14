@@ -694,7 +694,7 @@ class AgencyComm {
   bool unlock(std::string const&, arangodb::velocypack::Slice const&, double);
 
   AgencyCommResult send(httpclient::GeneralClientConnection*, rest::RequestType,
-                        double, std::string const&, std::string const&);
+                        double, std::string const&, std::string const&, bool debugLength = false);
 
   bool tryInitializeStructure();
 

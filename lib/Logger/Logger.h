@@ -129,6 +129,7 @@ class Logger {
   static LogTopic AUTHORIZATION;
   static LogTopic CACHE;
   static LogTopic CLUSTER;
+  static LogTopic CLUSTER_PERFORMANCE;
   static LogTopic COLLECTOR;
   static LogTopic COMMUNICATION;
   static LogTopic COMPACTOR;

@@ -507,9 +507,16 @@ RestStatus RestAgencyHandler::handleRead() {
                            "No leader");
     }
 
+    using namespace std::chrono;
+    auto start = steady_clock::now();
     read_ret_t ret = _agent->read(query);
 
     if (ret.accepted) {  // I am leading
+      
+      LOG_TOPIC(DEBUG, Logger::CLUSTER_PERFORMANCE)
+        << "Agency read took " << duration<double>(steady_clock::now()-start).count()
+        << " containing " << ret.result->slice().byteSize();
+      
       if (ret.success.size() == 1 && !ret.success.at(0)) {
         generateResult(rest::ResponseCode::I_AM_A_TEAPOT, ret.result->slice());
       } else {

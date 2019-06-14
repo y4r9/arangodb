@@ -485,13 +485,16 @@ void ClusterInfo::loadPlan() {
   LOG_TOPIC(DEBUG, Logger::CLUSTER) << "loadPlan: wantedVersion=" << storedVersion
                                     << ", doneVersion=" << _planProt.doneVersion;
   if (_planProt.doneVersion == storedVersion) {
-    // Somebody else did, what we intended to do, so just return
+    // Somebody else did, what we intended to do, so just return 
     return;
   }
 
+  using namespace std::chrono;
+  auto start = steady_clock::now();
   // Now contact the agency:
   AgencyCommResult result = _agency.getValues(prefixPlan);
-
+  LOG_TOPIC(DEBUG, Logger::CLUSTER_PERFORMANCE) << 
+    "loadPlan took " << duration<double>(steady_clock::now() - start).count();
   if (result.successful()) {
     VPackSlice slice = result.slice()[0].get(
         std::vector<std::string>({AgencyCommManager::path(), "Plan"}));
@@ -952,9 +955,13 @@ void ClusterInfo::loadCurrent() {
   LOG_TOPIC(DEBUG, Logger::CLUSTER)
       << "loadCurrent: wantedVersion: " << _currentProt.wantedVersion;
 
+  using namespace std::chrono;
+  auto start = steady_clock::now();
   // Now contact the agency:
   AgencyCommResult result = _agency.getValues(prefixCurrent);
-
+  LOG_TOPIC(DEBUG, Logger::CLUSTER_PERFORMANCE) << 
+    "loadPlan took " << duration<double>(steady_clock::now() - start).count();
+  
   if (result.successful()) {
     velocypack::Slice slice = result.slice()[0].get(
         std::vector<std::string>({AgencyCommManager::path(), "Current"}));
