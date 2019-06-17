@@ -118,8 +118,8 @@ class State {
 
   /// @brief Get complete logged commands by lower and upper bounds.
   ///        Default: [first, last]
-  arangodb::velocypack::Builder slices(index_t = 0,
-                                       index_t = (std::numeric_limits<uint64_t>::max)()) const;
+  query_t slices(index_t = 0,
+                 index_t = (std::numeric_limits<uint64_t>::max)()) const;
 
   /// @brief log entry at index i
   log_t operator[](index_t) const;

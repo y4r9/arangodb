@@ -493,6 +493,60 @@ RestStatus RestAgencyHandler::handleInquire() {
   return RestStatus::DONE;
 }
 
+
+RestStatus RestAgencyHandler::handleSlurp() {
+  if (_request->requestType() != rest::RequestType::POST) {
+    return reportMessage(
+      rest::ResponseCode::BAD, "POST is the only allowed method");
+  }
+
+  if (_agent->size() > 1 && _agent->leaderID() == NO_LEADER) {
+    return reportMessage(rest::ResponseCode::SERVICE_UNAVAILABLE, "No leader");
+  }
+
+  query_t query;
+  try {
+    query = _request->toVelocyPackBuilderPtr();
+  } catch (std::exception const& e) {
+    return reportMessage(rest::ResponseCode::BAD, e.what());
+  }
+
+  if (!query->slice().isObject()) {
+    return reportMessage(rest::ResponseCode::BAD, "body must be an object");
+  }
+  if (query->slice().hasKey("end") && !query->slice().get("end").isNumber()) {
+    return reportMessage(rest::ResponseCode::BAD,
+                         "'end' attribute must be a positive integer");
+  }
+  if (!query->slice().hasKey("start")) {
+    return reportMessage(rest::ResponseCode::BAD, "'start' attribute mandatory");
+  }
+  if (!query->slice().get("end").isNumber()) {
+    return reportMessage(rest::ResponseCode::BAD,
+                         "'start' attribute must be a positive integer");
+  }
+  
+  read_ret_t ret = _agent->getLogs(query);
+  
+  if (ret.accepted) {  // I am leading
+    if (ret.success.size() == 1 && !ret.success.at(0)) {
+      generateResult(rest::ResponseCode::I_AM_A_TEAPOT, ret.result->slice());
+    } else {
+      generateResult(rest::ResponseCode::OK, ret.result->slice());
+    }
+  } else {  // Redirect to leader
+    if (_agent->leaderID() == NO_LEADER) {
+      return reportMessage(rest::ResponseCode::SERVICE_UNAVAILABLE,
+                           "No leader");
+    } else {
+      TRI_ASSERT(ret.redirect != _agent->id());
+      redirectRequest(ret.redirect);
+    }
+  }
+  return RestStatus::DONE;
+}
+
+
 RestStatus RestAgencyHandler::handleRead() {
   if (_request->requestType() == rest::RequestType::POST) {
     query_t query;
@@ -594,6 +648,8 @@ RestStatus RestAgencyHandler::execute() {
         return handleWrite();
       } else if (suffixes[0] == "read") {
         return handleRead();
+      } else if (suffixes[0] == "slurp") {
+        return handleSlurp();
       } else if (suffixes[0] == "inquire") {
         return handleInquire();
       } else if (suffixes[0] == "transient") {

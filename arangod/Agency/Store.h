@@ -100,7 +100,7 @@ class Store {
   check_ret_t applyTransaction(Slice const& query);
 
   /// @brief Apply log entries in query, also process callbacks
-  std::vector<bool> applyLogEntries(arangodb::velocypack::Builder const& query,
+  std::vector<bool> applyLogEntries(query_t const& query,
                                     index_t index, term_t term, bool inform);
 
   /// @brief Read specified query from store

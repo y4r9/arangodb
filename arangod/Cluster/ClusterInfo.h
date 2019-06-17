@@ -32,6 +32,7 @@
 #include <velocypack/velocypack-aliases.h>
 
 #include "Agency/AgencyComm.h"
+#include "Agency/Store.h"
 #include "Basics/Mutex.h"
 #include "Basics/ReadLocker.h"
 #include "Basics/ReadWriteLock.h"
@@ -39,6 +40,7 @@
 #include "Basics/StaticStrings.h"
 #include "Basics/VelocyPackHelper.h"
 #include "Cluster/AgencyCallbackRegistry.h"
+#include "Cluster/ServerState.h"
 #include "VocBase/voc-types.h"
 #include "VocBase/vocbase.h"
 
@@ -296,6 +298,13 @@ class ClusterInfo {
   //////////////////////////////////////////////////////////////////////////////
 
   std::vector<DatabaseID> databases(bool = false);
+
+  //////////////////////////////////////////////////////////////////////////////
+  /// @brief (re-)load the information about our plan
+  /// Usually one does not have to call this directly.
+  //////////////////////////////////////////////////////////////////////////////
+
+  void pollAgency();
 
   //////////////////////////////////////////////////////////////////////////////
   /// @brief (re-)load the information about our plan
@@ -673,6 +682,16 @@ class ClusterInfo {
   // read/write lock which protects the actual data structure.
   // We encapsulate this protection in the struct ProtectionData:
 
+  struct StoreData {
+    Mutex mutex;
+    std::atomic<uint64_t> wantedIndex;
+    std::atomic<uint64_t> doneIndex;
+    arangodb::consensus::Store store;
+    arangodb::basics::ReadWriteLock lock;
+    StoreData() : wantedIndex(0), doneIndex(0),
+                  store(nullptr, ServerState::instance()->getId()) {}
+  };
+
   struct ProtectionData {
     std::atomic<bool> isValid;
     Mutex mutex;
@@ -710,6 +729,9 @@ class ClusterInfo {
 
   ProtectionData _planProt;
 
+  // Keep track of what we know
+  StoreData _store;
+
   uint64_t _planVersion;     // This is the version in the Plan which underlies
                              // the data in _plannedCollections, _shards and
                              // _shardKeys
@@ -742,6 +764,7 @@ class ClusterInfo {
   AllViews _plannedViews;  // from Plan/Views/
   AllViews _newPlannedViews;  // views that have been created during `loadPlan` execution
   std::atomic<std::thread::id> _planLoader;  // thread id that is loading plan
+  std::atomic<std::thread::id> _storeLoader;  // thread id that is loading plan
 
   // The Current state:
   AllCollectionsCurrent _currentCollections;  // from Current/Collections/
@@ -785,6 +808,8 @@ class ClusterInfo {
   //////////////////////////////////////////////////////////////////////////////
 
   static double const reloadServerListTimeout;
+
+  
 
   arangodb::Mutex _failedServersMutex;
   std::vector<std::string> _failedServers;

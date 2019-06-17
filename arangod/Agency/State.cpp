@@ -643,9 +643,9 @@ bool State::has(index_t index, term_t term) const {
 }
 
 /// Get vector of past transaction from 'start' to 'end'
-VPackBuilder State::slices(index_t start, index_t end) const {
-  VPackBuilder slices;
-  slices.openArray();
+query_t State::slices(index_t start, index_t end) const {
+  auto slices = std::make_shared<VPackBuilder>();
+  slices->openArray();
 
   MUTEX_LOCKER(mutexLocker, _logLock);  // Cannot be read lock (Compaction)
 
@@ -655,7 +655,7 @@ VPackBuilder State::slices(index_t start, index_t end) const {
     }
 
     if (start > _log.back().index) {  // no end specified
-      slices.close();
+      slices->close();
       return slices;
     }
 
@@ -665,7 +665,7 @@ VPackBuilder State::slices(index_t start, index_t end) const {
 
     for (size_t i = start - _cur; i <= end - _cur; ++i) {
       try {
-        slices.add(VPackSlice(_log.at(i).entry->data()));
+        slices->add(VPackSlice(_log.at(i).entry->data()));
       } catch (std::exception const&) {
         break;
       }
@@ -673,8 +673,7 @@ VPackBuilder State::slices(index_t start, index_t end) const {
   }
 
   mutexLocker.unlock();
-
-  slices.close();
+  slices->close();
 
   return slices;
 }
@@ -1530,9 +1529,9 @@ std::shared_ptr<VPackBuilder> State::latestAgencyState(TRI_vocbase_t& vocbase,
   result = queryResult2.result->slice();
 
   if (result.isArray() && result.length() > 0) {
-    VPackBuilder b;
+    query_t b = std::make_shared<VPackBuilder>();
     {
-      VPackArrayBuilder bb(&b);
+      VPackArrayBuilder bb(b.get());
       for (auto const& i : VPackArrayIterator(result)) {
         buffer_t tmp = std::make_shared<arangodb::velocypack::Buffer<uint8_t>>();
 
@@ -1551,7 +1550,7 @@ std::shared_ptr<VPackBuilder> State::latestAgencyState(TRI_vocbase_t& vocbase,
               << "Found unnecessary log entry with index " << entry.index
               << " and term " << entry.term;
         } else {
-          b.add(VPackSlice(entry.entry->data()));
+          b->add(VPackSlice(entry.entry->data()));
           if (entry.index != index + 1) {
             LOG_TOPIC(WARN, Logger::AGENCY)
                 << "Did not find log entries for indexes " << index + 1

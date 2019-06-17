@@ -134,6 +134,11 @@ bool Agent::start() {
 /// Get all logs from state machine
 query_t Agent::allLogs() const { return _state.allLogs(); }
 
+/// Get logs [start, end] from state machine
+query_t Agent::getLogs(index_t start, index_t end) const {
+  return _state.slices(start, end);
+}
+
 /// This agent's term
 term_t Agent::term() const { return _constituent.term(); }
 
@@ -743,10 +748,11 @@ void Agent::advanceCommitIndex() {
       LOG_TOPIC(DEBUG, Logger::AGENCY)
           << "Critical mass for commiting " << _commitIndex + 1 << " through "
           << index << " to read db";
+
       // Change _readDB and _commitIndex atomically together:
-      _readDB.applyLogEntries(_state.slices(/* inform others by callbacks */
-                                            _commitIndex + 1, index),
-                              _commitIndex, t, true);
+      /* inform others by callbacks */
+      _readDB.applyLogEntries(
+        _state.slices(_commitIndex + 1, index), _commitIndex, t, true);
 
       _commitIndex = index;
       LOG_TOPIC(DEBUG, Logger::AGENCY)
@@ -1902,9 +1908,9 @@ query_t Agent::buildDB(arangodb::consensus::index_t index) {
       auto logs = _state.slices(oldIndex + 1, index);
       store.applyLogEntries(logs, index, term, false /* do not perform callbacks */);
     } else {
-      VPackBuilder logs;
-      logs.openArray();
-      logs.close();
+      query_t logs = std::make_shared<VPackBuilder>();
+      { VPackArrayBuilder(logs.get()); }
+
       store.applyLogEntries(logs, index, term, false /* do not perform callbacks */);
     }
   }

@@ -38,6 +38,8 @@
 #include "Basics/ConditionLocker.h"
 #include "Basics/ReadWriteLock.h"
 
+#include <limits>
+
 struct TRI_vocbase_t;
 
 namespace arangodb {
@@ -251,6 +253,11 @@ class Agent final : public arangodb::Thread, public AgentInterface {
   /// @brief All there is in the state machine
   query_t allLogs() const;
 
+  /// @brief All there is in the state machine
+
+  query_t getLogs(index_t start = 0,
+                  index_t end = (std::numeric_limits<uint64_t>::max)()) const;
+
   /// @brief Last contact with followers
   void lastAckedAgo(Builder&) const;
 
@@ -319,6 +326,7 @@ class Agent final : public arangodb::Thread, public AgentInterface {
   void updateConfiguration(VPackSlice const&);
 
  private:
+
   /// @brief Find out, if we've had acknowledged RPCs recent enough
   bool challengeLeadership();
 

@@ -262,13 +262,13 @@ struct notify_t {
 };
 
 /// Apply (from logs)
-std::vector<bool> Store::applyLogEntries(arangodb::velocypack::Builder const& queries,
+std::vector<bool> Store::applyLogEntries(query_t const& queries,
                                          index_t index, term_t term, bool inform) {
   std::vector<bool> applied;
 
   // Apply log entries
   {
-    VPackArrayIterator queriesIterator(queries.slice());
+    VPackArrayIterator queriesIterator(queries->slice());
 
     MUTEX_LOCKER(storeLocker, _storeLock);
 
@@ -281,7 +281,7 @@ std::vector<bool> Store::applyLogEntries(arangodb::velocypack::Builder const& qu
   if (inform && _agent->leading()) {
     // Find possibly affected callbacks
     std::multimap<std::string, std::shared_ptr<notify_t>> in;
-    VPackArrayIterator queriesIterator(queries.slice());
+    VPackArrayIterator queriesIterator(queries->slice());
 
     while (queriesIterator.valid()) {
       VPackSlice const& i = queriesIterator.value();

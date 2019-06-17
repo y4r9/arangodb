@@ -61,6 +61,7 @@ class RestAgencyHandler : public RestVocbaseBaseHandler {
   RestStatus handleState();
   RestStatus handleTransient();
   RestStatus handleInquire();
+  RestStatus handleSlurp();
 
   void redirectRequest(std::string const& leaderId);
   consensus::Agent* _agent;

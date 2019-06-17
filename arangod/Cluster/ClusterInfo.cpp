@@ -445,6 +445,37 @@ void ClusterInfo::loadClusterId() {
   }
 }
 
+
+
+void ClusterInfo::pollAgency() {
+
+  DatabaseFeature* databaseFeature =
+      application_features::ApplicationServer::getFeature<DatabaseFeature>(
+          "Database");
+
+  ++_store.wantedIndex;
+  MUTEX_LOCKER(mutexLocker, _store.mutex);
+  
+  // set log loader
+  TRI_ASSERT(_newPlannedViews.empty());
+  _storeLoader = std::this_thread::get_id();
+
+  // this is the index we will set in the end
+  uint64_t storedIndex = _store.wantedIndex; 
+
+  LOG_TOPIC(DEBUG, Logger::CLUSTER) << "loadPlan: wantedVersion=" << storedIndex
+                                    << ", doneIndex=" << _store.doneIndex;
+
+  if (_store.doneIndex == storedIndex) {
+    // Somebody else did, what we intended to do, so just return 
+    return;
+  }
+
+  // Now contact the agency:
+  AgencyCommResult result = _agency.slurp(_store.wantedIndex);
+  
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 /// @brief (re-)load the information about our plan
 /// Usually one does not have to call this directly.
@@ -506,8 +537,7 @@ void ClusterInfo::loadPlan() {
       if (planVersionSlice.isNumber()) {
         try {
           newPlanVersion = planVersionSlice.getNumber<uint64_t>();
-        } catch (...) {
-        }
+        } catch (...) {}
       }
       LOG_TOPIC(TRACE, Logger::CLUSTER) << "loadPlan: newPlanVersion=" << newPlanVersion;
       if (newPlanVersion == 0) {
