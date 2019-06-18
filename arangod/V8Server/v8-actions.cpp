@@ -116,7 +116,8 @@ class v8_action_t final : public TRI_action_t {
     // get a V8 context
     V8ContextGuard guard(vocbase, _isSystem ?
         JavaScriptSecurityContext::createInternalContext() :
-        JavaScriptSecurityContext::createRestActionContext(allowUseDatabase));
+        JavaScriptSecurityContext::createRestActionContext(allowUseDatabase, !request->authActive() || request->authenticated())
+        );
 
     // locate the callback
     READ_LOCKER(readLocker, _callbacksLock);
@@ -1738,7 +1739,7 @@ void TRI_InitV8ServerUtils(v8::Isolate* isolate) {
                                                    "SYS_DEBUG_SHOULD_FAILAT"),
                                JS_DebugShouldFailAt);
 #endif
-  
+
   // poll interval for Foxx queues
   FoxxQueuesFeature* foxxQueuesFeature =
       application_features::ApplicationServer::getFeature<FoxxQueuesFeature>(

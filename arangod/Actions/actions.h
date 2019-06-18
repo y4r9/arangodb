@@ -46,9 +46,9 @@ class TRI_action_result_t {
 /// @brief action descriptor
 class TRI_action_t {
  public:
-  TRI_action_t() : 
-    _urlParts(0), 
-    _isPrefix(false), 
+  TRI_action_t() :
+    _urlParts(0),
+    _isPrefix(false),
     _allowUseDatabase(false),
     _isSystem(false) {}
 
@@ -73,13 +73,14 @@ class TRI_action_t {
 
   bool _isPrefix;
   bool _allowUseDatabase;
-  bool _isSystem;
+  bool _isSystem; // can be set for define http-action - if set an internal
+                  // context will be used to run the the action
 };
 
-/// @brief fake action class used only inside /_admin/execute RestHandler 
+/// @brief fake action class used only inside /_admin/execute RestHandler
 class TRI_fake_action_t final : public TRI_action_t {
  public:
-  TRI_fake_action_t(std::string const& url, size_t urlParts) 
+  TRI_fake_action_t(std::string const& url, size_t urlParts)
       : TRI_action_t() {
     setUrl(url, urlParts);
   }

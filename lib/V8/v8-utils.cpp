@@ -2856,7 +2856,7 @@ static void JS_ProcessStatistics(v8::FunctionCallbackInfo<v8::Value> const& args
           "V8Security");
   TRI_ASSERT(v8security != nullptr);
 
-  if (v8security->isInternalModuleHardened(isolate)) {
+  if (v8security->isInternalModuleHardened(isolate) && !v8security->isAllowedToAccessSystemDatabase(isolate)) {
     THROW_ARANGO_EXCEPTION_MESSAGE(TRI_ERROR_FORBIDDEN,
                                    "not allowed to provide this information");
   }

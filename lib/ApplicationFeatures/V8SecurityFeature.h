@@ -69,6 +69,9 @@ class V8SecurityFeature final : public application_features::ApplicationFeature 
   /// end users via JavaScript actions. will use _environmentVariablesFilter*
   bool shouldExposeEnvironmentVariable(v8::Isolate* isolate, std::string const& name) const;
 
+  /// @brief tests if systemDatabase is accessible
+  bool isAllowedToAccessSystemDatabase(v8::Isolate* isolate) const;
+
   /// @brief tests if the IP address or domain/host name given should be
   /// accessible via the JS_Download (internal.download) function in JavaScript
   /// actions the endpoint is passed in via protocol (e.g. tcp://, ssl://,

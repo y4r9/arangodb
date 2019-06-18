@@ -54,6 +54,9 @@ extern "C" {
 #include <linenoise.h>
 }
 
+struct TRI_vocbase_t;
+TRI_vocbase_t* GetContextVocBasePointer(v8::Isolate* isolate) { return nullptr; }
+
 using namespace arangodb::basics;
 using namespace arangodb::options;
 using namespace arangodb::rest;

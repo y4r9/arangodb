@@ -86,16 +86,18 @@ class GeneralCommTask : public SocketTask {
   GeneralCommTask const& operator=(GeneralCommTask const&) = delete;
 
  public:
-  GeneralCommTask(GeneralServer& server, 
+  GeneralCommTask(GeneralServer& server,
                   char const* name,
-                  std::unique_ptr<Socket>, 
+                  std::unique_ptr<Socket>,
                   ConnectionInfo&&,
-                  double keepAliveTimeout, 
+                  double keepAliveTimeout,
                   bool skipSocketInit = false);
 
   ~GeneralCommTask();
 
   virtual arangodb::Endpoint::TransportType transportType() = 0;
+
+  bool authenticationEnabled() const;
 
  protected:
   virtual std::unique_ptr<GeneralResponse> createResponse(rest::ResponseCode,

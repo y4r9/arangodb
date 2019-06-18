@@ -30,6 +30,8 @@
 #include "ProgramOptions/ProgramOptions.h"
 #include "ProgramOptions/Section.h"
 #include "V8/v8-globals.h"
+#include "V8Server/v8-vocbaseprivate.h"
+#include "VocBase/vocbase.h"
 
 #include <stdexcept>
 #include <v8.h>
@@ -136,7 +138,7 @@ bool checkBlackAndWhitelist(std::string const& value, bool hasWhitelist,
     // we have neither a whitelist nor a blacklist hit => deny
     return false;
   }
-  
+
   // longer match or blacklist wins
   return white_result[0].length() > black_result[0].length();
 }
@@ -284,15 +286,15 @@ void V8SecurityFeature::start() {
 }
 
 void V8SecurityFeature::dumpAccessLists() const {
-  LOG_TOPIC("2cafe", DEBUG, arangodb::Logger::SECURITY) 
+  LOG_TOPIC("2cafe", DEBUG, arangodb::Logger::SECURITY)
     << "files whitelisted by user:" << _filesWhitelist
     << ", internal read whitelist:" << _readWhitelist
     << ", internal write whitelist:" << _writeWhitelist
-    << ", internal startup options whitelist:" << _startupOptionsWhitelist 
+    << ", internal startup options whitelist:" << _startupOptionsWhitelist
     << ", internal startup options blacklist: " << _startupOptionsBlacklist
-    << ", internal environment variable whitelist:" << _environmentVariablesWhitelist 
+    << ", internal environment variable whitelist:" << _environmentVariablesWhitelist
     << ", internal environment variables blacklist: " << _environmentVariablesBlacklist
-    << ", internal endpoints whitelist:" << _endpointsWhitelist 
+    << ", internal endpoints whitelist:" << _endpointsWhitelist
     << ", internal endpoints blacklist: " << _endpointsBlacklist;
 }
 
@@ -367,6 +369,16 @@ bool V8SecurityFeature::shouldExposeEnvironmentVariable(v8::Isolate* isolate,
                                 _environmentVariablesWhitelistRegex,
                                 !_environmentVariablesBlacklist.empty(),
                                 _environmentVariablesBlacklistRegex);
+}
+
+bool V8SecurityFeature::isAllowedToAccessSystemDatabase(v8::Isolate* isolate) const {
+  TRI_GET_GLOBALS();
+  TRI_ASSERT(v8g != nullptr);
+  auto const& sec = v8g->_securityContext;
+  auto vocbase = GetContextVocBasePointer(isolate);
+  bool isSystemDataBase = !vocbase || ( vocbase->name() == "_system" ); // If the vocbase is a nullptr we are in arangosh
+  bool authenticated = sec.isAuthenticated() || isInternalContext(isolate);
+  return authenticated && isSystemDataBase;
 }
 
 bool V8SecurityFeature::isAllowedToConnectToEndpoint(v8::Isolate* isolate,

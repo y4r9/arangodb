@@ -75,9 +75,10 @@ bool JavaScriptSecurityContext::canControlProcesses() const {
   return context;
 }
 
-/*static*/ JavaScriptSecurityContext JavaScriptSecurityContext::createRestActionContext(bool allowUseDatabase) {
+/*static*/ JavaScriptSecurityContext JavaScriptSecurityContext::createRestActionContext(bool allowUseDatabase, bool authenticated) {
   JavaScriptSecurityContext context(Type::RestAction);
   context._canUseDatabase = allowUseDatabase;
+  context._authenticated = authenticated;
   return context;
 }
 

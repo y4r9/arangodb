@@ -54,6 +54,9 @@ class JavaScriptSecurityContext {
   /// @brief whether or not db._useDatabase(...) is allowed
   bool canUseDatabase() const { return _canUseDatabase; }
 
+  /// @brief whether or not the context was created for an authenticated restRequest
+  bool isAuthenticated() const { return _authenticated; }
+
   /// @brief whether fs read is allowed
   bool canReadFs() const;
 
@@ -88,8 +91,8 @@ class JavaScriptSecurityContext {
   static JavaScriptSecurityContext createTaskContext(bool allowUseDatabase);
 
   /// @brief create a security context for REST actions
-  static JavaScriptSecurityContext createRestActionContext(bool allowUseDatabase);
-  
+  static JavaScriptSecurityContext createRestActionContext(bool allowUseDatabase, bool authenticated = false);
+
   /// @brief create a security context for admin script operations running
   /// via POST /_admin/execute
   static JavaScriptSecurityContext createRestAdminScriptActionContext(bool allowUseDatabase);
@@ -97,6 +100,7 @@ class JavaScriptSecurityContext {
  private:
   Type _type;
   bool _canUseDatabase = false;
+  bool _authenticated = false;
 };
 
 }  // namespace arangodb

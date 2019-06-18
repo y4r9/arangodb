@@ -258,6 +258,8 @@ GeneralCommTask::RequestFlow GeneralCommTask::prepareExecution(GeneralRequest& r
     return RequestFlow::Abort;
   }
 
+  req.setAuthActive(_auth->isActive());
+
   // Step 5: Update global HLC timestamp from authorized requests
   if (code == rest::ResponseCode::OK && req.authenticated()) {
     // check for an HLC time stamp only with auth
@@ -479,15 +481,15 @@ void GeneralCommTask::handleRequestDirectly(bool doLock, std::shared_ptr<RestHan
   if (application_features::ApplicationServer::isStopping()) {
     return;
   }
-  
+
   handler->runHandler([self = shared_from_this()](rest::RestHandler* handler) {
     auto thisPtr = static_cast<GeneralCommTask*>(self.get());
     RequestStatistics* stat = handler->stealStatistics();
     auto h = handler->shared_from_this();
     // Pass the response the io context
-    thisPtr->_peer->post([self, stat, h = std::move(h)]() { 
+    thisPtr->_peer->post([self, stat, h = std::move(h)]() {
       auto thisPtr = static_cast<GeneralCommTask*>(self.get());
-      thisPtr->addResponse(*(h->response()), stat); 
+      thisPtr->addResponse(*(h->response()), stat);
     });
   });
 }
@@ -544,6 +546,7 @@ rest::ResponseCode GeneralCommTask::canAccessPath(GeneralRequest& req) const {
 
   rest::ResponseCode result = userAuthenticated ? rest::ResponseCode::OK
                                                 : rest::ResponseCode::UNAUTHORIZED;
+
 
   VocbaseContext* vc = static_cast<VocbaseContext*>(req.requestContext());
   TRI_ASSERT(vc != nullptr);

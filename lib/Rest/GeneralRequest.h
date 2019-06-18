@@ -84,6 +84,8 @@ class GeneralRequest {
         _requestContext(nullptr),
         _isRequestContextOwner(false),
         _authenticated(false),
+        _authActive(true), // the default is true as in some cases
+                           // not active implies authenticated
         _type(RequestType::ILLEGAL),
         _contentType(ContentType::UNSET),
         _contentTypeResponse(ContentType::UNSET) {}
@@ -111,6 +113,9 @@ class GeneralRequest {
   ///  to any specific resource.
   bool authenticated() const { return _authenticated; }
   void setAuthenticated(bool a) { _authenticated = a; }
+
+  bool authActive() const { return _authActive; };
+  bool setAuthActive(bool a) { _authActive = a; return a; };
 
   // @brief User sending this request
   TEST_VIRTUAL std::string const& user() const { return _user; }
@@ -153,9 +158,9 @@ class GeneralRequest {
   TEST_VIRTUAL std::vector<std::string> const& suffixes() const {
     return _suffixes;
   }
-  
+
   void addSuffix(std::string part);
-  
+
 #ifdef ARANGODB_USE_GOOGLE_TESTS
   void clearSuffixes() {
     _suffixes.clear();
@@ -178,7 +183,7 @@ class GeneralRequest {
   std::unordered_map<std::string, std::string> const& headers() const {
     return _headers;
   }
-  
+
 #ifdef ARANGODB_USE_GOOGLE_TESTS
   void addHeader(std::string key, std::string value) {
     _headers.emplace(std::move(key), std::move(value));
@@ -240,6 +245,7 @@ class GeneralRequest {
   RequestContext* _requestContext;
   bool _isRequestContextOwner;
   bool _authenticated;
+  bool _authActive;
 
   rest::AuthenticationMethod _authenticationMethod = rest::AuthenticationMethod::NONE;
 
