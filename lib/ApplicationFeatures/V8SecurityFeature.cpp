@@ -378,6 +378,12 @@ bool V8SecurityFeature::isAllowedToAccessSystemDatabase(v8::Isolate* isolate) co
   auto vocbase = GetContextVocBasePointer(isolate);
   bool isSystemDataBase = !vocbase || ( vocbase->name() == "_system" ); // If the vocbase is a nullptr we are in arangosh
   bool authenticated = sec.isAuthenticated() || isInternalContext(isolate);
+
+  LOG_DEVEL << "+++++++++++++++++++++++++++";
+  LOG_DEVEL << "vocbase: " << vocbase->name();
+  LOG_DEVEL << "messageid: " << sec.messageId();
+  LOG_DEVEL << "final: " << (authenticated && isSystemDataBase);
+  LOG_DEVEL << "type: " << toString(sec.type());
   return authenticated && isSystemDataBase;
 }
 

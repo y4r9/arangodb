@@ -113,10 +113,31 @@ class v8_action_t final : public TRI_action_t {
     // allow use database execution in rest calls?
     bool allowUseDatabase = _allowUseDatabase || ActionFeature::ACTION->allowUseDatabase();
 
+
+    //auto starts_with = [](const std::string str, const std::string prefix)
+    //{
+    //      return ((prefix.size() <= str.size()) && std::equal(prefix.begin(), prefix.end(), str.begin()));
+    //};
+
+    //if (starts_with(request->requestPath(), "/_admin/aardvark/statistics")) {
+    //if (request->requestPath().find("statistics") != std::string::npos) {
+
+      LOG_DEVEL << "------------------------------------------------------------------";
+      LOG_DEVEL << request->requestPath();
+      LOG_DEVEL << request->connectionInfo().fullClient();
+      LOG_DEVEL << "messageID: " << request->clientTaskId();
+      LOG_DEVEL << "requestDB: " << request->databaseName();
+      LOG_DEVEL << "restUser: " << request->user();
+      LOG_DEVEL << "restAuth: " << request->authenticated();
+      LOG_DEVEL << "restAuthEnabled: " << request->authActive();
+      LOG_DEVEL << "isSystem: " << _isSystem;
+      LOG_DEVEL << "finalPerm: " << (!request->authActive() || request->authenticated());
+    //}
+
     // get a V8 context
     V8ContextGuard guard(vocbase, _isSystem ?
-        JavaScriptSecurityContext::createInternalContext() :
-        JavaScriptSecurityContext::createRestActionContext(allowUseDatabase, !request->authActive() || request->authenticated())
+        JavaScriptSecurityContext::createInternalContext(true, request->clientTaskId()) :
+        JavaScriptSecurityContext::createRestActionContext(allowUseDatabase, !request->authActive() || request->authenticated(), request->clientTaskId())
         );
 
     // locate the callback

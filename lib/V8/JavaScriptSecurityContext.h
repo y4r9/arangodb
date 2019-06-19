@@ -28,6 +28,7 @@
 
 namespace arangodb {
 
+
 class JavaScriptSecurityContext {
  public:
   enum class Type {
@@ -41,7 +42,7 @@ class JavaScriptSecurityContext {
   };
 
   explicit JavaScriptSecurityContext(Type type)
-      : _type(type) {}
+      : _type(type), _messageId(0) {}
 
   ~JavaScriptSecurityContext() = default;
 
@@ -56,6 +57,10 @@ class JavaScriptSecurityContext {
 
   /// @brief whether or not the context was created for an authenticated restRequest
   bool isAuthenticated() const { return _authenticated; }
+
+  uint64_t messageId() const { return _messageId; }
+
+  Type type() const { return _type; }
 
   /// @brief whether fs read is allowed
   bool canReadFs() const;
@@ -77,7 +82,7 @@ class JavaScriptSecurityContext {
 
   /// @brief create a security context for arangodb-internal
   /// operations, with non-restrictive settings
-  static JavaScriptSecurityContext createInternalContext();
+  static JavaScriptSecurityContext createInternalContext(bool isRest = false, uint64_t messageId = 0);
 
   /// @brief create a security context for admin script operations,
   /// invoked by `--javascript.execute` or when running in --console mode
@@ -91,7 +96,7 @@ class JavaScriptSecurityContext {
   static JavaScriptSecurityContext createTaskContext(bool allowUseDatabase);
 
   /// @brief create a security context for REST actions
-  static JavaScriptSecurityContext createRestActionContext(bool allowUseDatabase, bool authenticated = false);
+  static JavaScriptSecurityContext createRestActionContext(bool allowUseDatabase, bool authenticated = false, uint64_t messageId = 0);
 
   /// @brief create a security context for admin script operations running
   /// via POST /_admin/execute
@@ -99,9 +104,13 @@ class JavaScriptSecurityContext {
 
  private:
   Type _type;
+  uint64_t _messageId = 0;
+  bool  _isRest = false;
   bool _canUseDatabase = false;
   bool _authenticated = false;
 };
+
+std::string toString(JavaScriptSecurityContext::Type t);
 
 }  // namespace arangodb
 

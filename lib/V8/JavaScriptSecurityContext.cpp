@@ -25,6 +25,26 @@
 
 using namespace arangodb;
 
+std::string arangodb::toString(JavaScriptSecurityContext::Type t) {
+  switch(t) {
+    case JavaScriptSecurityContext::Type::AdminScript:
+      return "AdminScript";
+    case JavaScriptSecurityContext::Type::Internal:
+      return "Internal";
+    case JavaScriptSecurityContext::Type::Query:
+      return "Query";
+    case JavaScriptSecurityContext::Type::Restricted:
+      return "Restricted";
+    case JavaScriptSecurityContext::Type::RestAction:
+      return "RestAction";
+    case JavaScriptSecurityContext::Type::RestAdminScriptAction:
+      return "RestAdminScriptAction";
+    case JavaScriptSecurityContext::Type::Task:
+      return "Task";
+  }
+  return "invalid type";
+};
+
 void JavaScriptSecurityContext::reset() {
   _canUseDatabase = false;
 }
@@ -51,9 +71,12 @@ bool JavaScriptSecurityContext::canControlProcesses() const {
   return context;
 }
 
-/*static*/ JavaScriptSecurityContext JavaScriptSecurityContext::createInternalContext() {
+/*static*/ JavaScriptSecurityContext JavaScriptSecurityContext::createInternalContext(bool isRest, uint64_t id) {
   JavaScriptSecurityContext context(Type::Internal);
+  context._isRest = isRest;
+  context._messageId = id;
   context._canUseDatabase = true;
+
   return context;
 }
 
@@ -75,10 +98,12 @@ bool JavaScriptSecurityContext::canControlProcesses() const {
   return context;
 }
 
-/*static*/ JavaScriptSecurityContext JavaScriptSecurityContext::createRestActionContext(bool allowUseDatabase, bool authenticated) {
+/*static*/ JavaScriptSecurityContext JavaScriptSecurityContext::createRestActionContext(bool allowUseDatabase, bool authenticated, uint64_t id) {
   JavaScriptSecurityContext context(Type::RestAction);
+  context._isRest = true;
   context._canUseDatabase = allowUseDatabase;
   context._authenticated = authenticated;
+  context._messageId=id;
   return context;
 }
 
