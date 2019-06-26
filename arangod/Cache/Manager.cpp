@@ -109,7 +109,11 @@ Manager::~Manager() {
 std::shared_ptr<Cache> Manager::createCache(CacheType type, bool enableWindowedStats,
                                             uint64_t maxSize) {
   std::shared_ptr<Cache> result(nullptr);
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+  _lock.writeLock(__FILE__, __LINE__);
+#else
   _lock.writeLock();
+#endif
   bool allowed = isOperational();
   Metadata metadata;
   std::shared_ptr<Table> table(nullptr);
@@ -157,7 +161,11 @@ void Manager::destroyCache(std::shared_ptr<Cache> cache) {
 }
 
 void Manager::beginShutdown() {
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+  _lock.writeLock(__FILE__, __LINE__);
+#else
   _lock.writeLock();
+#endif
   if (!_shutdown) {
     _shuttingDown = true;
   }
@@ -165,7 +173,11 @@ void Manager::beginShutdown() {
 }
 
 void Manager::shutdown() {
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+  _lock.writeLock(__FILE__, __LINE__);
+#else
   _lock.writeLock();
+#endif
   if (!_shutdown) {
     if (!_shuttingDown) {
       _shuttingDown = true;
@@ -174,7 +186,11 @@ void Manager::shutdown() {
       std::shared_ptr<Cache> cache = _caches.begin()->second;
       _lock.writeUnlock();
       cache->shutdown();
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+      _lock.writeLock(__FILE__, __LINE__);
+#else
       _lock.writeLock();
+#endif
     }
     freeUnusedTables();
     _shutdown = true;
@@ -184,7 +200,11 @@ void Manager::shutdown() {
 
 // change global cache limit
 bool Manager::resize(uint64_t newGlobalLimit) {
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+  _lock.writeLock(__FILE__, __LINE__);
+#else
   _lock.writeLock();
+#endif
   if ((newGlobalLimit < Manager::minSize) ||
       (static_cast<uint64_t>(0.5 * (1.0 - Manager::highwaterMultiplier) *
                              static_cast<double>(newGlobalLimit)) < _fixedAllocation) ||
@@ -220,7 +240,11 @@ bool Manager::resize(uint64_t newGlobalLimit) {
 }
 
 uint64_t Manager::globalLimit() {
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+  _lock.readLock(__FILE__, __LINE__);
+#else
   _lock.readLock();
+#endif
   uint64_t limit = _resizing ? _globalSoftLimit : _globalHardLimit;
   _lock.readUnlock();
 
@@ -228,7 +252,11 @@ uint64_t Manager::globalLimit() {
 }
 
 uint64_t Manager::globalAllocation() {
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+  _lock.readLock(__FILE__, __LINE__);
+#else
   _lock.readLock();
+#endif
   uint64_t allocation = _globalAllocation;
   _lock.readUnlock();
 
@@ -315,7 +343,11 @@ std::tuple<bool, Metadata, std::shared_ptr<Table>> Manager::registerCache(uint64
 }
 
 void Manager::unregisterCache(uint64_t id) {
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+  _lock.writeLock(__FILE__, __LINE__);
+#else
   _lock.writeLock();
+#endif
   _accessStats.purgeRecord(id);
   auto it = _caches.find(id);
   if (it == _caches.end()) {
@@ -335,7 +367,11 @@ std::pair<bool, Manager::time_point> Manager::requestGrow(Cache* cache) {
   Manager::time_point nextRequest = futureTime(100);
   bool allowed = false;
 
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+  bool ok = _lock.writeLock(__FILE__, __LINE__, Manager::triesSlow);
+#else
   bool ok = _lock.writeLock(Manager::triesSlow);
+#endif
   if (ok) {
     if (isOperational() && !globalProcessRunning()) {
       Metadata* metadata = cache->metadata();
@@ -376,7 +412,11 @@ std::pair<bool, Manager::time_point> Manager::requestMigrate(Cache* cache, uint3
   Manager::time_point nextRequest = futureTime(100);
   bool allowed = false;
 
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+  bool ok = _lock.writeLock(__FILE__, __LINE__, Manager::triesSlow);
+#else
   bool ok = _lock.writeLock(Manager::triesSlow);
+#endif
   if (ok) {
     if (isOperational() && !globalProcessRunning()) {
       Metadata* metadata = cache->metadata();
@@ -482,7 +522,11 @@ void Manager::unprepareTask(Manager::TaskEnvironment environment) {
   switch (environment) {
     case TaskEnvironment::rebalancing: {
       if ((--_rebalancingTasks) == 0) {
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+        _lock.writeLock(__FILE__, __LINE__);
+#else
         _lock.writeLock();
+#endif
         _rebalancing = false;
         _rebalanceCompleted = std::chrono::steady_clock::now();
         _lock.writeUnlock();
@@ -491,7 +535,11 @@ void Manager::unprepareTask(Manager::TaskEnvironment environment) {
     }
     case TaskEnvironment::resizing: {
       if ((--_resizingTasks) == 0) {
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+        _lock.writeLock(__FILE__, __LINE__);
+#else
         _lock.writeLock();
+#endif
         _resizing = false;
         _lock.writeUnlock();
       };
@@ -506,7 +554,11 @@ void Manager::unprepareTask(Manager::TaskEnvironment environment) {
 
 int Manager::rebalance(bool onlyCalculate) {
   if (!onlyCalculate) {
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+    _lock.writeLock(__FILE__, __LINE__);
+#else
     _lock.writeLock();
+#endif
     if (_caches.size() == 0) {
       _lock.writeUnlock();
       return TRI_ERROR_NO_ERROR;
@@ -695,7 +747,11 @@ std::shared_ptr<Table> Manager::leaseTable(uint32_t logSize) {
 void Manager::reclaimTable(std::shared_ptr<Table> table, bool internal) {
   TRI_ASSERT(table.get() != nullptr);
   if (!internal) {
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+    _lock.writeLock(__FILE__, __LINE__);
+#else
     _lock.writeLock();
+#endif
   }
 
   uint32_t logSize = table->logSize();

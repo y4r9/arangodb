@@ -124,7 +124,11 @@ uint32_t Table::logSize() const { return _logSize; }
 std::pair<void*, Table*> Table::fetchAndLockBucket(uint32_t hash, uint64_t maxTries) {
   GenericBucket* bucket = nullptr;
   Table* source = nullptr;
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+  bool ok = _lock.readLock(__FILE__, __LINE__, maxTries);
+#else
   bool ok = _lock.readLock(maxTries);
+#endif
   if (ok) {
     ok = !_disabled;
     if (ok) {
@@ -156,7 +160,11 @@ std::pair<void*, Table*> Table::fetchAndLockBucket(uint32_t hash, uint64_t maxTr
 std::shared_ptr<Table> Table::setAuxiliary(std::shared_ptr<Table> table) {
   std::shared_ptr<Table> result = table;
   if (table.get() != this) {
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+    _lock.writeLock(__FILE__, __LINE__);
+#else
     _lock.writeLock();
+#endif
     if (table.get() == nullptr) {
       result = _auxiliary;
       _auxiliary = table;
@@ -185,7 +193,11 @@ std::unique_ptr<Table::Subtable> Table::auxiliaryBuckets(uint32_t index) {
   uint32_t mask;
   uint32_t shift;
 
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+  _lock.readLock(__FILE__, __LINE__);
+#else
   _lock.readLock();
+#endif
   std::shared_ptr<Table> source = _auxiliary->shared_from_this();
   TRI_ASSERT(_auxiliary.get() != nullptr);
   if (_logSize > _auxiliary->_logSize) {
@@ -224,19 +236,31 @@ void Table::clear() {
 }
 
 void Table::disable() {
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+  _lock.writeLock(__FILE__, __LINE__);
+#else
   _lock.writeLock();
+#endif
   _disabled = true;
   _lock.writeUnlock();
 }
 
 void Table::enable() {
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+  _lock.writeLock(__FILE__, __LINE__);
+#else
   _lock.writeLock();
+#endif
   _disabled = false;
   _lock.writeUnlock();
 }
 
 bool Table::isEnabled(uint64_t maxTries) {
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+  bool ok = _lock.readLock(__FILE__, __LINE__, maxTries);
+#else
   bool ok = _lock.readLock(maxTries);
+#endif
   if (ok) {
     ok = !_disabled;
     _lock.readUnlock();
@@ -256,7 +280,11 @@ bool Table::slotEmptied() {
 }
 
 void Table::signalEvictions() {
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+  bool ok = _lock.writeLock(__FILE__, __LINE__, triesGuarantee);
+#else
   bool ok = _lock.writeLock(triesGuarantee);
+#endif
   if (ok) {
     _evictions = true;
     _lock.writeUnlock();
@@ -264,7 +292,11 @@ void Table::signalEvictions() {
 }
 
 uint32_t Table::idealSize() {
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+  bool ok = _lock.writeLock(__FILE__, __LINE__, triesGuarantee);
+#else
   bool ok = _lock.writeLock(triesGuarantee);
+#endif
   bool forceGrowth = false;
   if (ok) {
     forceGrowth = _evictions;

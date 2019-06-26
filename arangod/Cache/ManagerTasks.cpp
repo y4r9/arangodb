@@ -44,7 +44,11 @@ void FreeMemoryTask::run() {
   bool ran = _cache->freeMemory();
 
   if (ran) {
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+    _manager->_lock.writeLock(__FILE__, __LINE__);
+#else
     _manager->_lock.writeLock();
+#endif
     Metadata* metadata = _cache->metadata();
     metadata->writeLock();
     uint64_t reclaimed = metadata->hardUsageLimit - metadata->softUsageLimit;

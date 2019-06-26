@@ -37,37 +37,62 @@ namespace basics {
 
 class ReadWriteSpinLock {
  public:
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+  ReadWriteSpinLock() : _state(0), _file(nullptr), _line(0) {}
+#else
   ReadWriteSpinLock() : _state(0) {}
+#endif
 
   // only needed for cache::Metadata
   ReadWriteSpinLock(ReadWriteSpinLock&& other) {
     auto val = other._state.load(std::memory_order_relaxed);
     TRI_ASSERT(val == 0);
     _state.store(val, std::memory_order_relaxed);
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+    _file = other._file;
+    _line = other._line;
+#endif
   }
   ReadWriteSpinLock& operator=(ReadWriteSpinLock&& other) {
     auto val = other._state.load(std::memory_order_relaxed);
     TRI_ASSERT(val == 0);
     val = _state.exchange(val, std::memory_order_relaxed);
     TRI_ASSERT(val == 0);
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+    _file = other._file;
+    _line = other._line;
+#endif
     return *this;
   }
 
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+  bool tryWriteLock(char const* file, int line) {
+#else
   bool tryWriteLock() {
+#endif
     // order_relaxed is an optimization, cmpxchg will synchronize side-effects
     auto state = _state.load(std::memory_order_relaxed);
     // try to acquire write lock as long as no readers or writers are active,
     // we might "overtake" other queued writers though.
     while ((state & ~QUEUED_WRITER_MASK) == 0) {
       if (_state.compare_exchange_weak(state, state | WRITE_LOCK, std::memory_order_acquire)) {
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+        _file = file;
+        _line = line;
+#endif
         return true;  // we successfully acquired the write lock!
       }
     }
     return false;
   }
 
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+  bool writeLock(char const* file, int line, uint64_t maxAttempts = UINT64_MAX) {
+    if (tryWriteLock(file, line)) {
+#else
   bool writeLock(uint64_t maxAttempts = UINT64_MAX) {
     if (tryWriteLock()) {
+#endif
       return true;
     }
 
@@ -81,6 +106,10 @@ class ReadWriteSpinLock {
         // try to acquire lock and perform queued writer decrement in one step
         if (_state.compare_exchange_weak(state, (state - QUEUED_WRITER_INC) | WRITE_LOCK,
                                          std::memory_order_acquire)) {
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+          _file = file;
+          _line = line;
+#endif
           return true;
         }
         if (++attempts > maxAttempts) {
@@ -93,22 +122,40 @@ class ReadWriteSpinLock {
     return false;
   }
 
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+  bool tryReadLock(char const* file, int line) {
+#else
   bool tryReadLock() {
+#endif
     // order_relaxed is an optimization, cmpxchg will synchronize side-effects
     auto state = _state.load(std::memory_order_relaxed);
     // try to acquire read lock as long as no writers are active or queued
     while ((state & ~READER_MASK) == 0) {
       if (_state.compare_exchange_weak(state, state + READER_INC, std::memory_order_acquire)) {
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+        if (_file == nullptr) {
+          _file = file;
+          _line = line;
+        }
+#endif
         return true;
       }
     }
     return false;
   }
 
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+  bool readLock(char const* file, int line, uint64_t maxAttempts = UINT64_MAX) {
+#else
   bool readLock(uint64_t maxAttempts = UINT64_MAX) {
+#endif
     uint64_t attempts = 0;
     while (attempts++ < maxAttempts) {
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+      if (tryReadLock(file, line)) {
+#else
       if (tryReadLock()) {
+#endif
         return true;
       }
       cpu_relax();
@@ -119,12 +166,23 @@ class ReadWriteSpinLock {
   void readUnlock() { unlockRead(); }
   void unlockRead() {
     TRI_ASSERT(isReadLocked());
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+    if (_state.fetch_sub(READER_INC, std::memory_order_release) == READER_INC) {
+      _file = nullptr;
+      _line = 0;
+    }
+#else
     _state.fetch_sub(READER_INC, std::memory_order_release);
+#endif
   }
 
   void writeUnlock() { unlockWrite(); }
   void unlockWrite() {
     TRI_ASSERT(isWriteLocked());
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+    _file = nullptr;
+    _line = 0;
+#endif
     _state.fetch_sub(WRITE_LOCK, std::memory_order_release);
   }
 
@@ -142,6 +200,11 @@ class ReadWriteSpinLock {
   /// @brief _state, lowest bit is write_lock, the next 15 bits is the number of
   /// queued writers, the last 16 bits the number of active readers.
   std::atomic<uint32_t> _state;
+
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+  char const* _file;
+  int _line;
+#endif
 
   static constexpr uint32_t WRITE_LOCK = 1;
 

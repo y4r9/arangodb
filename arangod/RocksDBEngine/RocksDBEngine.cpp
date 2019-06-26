@@ -131,7 +131,11 @@ std::vector<std::shared_ptr<RocksDBRecoveryHelper>> RocksDBEngine::_recoveryHelp
 RocksDBFilePurgePreventer::RocksDBFilePurgePreventer(RocksDBEngine* engine) 
     : _engine(engine) {
   TRI_ASSERT(_engine != nullptr);
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+  _engine->_purgeLock.readLock(__FILE__, __LINE__);
+#else
   _engine->_purgeLock.readLock();
+#endif
 }
 
 RocksDBFilePurgePreventer::~RocksDBFilePurgePreventer() {
@@ -150,7 +154,11 @@ RocksDBFilePurgeEnabler::RocksDBFilePurgeEnabler(RocksDBEngine* engine)
     : _engine(nullptr) {
   TRI_ASSERT(engine != nullptr);
 
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+  if (engine->_purgeLock.tryWriteLock(__FILE__, __LINE__)) {
+#else
   if (engine->_purgeLock.tryWriteLock()) {
+#endif
     // we got the lock
     _engine = engine;
   }

@@ -1595,22 +1595,38 @@ size_t MMFilesCollection::memory() const {
 }
 
 /// @brief disallow compaction of the collection
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+void MMFilesCollection::preventCompaction() { _compactionLock.readLock(__FILE__, __LINE__); }
+#else
 void MMFilesCollection::preventCompaction() { _compactionLock.readLock(); }
+#endif
 
 /// @brief try disallowing compaction of the collection
 bool MMFilesCollection::tryPreventCompaction() {
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+  return _compactionLock.tryReadLock(__FILE__, __LINE__);
+#else
   return _compactionLock.tryReadLock();
+#endif
 }
 
 /// @brief re-allow compaction of the collection
 void MMFilesCollection::allowCompaction() { _compactionLock.unlock(); }
 
 /// @brief exclusively lock the collection for compaction
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+void MMFilesCollection::lockForCompaction() { _compactionLock.writeLock(__FILE__, __LINE__); }
+#else
 void MMFilesCollection::lockForCompaction() { _compactionLock.writeLock(); }
+#endif
 
 /// @brief try to exclusively lock the collection for compaction
 bool MMFilesCollection::tryLockForCompaction() {
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+  return _compactionLock.tryWriteLock(__FILE__, __LINE__);
+#else
   return _compactionLock.tryWriteLock();
+#endif
 }
 
 /// @brief signal that compaction is finished

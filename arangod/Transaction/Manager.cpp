@@ -222,7 +222,11 @@ void Manager::unregisterAQLTrx(TRI_voc_tid_t tid) noexcept {
   TRI_ASSERT(it->second.type == MetaType::StandaloneAQL);
 
   /// we need to make sure no-one else is still using the TransactionState
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+  if (!it->second.rwlock.writeLock(__FILE__, __LINE__, /*maxAttempts*/256)) {
+#else
   if (!it->second.rwlock.writeLock(/*maxAttempts*/256)) {
+#endif
     LOG_TOPIC("9f7d7", ERR, Logger::TRANSACTIONS) << "a transaction is still in use";
     TRI_ASSERT(false);
     return;
@@ -411,13 +415,21 @@ std::shared_ptr<transaction::Context> Manager::leaseManagedTrx(TRI_voc_tid_t tid
         THROW_ARANGO_EXCEPTION_MESSAGE(TRI_ERROR_TRANSACTION_DISALLOWED_OPERATION,
                                        "not allowed to write lock an AQL transaction");
       }
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+      if (mtrx.rwlock.tryWriteLock(__FILE__, __LINE__)) {
+#else
       if (mtrx.rwlock.tryWriteLock()) {
+#endif
         mtrx.expires = defaultTTL + TRI_microtime();
         state = mtrx.state;
         break;
       }
     } else {
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+      if (mtrx.rwlock.tryReadLock(__FILE__, __LINE__)) {
+#else
       if (mtrx.rwlock.tryReadLock()) {
+#endif
         mtrx.expires = defaultTTL + TRI_microtime();
         state = mtrx.state;
         break;

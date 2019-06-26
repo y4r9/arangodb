@@ -216,7 +216,11 @@ void Cache::requestGrow() {
     return;
   }
 
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+  if (_taskLock.writeLock(__FILE__, __LINE__, Cache::triesSlow)) {
+#else
   if (_taskLock.writeLock(Cache::triesSlow)) {
+#endif
     if (std::chrono::steady_clock::now().time_since_epoch().count() >
         _resizeRequestTime.load()) {
       _metadata.readLock();
@@ -238,7 +242,11 @@ void Cache::requestMigrate(uint32_t requestedLogSize) {
     return;
   }
 
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+  if (_taskLock.writeLock(__FILE__, __LINE__, Cache::triesGuarantee)) {
+#else
   if (_taskLock.writeLock(Cache::triesGuarantee)) {
+#endif
     if (std::chrono::steady_clock::now().time_since_epoch().count() >
         _migrateRequestTime.load()) {
       cache::Table* table = _table.load(std::memory_order_relaxed);
@@ -332,7 +340,11 @@ std::shared_ptr<Table> Cache::table() const {
 }
 
 void Cache::shutdown() {
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+  _taskLock.writeLock(__FILE__, __LINE__);
+#else
   _taskLock.writeLock();
+#endif
   auto handle = shared_from_this();  // hold onto self-reference to prevent
                                      // pre-mature shared_ptr destruction
   TRI_ASSERT(handle.get() == this);
@@ -345,7 +357,11 @@ void Cache::shutdown() {
       _metadata.readUnlock();
       _taskLock.writeUnlock();
       std::this_thread::sleep_for(std::chrono::microseconds(10));
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+      _taskLock.writeLock(__FILE__, __LINE__);
+#else
       _taskLock.writeLock();
+#endif
       _metadata.readLock();
     }
     _metadata.readUnlock();
@@ -449,7 +465,11 @@ bool Cache::migrate(std::shared_ptr<Table> newTable) {
   }
 
   // swap tables
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+  _taskLock.writeLock(__FILE__, __LINE__);
+#else
   _taskLock.writeLock();
+#endif
   _table.store(newTable.get(), std::memory_order_relaxed);
   std::shared_ptr<Table> oldTable = std::atomic_exchange(&_tableShrdPtr, newTable);
   std::shared_ptr<Table> confirm =

@@ -128,7 +128,11 @@ class ReadLocker {
 
   bool tryLock() {
     TRI_ASSERT(!_isLocked);
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+    if (_readWriteLock->tryReadLock(_file, _line)) {
+#else
     if (_readWriteLock->tryReadLock()) {
+#endif
       _isLocked = true;
     }
     return _isLocked;
@@ -137,7 +141,11 @@ class ReadLocker {
   /// @brief acquire the read lock, blocking
   void lock() {
     TRI_ASSERT(!_isLocked);
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+    _readWriteLock->readLock(_file, _line);
+#else
     _readWriteLock->readLock();
+#endif
     _isLocked = true;
   }
 

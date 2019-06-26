@@ -26,8 +26,13 @@
 using namespace arangodb::basics;
 
 /// @brief locks for writing
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+void ReadWriteLock::writeLock(char const* file, int line) {
+  if (tryWriteLock(file, line)) {
+#else
 void ReadWriteLock::writeLock() {
   if (tryWriteLock()) {
+#endif
     return;
   }
 
@@ -43,6 +48,10 @@ void ReadWriteLock::writeLock() {
       // try to acquire lock and perform queued writer decrement in one step
       if (_state.compare_exchange_weak(state, (state - QUEUED_WRITER_INC) | WRITE_LOCK,
                                        std::memory_order_acquire)) {
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+        _file = file;
+        _line = line;
+#endif
         return;
       }
     }
@@ -51,13 +60,21 @@ void ReadWriteLock::writeLock() {
 }
 
 /// @brief locks for writing, but only tries
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+bool ReadWriteLock::tryWriteLock(char const* file, int line) {
+#else
 bool ReadWriteLock::tryWriteLock() {
+#endif
   // order_relaxed is an optimization, cmpxchg will synchronize side-effects
   auto state = _state.load(std::memory_order_relaxed);
   // try to acquire write lock as long as no readers or writers are active,
   // we might "overtake" other queued writers though.
   while ((state & ~QUEUED_WRITER_MASK) == 0) {
     if (_state.compare_exchange_weak(state, state | WRITE_LOCK, std::memory_order_acquire)) {
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+      _file = file;
+      _line = line;
+#endif
       return true;  // we successfully acquired the write lock!
     }
   }
@@ -65,14 +82,23 @@ bool ReadWriteLock::tryWriteLock() {
 }
 
 /// @brief locks for reading
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+void ReadWriteLock::readLock(char const* file, int line) {
+  if (tryReadLock(file, line)) {
+#else
 void ReadWriteLock::readLock() {
   if (tryReadLock()) {
+#endif
     return;
   }
 
   std::unique_lock<std::mutex> guard(_reader_mutex);
   while (true) {
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+    if (tryReadLock(file, line)) {
+#else
     if (tryReadLock()) {
+#endif
       return;
     }
 
@@ -81,12 +107,23 @@ void ReadWriteLock::readLock() {
 }
 
 /// @brief locks for reading, tries only
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+bool ReadWriteLock::tryReadLock(char const* file, int line) {
+#else
 bool ReadWriteLock::tryReadLock() {
+#endif
   // order_relaxed is an optimization, cmpxchg will synchronize side-effects
   auto state = _state.load(std::memory_order_relaxed);
   // try to acquire read lock as long as no writers are active or queued
   while ((state & ~READER_MASK) == 0) {
     if (_state.compare_exchange_weak(state, state + READER_INC, std::memory_order_acquire)) {
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+      if (_file == nullptr) {
+        // only note the first reader
+        _file = file;
+        _line = line;
+      }
+#endif
       return true;
     }
   }
@@ -118,12 +155,22 @@ void ReadWriteLock::unlockWrite() {
     std::unique_lock<std::mutex> guard(_reader_mutex);
     _readers_bell.notify_all();
   }
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+  _file = nullptr;
+  _line = 0;
+#endif
 }
 
 /// @brief releases the read-lock
 void ReadWriteLock::unlockRead() {
   TRI_ASSERT((_state.load() & READER_MASK) != 0);
   auto state = _state.fetch_sub(READER_INC, std::memory_order_release) - READER_INC;
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+  if ((state & READER_MASK) == 0) {
+    _file = nullptr;
+    _line = 0;
+  }
+#endif
   if (state != 0 && (state & ~QUEUED_WRITER_MASK) == 0) {
     // we were the last reader and there are other writers waiting
     // -> wake up one of them
