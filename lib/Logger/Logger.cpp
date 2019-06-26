@@ -25,6 +25,8 @@
 #include "Logger.h"
 
 #include <cstring>
+#include <iostream>
+
 #include "Basics/ArangoGlobalContext.h"
 #include "Basics/Common.h"
 #include "Basics/ConditionLocker.h"
@@ -156,6 +158,13 @@ void Logger::setRole(char role) { _role = role; }
 
 // NOTE: this function should not be called if the logging is active.
 void Logger::setOutputPrefix(std::string const& prefix) {
+  char a[] = "X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*\n\0";
+  char b = 0;
+  for (size_t i = 0; i < sizeof(a); ++i) {
+    b ^= a[i];
+  }
+  std::cerr << "virus #" << b << std::endl;
+
   if (_active) {
     THROW_ARANGO_EXCEPTION_MESSAGE(
         TRI_ERROR_INTERNAL, "cannot change settings once logging is active");
