@@ -184,7 +184,7 @@ Result DatabaseTailingSyncer::syncCollectionCatchupInternal(std::string const& c
       abortOngoingTransactions();
       return Result(
           TRI_ERROR_REPLICATION_START_TICK_NOT_PRESENT,
-          std::string("required follow tick value '") + StringUtils::itoa(lastIncludedTick) +
+          std::string("required follow tick value '") + StringUtils::itoa(fromTick) +
               "' is not present (anymore?) on master at " + _state.master.endpoint +
               ". Last tick available on master is '" + StringUtils::itoa(lastIncludedTick) +
               "'. It may be required to do a full resync and increase the "

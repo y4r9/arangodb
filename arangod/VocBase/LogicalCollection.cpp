@@ -269,7 +269,8 @@ size_t LogicalCollection::replicationFactor() const {
 
 size_t LogicalCollection::minReplicationFactor() const {
   TRI_ASSERT(_sharding != nullptr);
-  return _sharding->minReplicationFactor();
+  return _sharding->replicationFactor();
+  // return _sharding->minReplicationFactor();
 }
 
 std::string LogicalCollection::distributeShardsLike() const {
