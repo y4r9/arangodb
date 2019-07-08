@@ -42,19 +42,32 @@ class SchedulerCronThread;
 
 class Scheduler {
  public:
-  explicit Scheduler();
+  static bool isDirectDeadlockLane(RequestLane lane) {
+    // Some lane have tasks deadlock because they hold a mutex while calling queue that must be locked to execute the handler.
+    // Those tasks can not be executed directly.
+    return lane == RequestLane::TASK_V8 || lane == RequestLane::CLIENT_V8 ||
+           lane == RequestLane::CLUSTER_V8 || lane == RequestLane::INTERNAL_LOW ||
+           lane == RequestLane::SERVER_REPLICATION ||
+           lane == RequestLane::CLUSTER_ADMIN || lane == RequestLane::CLUSTER_INTERNAL ||
+           lane == RequestLane::AGENCY_CLUSTER || lane == RequestLane::CLIENT_AQL;
+  }
+
+ public:
+  Scheduler();
   virtual ~Scheduler();
 
   // ---------------------------------------------------------------------------
   // Scheduling and Task Queuing - the relevant stuff
   // ---------------------------------------------------------------------------
+
  public:
   class WorkItem;
   typedef std::chrono::steady_clock clock;
   typedef std::shared_ptr<WorkItem> WorkHandle;
 
   // Enqueues a task - this is implemented on the specific scheduler
-  virtual bool queue(RequestLane lane, std::function<void()>, bool allowDirectHandling = false) = 0;
+  virtual bool queue(RequestLane lane, std::function<void()>,
+                     bool allowDirectHandling = false) = 0;
 
   // Enqueues a task after delay - this uses the queue functions above.
   // WorkHandle is a shared_ptr to a WorkItem. If all references the WorkItem
@@ -101,6 +114,7 @@ class Scheduler {
         });
       }
     }
+
 #ifdef ARANGODB_ENABLE_MAINTAINER_MODE
     bool isDisabled() const { return _disable.load(); }
     friend class Scheduler;
@@ -152,8 +166,8 @@ class Scheduler {
   // ---------------------------------------------------------------------------
  public:
   struct QueueStatistics {
-    uint64_t _running; // numWorkers
-    uint64_t _blocked; // obsolete, always 0 now
+    uint64_t _running;  // numWorkers
+    uint64_t _blocked;  // obsolete, always 0 now
     uint64_t _queued;
     uint64_t _working;
     uint64_t _directExec;
@@ -173,7 +187,7 @@ class Scheduler {
   // You wondering why Scheduler::isStopping() no longer works for you?
   // Go away and use `application_features::ApplicationServer::isStopping()`
   // It is made for people that want to know if the should stop doing things.
-  virtual bool isStopping() = 0;
+  virtual bool isStopping() const noexcept = 0;
 
  private:
   Scheduler(Scheduler const&) = delete;

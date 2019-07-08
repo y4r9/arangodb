@@ -45,12 +45,8 @@ class SupervisedScheduler final : public Scheduler {
 
   bool queue(RequestLane lane, std::function<void()>, bool allowDirectHandling = false) override;
 
- private:
-  std::atomic<size_t> _numWorkers;
-  std::atomic<bool> _stopping;
-
  protected:
-  bool isStopping() override { return _stopping; }
+  bool isStopping() const noexcept override { return _stopping; }
 
  public:
   bool start() override;
@@ -62,6 +58,9 @@ class SupervisedScheduler final : public Scheduler {
  private:
   friend class SupervisedSchedulerManagerThread;
   friend class SupervisedSchedulerWorkerThread;
+
+  std::atomic<size_t> _numWorkers;
+  std::atomic<bool> _stopping;
 
   struct WorkItem final {
     std::function<void()> _handler;

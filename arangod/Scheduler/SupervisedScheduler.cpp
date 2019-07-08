@@ -47,84 +47,70 @@ uint64_t getTickCount_ns() {
   return std::chrono::duration_cast<std::chrono::nanoseconds>(now.time_since_epoch())
       .count();
 }
-
-bool isDirectDeadlockLane(RequestLane lane) {
-  // Some lane have tasks deadlock because they hold a mutex while calling queue that must be locked to execute the handler.
-  // Those tasks can not be executed directly.
-  return lane == RequestLane::TASK_V8
-    || lane == RequestLane::CLIENT_V8
-    || lane == RequestLane::CLUSTER_V8
-    || lane == RequestLane::INTERNAL_LOW
-    || lane == RequestLane::SERVER_REPLICATION
-    || lane == RequestLane::CLUSTER_ADMIN
-    || lane == RequestLane::CLUSTER_INTERNAL
-    || lane == RequestLane::AGENCY_CLUSTER
-    || lane == RequestLane::CLIENT_AQL;
-}
-
 }  // namespace
 
 namespace {
-  typedef std::chrono::time_point<std::chrono::steady_clock> time_point;
+typedef std::chrono::time_point<std::chrono::steady_clock> time_point;
 
-  // value initialise these arrays, otherwise mac will crash
-  thread_local time_point conditionQueueFullSince{};
-  thread_local uint_fast32_t queueWarningTick{};
+// value initialise these arrays, otherwise mac will crash
+thread_local time_point conditionQueueFullSince{};
+thread_local uint_fast32_t queueWarningTick{};
 
-  time_point lastWarningQueue;
-  int64_t queueWarningEvents = 0;
-  std::mutex queueWarningMutex;
+time_point lastWarningQueue;
+int64_t queueWarningEvents = 0;
+std::mutex queueWarningMutex;
 
-  time_point lastQueueFullWarning[3];
-  int64_t fullQueueEvents[3] = {0, 0, 0};
-  std::mutex fullQueueWarningMutex[3];
+time_point lastQueueFullWarning[3];
+int64_t fullQueueEvents[3] = {0, 0, 0};
+std::mutex fullQueueWarningMutex[3];
 
+void logQueueWarningEveryNowAndThen(int64_t events) {
+  auto const& now = std::chrono::steady_clock::now();
+  uint64_t totalEvents;
+  bool printLog = false;
+  std::chrono::duration<double> sinceLast;
 
-  void logQueueWarningEveryNowAndThen(int64_t events) {
-    auto const& now = std::chrono::steady_clock::now();
-    uint64_t totalEvents;
-    bool printLog = false;
-    std::chrono::duration<double> sinceLast;
-
-    {
-      std::unique_lock<std::mutex> guard(queueWarningMutex);
-      totalEvents = queueWarningEvents += events;
-      sinceLast = now - lastWarningQueue;
-      if (sinceLast > std::chrono::seconds(10)) {
-        printLog = true;
-        lastWarningQueue = now;
-        queueWarningEvents = 0;
-      }
-    }
-
-    if (printLog) {
-      LOG_TOPIC("dead2", WARN, Logger::THREADS) << "Scheduler queue" <<
-        " is filled more than 50% in last " << sinceLast.count()
-        << "s. (happened " << totalEvents << " times since last message)";
+  {
+    std::unique_lock<std::mutex> guard(queueWarningMutex);
+    totalEvents = queueWarningEvents += events;
+    sinceLast = now - lastWarningQueue;
+    if (sinceLast > std::chrono::seconds(10)) {
+      printLog = true;
+      lastWarningQueue = now;
+      queueWarningEvents = 0;
     }
   }
 
-  void logQueueFullEveryNowAndThen(int64_t fifo) {
-    auto const& now = std::chrono::steady_clock::now();
-    uint64_t events;
-    bool printLog = false;
-
-    {
-      std::unique_lock<std::mutex> guard(fullQueueWarningMutex[fifo]);
-      events = ++fullQueueEvents[fifo];
-      if (now - lastQueueFullWarning[fifo] > std::chrono::seconds(10)) {
-        printLog = true;
-        lastQueueFullWarning[fifo] = now;
-        fullQueueEvents[fifo] = 0;
-      }
-    }
-
-    if (printLog) {
-      LOG_TOPIC("dead1", WARN, Logger::THREADS) << "Scheduler queue " << fifo << " is full. (happened " << events << " times since last message)";
-    }
+  if (printLog) {
+    LOG_TOPIC("dead2", WARN, Logger::THREADS)
+        << "Scheduler queue"
+        << " is filled more than 50% in last " << sinceLast.count()
+        << "s. (happened " << totalEvents << " times since last message)";
   }
 }
 
+void logQueueFullEveryNowAndThen(int64_t fifo) {
+  auto const& now = std::chrono::steady_clock::now();
+  uint64_t events;
+  bool printLog = false;
+
+  {
+    std::unique_lock<std::mutex> guard(fullQueueWarningMutex[fifo]);
+    events = ++fullQueueEvents[fifo];
+    if (now - lastQueueFullWarning[fifo] > std::chrono::seconds(10)) {
+      printLog = true;
+      lastQueueFullWarning[fifo] = now;
+      fullQueueEvents[fifo] = 0;
+    }
+  }
+
+  if (printLog) {
+    LOG_TOPIC("dead1", WARN, Logger::THREADS)
+        << "Scheduler queue " << fifo << " is full. (happened " << events
+        << " times since last message)";
+  }
+}
+}  // namespace
 
 namespace arangodb {
 
@@ -132,7 +118,7 @@ class SupervisedSchedulerThread : virtual public Thread {
  public:
   explicit SupervisedSchedulerThread(SupervisedScheduler& scheduler)
       : Thread("Scheduler"), _scheduler(scheduler) {}
-  ~SupervisedSchedulerThread() {} // shutdown is called by derived implementation!
+  ~SupervisedSchedulerThread() {}  // shutdown is called by derived implementation!
 
  protected:
   SupervisedScheduler& _scheduler;
@@ -178,11 +164,10 @@ SupervisedScheduler::SupervisedScheduler(uint64_t minThreads, uint64_t maxThread
 
 SupervisedScheduler::~SupervisedScheduler() {}
 
-bool SupervisedScheduler::queue(RequestLane lane, std::function<void()> handler, bool allowDirectHandling) {
-  if (!isDirectDeadlockLane(lane) &&
-      allowDirectHandling &&
-      !ServerState::instance()->isClusterRole() &&
-      (_jobsSubmitted - _jobsDone) < 2) {
+bool SupervisedScheduler::queue(RequestLane lane, std::function<void()> handler,
+                                bool allowDirectHandling) {
+  if (!isDirectDeadlockLane(lane) && allowDirectHandling &&
+      !ServerState::instance()->isClusterRole() && (_jobsSubmitted - _jobsDone) < 2) {
     _jobsSubmitted.fetch_add(1, std::memory_order_relaxed);
     _jobsDequeued.fetch_add(1, std::memory_order_relaxed);
     _jobsDirectExec.fetch_add(1, std::memory_order_release);
@@ -236,7 +221,6 @@ bool SupervisedScheduler::queue(RequestLane lane, std::function<void()> handler,
     conditionQueueFullSince = time_point{};
   }
 
-
   bool doNotify = false;
   if (sleepyTime_ns > _definitiveWakeupTime_ns.load(std::memory_order_relaxed)) {
     doNotify = true;
@@ -255,7 +239,8 @@ bool SupervisedScheduler::queue(RequestLane lane, std::function<void()> handler,
 bool SupervisedScheduler::start() {
   _manager.reset(new SupervisedSchedulerManagerThread(*this));
   if (!_manager->start()) {
-    LOG_TOPIC("00443", ERR, Logger::THREADS) << "could not start supervisor thread";
+    LOG_TOPIC("00443", ERR, Logger::THREADS)
+        << "could not start supervisor thread";
     return false;
   }
 
@@ -300,7 +285,8 @@ void SupervisedScheduler::shutdown() {
     if (++tries > 5 * 5) {
       // spam only after some time (5 seconds here)
       LOG_TOPIC("ed0b2", WARN, Logger::THREADS)
-      << "Scheduler received shutdown, but there are still abandoned threads";
+          << "Scheduler received shutdown, but there are still abandoned "
+             "threads";
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
   }
@@ -434,7 +420,8 @@ void SupervisedScheduler::sortoutLongRunningThreads() {
     }
 
     if ((now - state->_lastJobStarted) > std::chrono::seconds(5)) {
-      LOG_TOPIC("efcaa", TRACE, Logger::THREADS) << "Detach long running thread.";
+      LOG_TOPIC("efcaa", TRACE, Logger::THREADS)
+          << "Detach long running thread.";
 
       {
         std::unique_lock<std::mutex> guard(_mutex);
@@ -467,11 +454,11 @@ std::unique_ptr<SupervisedScheduler::WorkItem> SupervisedScheduler::getWork(
         if (_queue[triesCount % 3].pop(work)) {
           return std::unique_ptr<WorkItem>(work);
         }
-      } // if
+      }  // if
 
       triesCount++;
       cpu_relax();
-    } // while
+    }  // while
 
     std::unique_lock<std::mutex> guard(_mutex);
 
@@ -484,7 +471,7 @@ std::unique_ptr<SupervisedScheduler::WorkItem> SupervisedScheduler::getWork(
     } else {
       _conditionWork.wait_for(guard, std::chrono::milliseconds(state->_sleepTimeout_ms));
     }
-  } // while
+  }  // while
 
   return nullptr;
 }
@@ -497,17 +484,17 @@ void SupervisedScheduler::startOneThread() {
 
   std::unique_lock<std::mutex> guard(_mutexSupervisor);
 
-  // start a new thread
+// start a new thread
 
-  //wait for windows fix or implement operator new
-  #if (_MSC_VER >= 1)
-  #pragma warning(push)
-  #pragma warning(disable : 4316) // Object allocated on the heap may not be aligned for this type
-  #endif
+// wait for windows fix or implement operator new
+#if (_MSC_VER >= 1)
+#pragma warning(push)
+#pragma warning(disable : 4316)  // Object allocated on the heap may not be aligned for this type
+#endif
   _workerStates.emplace_back(std::make_shared<WorkerState>(*this));
-  #if (_MSC_VER >= 1)
-  #pragma warning(pop)
-  #endif
+#if (_MSC_VER >= 1)
+#pragma warning(pop)
+#endif
 
   if (!_workerStates.back()->start()) {
     // failed to start a worker
@@ -584,17 +571,17 @@ Scheduler::QueueStatistics SupervisedScheduler::queueStatistics() const {
 
   uint64_t const queued = jobsSubmitted - jobsDone;
   uint64_t const working = jobsDequeued - jobsDone;
-  
+
   uint64_t const directExec = _jobsDirectExec.load(std::memory_order_relaxed);
 
   return QueueStatistics{numWorkers, 0, queued, working, directExec};
 }
 
 void SupervisedScheduler::toVelocyPack(velocypack::Builder& b) const {
-  QueueStatistics qs = queueStatistics(); 
+  QueueStatistics qs = queueStatistics();
 
-  b.add("scheduler-threads", VPackValue(qs._running)); // numWorkers
-  b.add("blocked", VPackValue(qs._blocked)); // obsolete
+  b.add("scheduler-threads", VPackValue(qs._running));  // numWorkers
+  b.add("blocked", VPackValue(qs._blocked));            // obsolete
   b.add("queued", VPackValue(qs._queued));
   b.add("in-progress", VPackValue(qs._working));
   b.add("direct-exec", VPackValue(qs._directExec));

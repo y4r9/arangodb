@@ -27,13 +27,12 @@
 #include "ApplicationFeatures/ApplicationFeature.h"
 #include "GeneralServer/Socket.h"  // This is required for asio_ns::signal_set
 #include "Scheduler/Scheduler.h"
-#include "Scheduler/SupervisedScheduler.h"
 
 namespace arangodb {
 
 class SchedulerFeature final : public application_features::ApplicationFeature {
  public:
-  static SupervisedScheduler* SCHEDULER;
+  static Scheduler* SCHEDULER;
 
   explicit SchedulerFeature(application_features::ApplicationServer& server);
   ~SchedulerFeature();
@@ -51,6 +50,7 @@ class SchedulerFeature final : public application_features::ApplicationFeature {
   uint64_t _queueSize = 128;
   uint64_t _fifo1Size = 1024 * 1024;
   uint64_t _fifo2Size = 4096;
+  std::string _serverScheduler;
 
   std::unique_ptr<Scheduler> _scheduler;
 
@@ -59,7 +59,6 @@ class SchedulerFeature final : public application_features::ApplicationFeature {
   // -------------------------------------------------------------------------
 
  public:
-  /*size_t concurrency() const { return static_cast<size_t>(_nrMaximalThreads); }*/
   void buildControlCHandler();
   void buildHangupHandler();
 

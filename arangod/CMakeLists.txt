@@ -517,6 +517,8 @@ SET(ARANGOD_SOURCES
   RestServer/UpgradeFeature.cpp
   RestServer/ViewTypesFeature.cpp
   RestServer/VocbaseContext.cpp
+  Scheduler/LaneScheduler.cpp
+  Scheduler/JobGuard.cpp
   Scheduler/Scheduler.cpp
   Scheduler/SchedulerFeature.cpp
   Scheduler/SupervisedScheduler.cpp

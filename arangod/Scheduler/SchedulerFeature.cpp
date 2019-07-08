@@ -23,6 +23,9 @@
 
 #include "SchedulerFeature.h"
 
+#include <chrono>
+#include <thread>
+
 #ifdef _WIN32
 #include <stdio.h>
 #include <windows.h>
@@ -35,14 +38,11 @@
 #include "ProgramOptions/ProgramOptions.h"
 #include "ProgramOptions/Section.h"
 #include "RestServer/ServerFeature.h"
+#include "Scheduler/LaneScheduler.h"
 #include "Scheduler/Scheduler.h"
+#include "Scheduler/SupervisedScheduler.h"
 #include "V8Server/V8DealerFeature.h"
 #include "V8Server/v8-dispatcher.h"
-
-#include "Scheduler/SupervisedScheduler.h"
-
-#include <chrono>
-#include <thread>
 
 using namespace arangodb::application_features;
 using namespace arangodb::basics;
@@ -64,11 +64,11 @@ size_t defaultNumberOfThreads() {
 }  // namespace
 
 namespace arangodb {
-
-SupervisedScheduler* SchedulerFeature::SCHEDULER = nullptr;
+Scheduler* SchedulerFeature::SCHEDULER = nullptr;
 
 SchedulerFeature::SchedulerFeature(application_features::ApplicationServer& server)
-    : ApplicationFeature(server, "Scheduler"), 
+    : ApplicationFeature(server, "Scheduler"),
+      _serverScheduler("lane"),
       _scheduler(nullptr) {
   setOptional(false);
   startsAfter("GreetingsPhase");
@@ -108,6 +108,11 @@ void SchedulerFeature::collectOptions(std::shared_ptr<options::ProgramOptions> o
 
   options->addOption("--server.prio1-size", "size of the priority 1 fifo",
                      new UInt64Parameter(&_fifo1Size),
+                     arangodb::options::makeFlags(arangodb::options::Flags::Hidden));
+
+  options->addOption("--server.scheduler", "select the scheduler implementation",
+                     new DiscreteValuesParameter<StringParameter>(
+                         &_serverScheduler, {"supervision", "lane"}),
                      arangodb::options::makeFlags(arangodb::options::Flags::Hidden));
 
   // obsolete options
@@ -162,21 +167,29 @@ void SchedulerFeature::validateOptions(std::shared_ptr<options::ProgramOptions>)
 void SchedulerFeature::prepare() {
   TRI_ASSERT(2 <= _nrMinimalThreads);
   TRI_ASSERT(_nrMinimalThreads <= _nrMaximalThreads);
+
 // wait for windows fix or implement operator new
 #if (_MSC_VER >= 1)
 #pragma warning(push)
 #pragma warning(disable : 4316)  // Object allocated on the heap may not be aligned for this type
 #endif
-  auto sched =
-      std::make_unique<SupervisedScheduler>(_nrMinimalThreads, _nrMaximalThreads,
-                                            _queueSize, _fifo1Size, _fifo2Size);
+
+  if (_serverScheduler.compare("supervision") == 0) {
+    auto sched =
+        std::make_unique<SupervisedScheduler>(_nrMinimalThreads, _nrMaximalThreads,
+                                              _queueSize, _fifo1Size, _fifo2Size);
+    _scheduler = std::move(sched);
+  } else if (_serverScheduler.compare("lane") == 0) {
+    auto sched = std::make_unique<LaneScheduler>(_nrMinimalThreads, _nrMaximalThreads,
+                                                 _fifo1Size, _fifo2Size);
+    _scheduler = std::move(sched);
+  }
+
 #if (_MSC_VER >= 1)
 #pragma warning(pop)
 #endif
 
-  SCHEDULER = sched.get();
-
-  _scheduler = std::move(sched);
+  SCHEDULER = _scheduler.get();
 }
 
 void SchedulerFeature::start() {

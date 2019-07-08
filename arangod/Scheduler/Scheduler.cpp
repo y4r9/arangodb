@@ -166,17 +166,3 @@ Scheduler::WorkHandle Scheduler::queueDelay(RequestLane lane, clock::duration de
 
   return item;
 }
-/*
-void Scheduler::cancelAllTasks() {
-  //std::unique_lock<std::mutex> guard(_cronQueueMutex);
-  LOG_TOPIC("1da98", ERR, Logger::FIXME) << "cancelAllTasks";
-  while (_cronQueue.size() > 0) {
-    auto const& top = _cronQueue.top();
-    auto item = top.second.lock();
-    if (item) {
-      item->cancel();
-    }
-    _cronQueue.pop();
-  }
-}
-*/
