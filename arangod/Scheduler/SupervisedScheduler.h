@@ -31,7 +31,6 @@
 #include <mutex>
 #include <queue>
 
-#include "Logger/Logger.h"
 #include "Scheduler/Scheduler.h"
 
 namespace arangodb {
@@ -66,41 +65,15 @@ class SupervisedScheduler final : public Scheduler {
   friend class SupervisedSchedulerWorkerThread;
 
   struct WorkItem final {
-   private:
     std::function<void()> _handler;
-    double _startTime;
-    bool _called;
 
-   public:
     explicit WorkItem(std::function<void()> const& handler)
-        : _handler(handler), _startTime(TRI_microtime()), _called(false) {}
+        : _handler(handler) {}
     explicit WorkItem(std::function<void()>&& handler)
-        : _handler(std::move(handler)), _startTime(TRI_microtime()), _called(false) {}
-    ~WorkItem() {
-      if (!_called && (TRI_microtime() - _startTime) > 0.1) {
-        LOG_TOPIC("hunde", ERR, arangodb::Logger::REPLICATION)
-            << "Work item forgotten, created at " << _startTime << " that is "
-            << (TRI_microtime() - _startTime) << "s ago.";
-      }
-    }
+        : _handler(std::move(handler)) {}
+    ~WorkItem() {}
 
-    WorkItem(WorkItem const& other) = delete;
-    WorkItem(WorkItem&& other) {
-      _handler = std::move(other._handler);
-      _startTime = other._startTime;
-      _called = other._called;
-      other._called = false;
-    }
-
-    void operator()() {
-      _called = true;
-      auto waittime = TRI_microtime() - _startTime;
-      if (waittime > 0.4) {
-        LOG_TOPIC("hunde", ERR, arangodb::Logger::REPLICATION)
-            << "Long queue wait time: " << waittime << "s";
-      }
-      _handler();
-    }
+    void operator()() { _handler(); }
   };
 
   // Since the lockfree queue can only handle PODs, one has to wrap lambdas
@@ -173,6 +146,10 @@ class SupervisedScheduler final : public Scheduler {
 
   bool cleanupAbandonedThreads();
   void sortoutLongRunningThreads();
+
+  // Check if we are allowed to pull from a queue with the given index
+  // This is used to give priority to "FAST" and "MED" lanes accordingly.
+  inline bool canPullFromQueue(uint64_t queueIdx) const;
 };
 
 }  // namespace arangodb
