@@ -107,7 +107,7 @@ void AqlFeature::stop() {
         << " registered traverser engines to terminate and for " << n
         << " registered queries to terminate and for " << m
         << " feature leases to be released";
-    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    arangodb::basics::sleep_for(std::chrono::milliseconds(250));
   }
 }
 

@@ -240,7 +240,7 @@ arangodb::Result Databases::create(std::string const& dbName, VPackSlice const& 
         break;
       }
       // sleep
-      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+      arangodb::basics::sleep_for(std::chrono::milliseconds(10));
     }
 
     if (vocbase == nullptr) {
@@ -353,7 +353,7 @@ int dropDBCoordinator(std::string const& dbName) {
 
     vocbase->release();
     // sleep
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    arangodb::basics::sleep_for(std::chrono::milliseconds(10));
   }
   return TRI_ERROR_NO_ERROR;
 }

@@ -1447,7 +1447,7 @@ ExternalProcessStatus TRI_KillExternalProcess(ExternalId pid, int signal, bool i
         }
         return status;
       }
-      std::this_thread::sleep_for(std::chrono::seconds(1));
+      arangodb::basics::sleep_for(std::chrono::seconds(1));
       if (count >= 13) {
         TRI_ASSERT(external != nullptr);
         LOG_TOPIC("2af4e", WARN, arangodb::Logger::FIXME) << "about to send SIGKILL signal to process: " << external->_pid << ", status: " << (int) status._status;

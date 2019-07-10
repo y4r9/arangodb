@@ -568,7 +568,7 @@ bool ServerState::registerAtAgencyPhase1(AgencyComm& comm, const ServerState::Ro
     if (!result.successful()) {
       LOG_TOPIC("8d5ff", WARN, Logger::CLUSTER)
           << "Couldn't fetch " << targetIdPath << " and " << targetUrl;
-      std::this_thread::sleep_for(std::chrono::seconds(1));
+      arangodb::basics::sleep_for(std::chrono::seconds(1));
       continue;
     }
 
@@ -635,7 +635,7 @@ bool ServerState::registerAtAgencyPhase1(AgencyComm& comm, const ServerState::Ro
       return true;
     }
 
-    std::this_thread::sleep_for(std::chrono::seconds(1));
+    arangodb::basics::sleep_for(std::chrono::seconds(1));
   }
 
   LOG_TOPIC("309d7", FATAL, Logger::STARTUP) << "Couldn't register shortname for " << _id;
@@ -670,7 +670,7 @@ bool ServerState::registerAtAgencyPhase2(AgencyComm& comm) {
           << ", body: '" << result.body() << "', retrying ...";
     }
 
-    std::this_thread::sleep_for(std::chrono::seconds(1));
+    arangodb::basics::sleep_for(std::chrono::seconds(1));
   }
 
   return false;
@@ -906,7 +906,7 @@ Result ServerState::propagateClusterReadOnly(bool mode) {
     // This is propagated to all servers via the heartbeat, which happens
     // once per second. So to ensure that every server has taken note of
     // the change, we delay here for 2 seconds.
-    std::this_thread::sleep_for(std::chrono::seconds(2));
+    arangodb::basics::sleep_for(std::chrono::seconds(2));
   }
   setReadOnly(mode);
   return Result();

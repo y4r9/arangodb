@@ -538,7 +538,7 @@ void TtlFeature::waitForThreadWork() {
       }
     }
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    arangodb::basics::sleep_for(std::chrono::milliseconds(5));
   }
 }
   
@@ -627,7 +627,7 @@ Result TtlFeature::propertiesFromVelocyPack(VPackSlice const& slice, VPackBuilde
       _thread->wakeup();
     
       while (!active && _thread->isCurrentlyWorking()) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        arangodb::basics::sleep_for(std::chrono::milliseconds(10));
       }
     }
   }
@@ -642,7 +642,7 @@ void TtlFeature::shutdownThread() noexcept {
     try {
       _thread->beginShutdown();
       while (_thread->isRunning()) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        arangodb::basics::sleep_for(std::chrono::milliseconds(10));
       }
     } catch (...) {
     }

@@ -285,7 +285,7 @@ void SupervisedScheduler::shutdown() {
     LOG_TOPIC("a1690", WARN, Logger::THREADS)
         << "Scheduler received shutdown, but there are still tasks on the "
         << "queue: jobsSubmitted=" << jobsSubmitted << " jobsDone=" << jobsDone;
-    std::this_thread::sleep_for(std::chrono::seconds(1));
+    arangodb::basics::sleep_for(std::chrono::seconds(1));
   }
 
   // call the destructor of all threads
@@ -302,7 +302,7 @@ void SupervisedScheduler::shutdown() {
       LOG_TOPIC("ed0b2", WARN, Logger::THREADS)
       << "Scheduler received shutdown, but there are still abandoned threads";
     }
-    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    arangodb::basics::sleep_for(std::chrono::milliseconds(200));
   }
 }
 

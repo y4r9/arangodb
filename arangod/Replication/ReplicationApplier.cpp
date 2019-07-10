@@ -259,7 +259,7 @@ void ReplicationApplier::doStart(std::function<void()>&& cb,
   while (_state.isShuttingDown()) {
     // another instance is still around
     writeLocker.unlock();
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    arangodb::basics::sleep_for(std::chrono::milliseconds(50));
     writeLocker.lock();
   }
 
@@ -324,7 +324,7 @@ void ReplicationApplier::doStart(std::function<void()>&& cb,
   }
 
   while (!_thread->hasStarted()) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    arangodb::basics::sleep_for(std::chrono::milliseconds(20));
   }
 
   TRI_ASSERT(!_state.isActive() && !_state.isShuttingDown());
@@ -396,7 +396,7 @@ bool ReplicationApplier::sleepIfStillActive(uint64_t sleepTime) {
     if (sleepChunk > sleepTime) {
       sleepChunk = sleepTime;
     }
-    std::this_thread::sleep_for(std::chrono::microseconds(sleepChunk));
+    arangodb::basics::sleep_for(std::chrono::microseconds(sleepChunk));
     sleepTime -= sleepChunk;
   }
 
@@ -729,7 +729,7 @@ void ReplicationApplier::doStop(Result const& r, bool joinThread) {
     auto start = std::chrono::steady_clock::now();
     while (_state.isShuttingDown()) {
       writeLocker.unlock();
-      std::this_thread::sleep_for(std::chrono::milliseconds(50));
+      arangodb::basics::sleep_for(std::chrono::milliseconds(50));
       if (std::chrono::steady_clock::now() - start > std::chrono::minutes(3)) {
         LOG_TOPIC("0b9c8", ERR, Logger::REPLICATION)
             << "replication applier is not stopping";

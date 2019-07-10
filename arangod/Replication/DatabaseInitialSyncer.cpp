@@ -605,7 +605,7 @@ void DatabaseInitialSyncer::fetchDumpChunk(std::shared_ptr<Syncer::JobSynchroniz
         }
 
         std::chrono::milliseconds sleepTime = ::sleepTimeFromWaitTime(waitTime);
-        std::this_thread::sleep_for(sleepTime);
+        arangodb::basics::sleep_for(sleepTime);
       }
       // fallthrough here in case everything went well
     }
@@ -905,7 +905,7 @@ Result DatabaseInitialSyncer::fetchCollectionSync(arangodb::LogicalCollection* c
     }
 
     std::chrono::milliseconds sleepTime = ::sleepTimeFromWaitTime(waitTime);
-    std::this_thread::sleep_for(sleepTime);
+    arangodb::basics::sleep_for(sleepTime);
   }
 
   if (replutils::hasFailed(response.get())) {

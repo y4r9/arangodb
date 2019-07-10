@@ -243,7 +243,7 @@ void HeartbeatThread::run() {
         // startup aborted
         return;
       }
-      std::this_thread::sleep_for(std::chrono::milliseconds(100));
+      arangodb::basics::sleep_for(std::chrono::milliseconds(100));
     }
   }
 
@@ -348,7 +348,7 @@ void HeartbeatThread::runDBServer() {
     if (!registered) {
       LOG_TOPIC("52ce5", ERR, Logger::HEARTBEAT)
           << "Couldn't register plan change in agency!";
-      std::this_thread::sleep_for(std::chrono::seconds(1));
+      arangodb::basics::sleep_for(std::chrono::seconds(1));
     }
   }
 
@@ -358,7 +358,7 @@ void HeartbeatThread::runDBServer() {
     if (!registered) {
       LOG_TOPIC("f1df2", ERR, Logger::HEARTBEAT)
           << "Couldn't register current change in agency!";
-      std::this_thread::sleep_for(std::chrono::seconds(1));
+      arangodb::basics::sleep_for(std::chrono::seconds(1));
     }
   }
 
@@ -742,7 +742,7 @@ void HeartbeatThread::runSingleServer() {
               << "could not cancel all async jobs " << res.errorMessage();
         }
         // wait for everything to calm down for good measure
-        std::this_thread::sleep_for(std::chrono::seconds(10));
+        arangodb::basics::sleep_for(std::chrono::seconds(10));
       }
 
       if (applier->isActive() && applier->endpoint() == endpoint) {
@@ -753,7 +753,7 @@ void HeartbeatThread::runSingleServer() {
           applier->stopAndJoin();
         }
         while (applier->isShuttingDown() && !isStopping()) {
-          std::this_thread::sleep_for(std::chrono::milliseconds(50));
+          arangodb::basics::sleep_for(std::chrono::milliseconds(50));
         }
 
         LOG_TOPIC("04e4e", INFO, Logger::HEARTBEAT)

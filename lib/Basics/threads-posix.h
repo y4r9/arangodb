@@ -48,6 +48,19 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #define TRI_thread_t pthread_t
+#include <chrono>
+#include <thread>
+namespace arangodb {
+namespace basics {
+  template< class Rep, class Period >
+    void sleep_for(const std::chrono::duration<Rep, Period>& sleep_duration) {
+    if (std::chrono::duration_cast<std::chrono::milliseconds>(sleep_duration).count() == 0) {
+      return;
+    }
+
+
+    std::this_thread::sleep_for(sleep_duration);}
+}}
 
 #endif
 

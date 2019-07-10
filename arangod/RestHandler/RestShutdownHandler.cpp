@@ -104,7 +104,7 @@ RestStatus RestShutdownHandler::execute() {
   // this should allow workers to go into the IDLE state
   scheduler->queue(RequestLane::CLUSTER_INTERNAL, [self] {
     // Give the server 2 seconds to send the reply:
-    std::this_thread::sleep_for(std::chrono::seconds(2));
+    arangodb::basics::sleep_for(std::chrono::seconds(2));
     // Go down:
     ApplicationServer::server->beginShutdown();
   });

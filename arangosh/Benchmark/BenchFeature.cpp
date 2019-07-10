@@ -228,12 +228,12 @@ void BenchFeature::start() {
 
     // give all threads a chance to start so they will not miss the broadcast
     while (getStartCounter() < (int)_concurreny) {
-      std::this_thread::sleep_for(std::chrono::milliseconds(5));
+      arangodb::basics::sleep_for(std::chrono::milliseconds(5));
     }
 
     if (_delay) {
       status("sleeping (startup delay)...");
-      std::this_thread::sleep_for(std::chrono::seconds(10));
+      arangodb::basics::sleep_for(std::chrono::seconds(10));
     }
 
     status("executing tests...");
@@ -264,7 +264,7 @@ void BenchFeature::start() {
         nextReportValue += stepValue;
       }
 
-      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+      arangodb::basics::sleep_for(std::chrono::milliseconds(10));
     }
 
     double time = TRI_microtime() - start;

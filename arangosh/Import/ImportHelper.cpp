@@ -947,7 +947,7 @@ void ImportHelper::waitForSenders() {
     if (numIdle == _senderThreads.size()) {
       return;
     }
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    arangodb::basics::sleep_for(std::chrono::milliseconds(10));
   }
 }
 }  // namespace import

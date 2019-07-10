@@ -1941,7 +1941,7 @@ Result ClusterInfo::createCollectionsCoordinator(std::string const& databaseName
           }
 
           // Agency is currently unhappy, try again in a few seconds:
-          std::this_thread::sleep_for(std::chrono::seconds(5));
+          arangodb::basics::sleep_for(std::chrono::seconds(5));
 
           continue;
         }
@@ -2662,7 +2662,7 @@ Result ClusterInfo::ensureIndexCoordinator(  // create index
 
         if (diff < std::chrono::seconds(120)) {
           uint32_t wt = RandomGenerator::interval(static_cast<uint32_t>(1000));
-          std::this_thread::sleep_for(std::chrono::steady_clock::duration(wt));
+          arangodb::basics::sleep_for(std::chrono::steady_clock::duration(wt));
           continue;
         }
 
@@ -3064,7 +3064,7 @@ Result ClusterInfo::ensureIndexCoordinatorInner(  // create index
             sleepFor *= 2;
           }
 
-          std::this_thread::sleep_for(std::chrono::milliseconds(sleepFor));
+          arangodb::basics::sleep_for(std::chrono::milliseconds(sleepFor));
         }
         // We only get here if the collection was dropped just in the moment
         // when we wanted to roll back the index creation.
@@ -3765,7 +3765,7 @@ std::shared_ptr<std::vector<ServerID>> ClusterInfo::getResponsibleServer(ShardID
           }
         }
       }
-      std::this_thread::sleep_for(std::chrono::milliseconds(500));
+      arangodb::basics::sleep_for(std::chrono::milliseconds(500));
     }
 
     if (++tries >= 2) {

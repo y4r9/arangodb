@@ -115,7 +115,7 @@ void CheckVersionFeature::start() {
   // and force shutdown
   server()->beginShutdown();
 
-  std::this_thread::sleep_for(std::chrono::seconds(1));
+  arangodb::basics::sleep_for(std::chrono::seconds(1));
   TRI_EXIT_FUNCTION(EXIT_SUCCESS, nullptr);
 }
 

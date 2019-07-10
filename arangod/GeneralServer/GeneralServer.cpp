@@ -136,7 +136,7 @@ void GeneralServer::stopWorking() {
     }
 
     LOG_TOPIC("f1749", DEBUG, Logger::FIXME) << "waiting for " << _commTasks.size() << " comm tasks to shut down";
-    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    arangodb::basics::sleep_for(std::chrono::milliseconds(5));
 
     // this is a debugging facility that we can hopefully remove soon
     MUTEX_LOCKER(lock, _tasksLock);
@@ -158,7 +158,7 @@ void GeneralServer::stopWorking() {
     }
 
     LOG_TOPIC("f1549", DEBUG, Logger::FIXME) << "waiting for " << _commTasks.size() << " comm tasks to shut down";
-    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    arangodb::basics::sleep_for(std::chrono::milliseconds(5));
 
     // this is a debugging facility that we can hopefully remove soon
     MUTEX_LOCKER(lock, _tasksLock);

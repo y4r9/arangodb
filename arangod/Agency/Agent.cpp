@@ -112,7 +112,7 @@ void Agent::waitForThreadsStop() {
   while (_constituent.isRunning() || _compactor.isRunning() ||
          (_config.supervision() && _supervision.isRunning()) ||
          (_inception != nullptr && _inception->isRunning())) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    arangodb::basics::sleep_for(std::chrono::milliseconds(100));
 
     // fail fatally after 5 mins:
     if (++counter >= 10 * 60 * 5) {
@@ -1078,7 +1078,7 @@ write_ret_t Agent::inquire(query_t const& query) {
     if (!found) {
       break;
     }
-    std::this_thread::sleep_for(std::chrono::duration<double>(0.1));
+    arangodb::basics::sleep_for(std::chrono::duration<double>(0.1));
     leader = _constituent.leaderID();
     if (leader != id()) {
       return write_ret_t(false, leader);

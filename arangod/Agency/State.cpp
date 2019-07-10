@@ -326,7 +326,7 @@ index_t State::logFollower(query_t const& transactions) {
 
   while (!_ready && !_agent->isStopping()) {
     LOG_TOPIC("8dd4c", DEBUG, Logger::AGENCY) << "Waiting for state to get ready ...";
-    std::this_thread::sleep_for(std::chrono::duration<double>(0.1));
+    arangodb::basics::sleep_for(std::chrono::duration<double>(0.1));
   }
 
   MUTEX_LOCKER(logLock, _logLock);

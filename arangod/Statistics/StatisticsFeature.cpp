@@ -103,15 +103,15 @@ class arangodb::StatisticsThread final : public Thread {
           }
         }
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(sleepTime));
+        arangodb::basics::sleep_for(std::chrono::milliseconds(sleepTime));
 
       } else {
         nothingHappened = 0;
 
         if (count < 10) {
-          std::this_thread::sleep_for(std::chrono::milliseconds(10));
+          arangodb::basics::sleep_for(std::chrono::milliseconds(10));
         } else if (count < 100) {
-          std::this_thread::sleep_for(std::chrono::milliseconds(1));
+          arangodb::basics::sleep_for(std::chrono::milliseconds(1));
         }
       }
     }
@@ -201,7 +201,7 @@ void StatisticsFeature::stop() {
     _statisticsThread->beginShutdown();
 
     while (_statisticsThread->isRunning()) {
-      std::this_thread::sleep_for(std::chrono::microseconds(10000));
+      arangodb::basics::sleep_for(std::chrono::microseconds(10000));
     }
   }
 
@@ -209,7 +209,7 @@ void StatisticsFeature::stop() {
     _statisticsWorker->beginShutdown();
 
     while (_statisticsWorker->isRunning()) {
-      std::this_thread::sleep_for(std::chrono::microseconds(10000));
+      arangodb::basics::sleep_for(std::chrono::microseconds(10000));
     }
   }
 

@@ -61,7 +61,7 @@ unsigned long RandomDevice::seed() {
   // Time now --------
   for (unsigned short i = 0; i < 50; ++i) {
     std::this_thread::yield();
-    std::this_thread::sleep_for(std::chrono::nanoseconds(100));
+    arangodb::basics::sleep_for(std::chrono::nanoseconds(100));
   }
   auto now = std::chrono::duration_cast<std::chrono::nanoseconds>(
                  std::chrono::high_resolution_clock::now().time_since_epoch())

@@ -481,7 +481,7 @@ arangodb::Result SynchronizeShard::getReadLock(std::string const& endpoint,
           << putres->stringifyErrorMessage();
     }
 
-    std::this_thread::sleep_for(duration<double>(sleepTime));
+    arangodb::basics::sleep_for(duration<double>(sleepTime));
   }
 
   LOG_TOPIC("75e2b", ERR, Logger::MAINTENANCE) << "startReadLockOnLeader: giving up";
@@ -759,7 +759,7 @@ bool SynchronizeShard::first() {
         << "synchronizeOneShard: waiting for leader, " << database << "/"
         << shard << ", " << database << "/" << planId;
 
-    std::this_thread::sleep_for(duration<double>(0.2));
+    arangodb::basics::sleep_for(duration<double>(0.2));
   }
 
   // Once we get here, we know that the leader is ready for sync, so we give it

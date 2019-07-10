@@ -385,7 +385,7 @@ Result RestRepairHandler::executeRepairOperations(DatabaseID const& databaseId,
         LOG_TOPIC("daa02", TRACE, arangodb::Logger::CLUSTER)
             << "RestRepairHandler::executeRepairOperations: "
             << "Sleeping for 1s (still waiting for job)";
-        std::this_thread::sleep_for(std::chrono::seconds(1));
+        arangodb::basics::sleep_for(std::chrono::seconds(1));
       }
 
       LOG_TOPIC("7a12d", DEBUG, arangodb::Logger::CLUSTER)
@@ -406,7 +406,7 @@ Result RestRepairHandler::executeRepairOperations(DatabaseID const& databaseId,
         LOG_TOPIC("8a25f", TRACE, arangodb::Logger::CLUSTER)
             << "RestRepairHandler::executeRepairOperations: "
             << "Sleeping for 1s (still waiting for replicationFactor to match)";
-        std::this_thread::sleep_for(std::chrono::seconds(1));
+        arangodb::basics::sleep_for(std::chrono::seconds(1));
       }
     }
   }

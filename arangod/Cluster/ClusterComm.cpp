@@ -949,7 +949,7 @@ size_t ClusterComm::performRequests(std::vector<ClusterCommRequest>& requests,
         // is in flight, this is possible, since we might have scheduled
         // a retry later than now and simply wait till then
         if (now < actionNeeded) {
-          std::this_thread::sleep_for(std::chrono::microseconds(
+          arangodb::basics::sleep_for(std::chrono::microseconds(
               (unsigned long long)((actionNeeded - now) * 1000000.0)));
         }
         continue;
@@ -1205,7 +1205,7 @@ void ClusterCommThread::run() {
   LOG_TOPIC("2f95e", DEBUG, Logger::CLUSTER)
       << "waiting for curl to stop remaining handles";
   while (_communicator->work_once() > 0) {
-    std::this_thread::sleep_for(std::chrono::microseconds(10));
+    arangodb::basics::sleep_for(std::chrono::microseconds(10));
   }
 
   LOG_TOPIC("5d12a", DEBUG, Logger::CLUSTER) << "stopped ClusterComm thread";

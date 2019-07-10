@@ -417,7 +417,7 @@ void MMFilesRestReplicationHandler::handleCommandLoggerFollow() {
   while (state.lastCommittedTick < dump._lastFoundTick &&
          !application_features::ApplicationServer::isStopping()) {
     state = MMFilesLogfileManager::instance()->state();
-    std::this_thread::sleep_for(std::chrono::microseconds(500));
+    arangodb::basics::sleep_for(std::chrono::microseconds(500));
   }
 
   // transfer ownership of the buffer contents

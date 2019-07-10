@@ -43,5 +43,21 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #define TRI_thread_t HANDLE
+#include <chrono>
+#include <thread>
+namespace arangodb {
+namespace basics {
+  // Lol microsoft https://developercommunity.visualstudio.com/content/problem/61684/stdthis-threadsleep-for-depends-on-system-time.html 
+  template< class Rep, class Period >
+    void sleep_for(const std::chrono::duration<Rep, Period>& sleep_duration) {
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(sleep_duration).count();
+    if (duration == 0) {
+        Sleep(1);
+    } else {
+      Sleep(static_cast<DWORD>(duration));
+    }
+  }
+}}
+
 
 #endif

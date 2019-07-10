@@ -113,7 +113,7 @@ bool RocksDBSettingsManager::lockForSync(bool force) {
       if (res) {
         break;
       }
-      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+      arangodb::basics::sleep_for(std::chrono::milliseconds(10));
     }
   } else {
     bool expected = false;

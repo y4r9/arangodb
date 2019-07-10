@@ -209,7 +209,7 @@ DBServerAgencySyncResult DBServerAgencySync::execute() {
       // chance to complete before we collect data for phaseTwo:
       LOG_TOPIC("ef730", DEBUG, Logger::MAINTENANCE)
         << "DBServerAgencySync::hesitating between phases 1 and 2 for 0.1s...";
-      std::this_thread::sleep_for(std::chrono::milliseconds(100));
+      arangodb::basics::sleep_for(std::chrono::milliseconds(100));
     }
 
     auto current = clusterInfo->getCurrent();

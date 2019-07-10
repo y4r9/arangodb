@@ -1015,7 +1015,7 @@ uint64_t AgencyComm::uniqid(uint64_t count, double timeout) {
   while (tries++ < maxTries) {
     result = getValues("Sync/LatestID");
     if (!result.successful()) {
-      std::this_thread::sleep_for(std::chrono::milliseconds(500));
+      arangodb::basics::sleep_for(std::chrono::milliseconds(500));
       continue;
     }
 
@@ -1051,7 +1051,7 @@ uint64_t AgencyComm::uniqid(uint64_t count, double timeout) {
     try {
       newBuilder.add(VPackValue(newValue));
     } catch (...) {
-      std::this_thread::sleep_for(std::chrono::milliseconds(500));
+      arangodb::basics::sleep_for(std::chrono::milliseconds(500));
       continue;
     }
 
@@ -1208,12 +1208,12 @@ bool AgencyComm::ensureStructureInitialized() {
     LOG_TOPIC("63f7b", WARN, Logger::AGENCYCOMM)
       << "Initializing agency failed. We'll try again soon";
     // We should really have exclusive access, here, this is strange!
-    std::this_thread::sleep_for(std::chrono::seconds(1));
+    arangodb::basics::sleep_for(std::chrono::seconds(1));
 
     LOG_TOPIC("9d265", TRACE, Logger::AGENCYCOMM)
         << "Waiting for agency to get initialized";
 
-    std::this_thread::sleep_for(std::chrono::seconds(1));
+    arangodb::basics::sleep_for(std::chrono::seconds(1));
   }
 
   return true;
@@ -1252,7 +1252,7 @@ bool AgencyComm::lock(std::string const& key, double ttl, double timeout,
       return true;
     }
 
-    std::this_thread::sleep_for(std::chrono::microseconds(sleepTime));
+    arangodb::basics::sleep_for(std::chrono::microseconds(sleepTime));
 
     if (sleepTime < MAX_SLEEP_TIME) {
       sleepTime += INITIAL_SLEEP_TIME;
@@ -1291,7 +1291,7 @@ bool AgencyComm::unlock(std::string const& key, VPackSlice const& slice, double 
       return true;
     }
 
-    std::this_thread::sleep_for(std::chrono::microseconds(sleepTime));
+    arangodb::basics::sleep_for(std::chrono::microseconds(sleepTime));
 
     if (sleepTime < MAX_SLEEP_TIME) {
       sleepTime += INITIAL_SLEEP_TIME;
@@ -1862,7 +1862,7 @@ bool AgencyComm::shouldInitializeStructure() {
 
     }
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    arangodb::basics::sleep_for(std::chrono::milliseconds(250));
 
   }
 

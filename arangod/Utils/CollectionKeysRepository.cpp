@@ -64,7 +64,7 @@ CollectionKeysRepository::~CollectionKeysRepository() {
           << "giving up waiting for unused keys";
     }
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    arangodb::basics::sleep_for(std::chrono::milliseconds(500));
     ++tries;
   }
 

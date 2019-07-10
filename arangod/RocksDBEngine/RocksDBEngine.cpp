@@ -1664,7 +1664,7 @@ void RocksDBEngine::waitForEstimatorSync(std::chrono::milliseconds maxWaitTime) 
       // all synced up!
       break;
     }
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    arangodb::basics::sleep_for(std::chrono::milliseconds(50));
   }
 }
 

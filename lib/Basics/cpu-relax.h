@@ -44,7 +44,7 @@ inline void cpu_relax() {
 #endif
 #else
   static constexpr std::chrono::microseconds us0{0};
-  std::this_thread::sleep_for(us0);
+  arangodb::basics::sleep_for(us0);
 #endif
 }
 

@@ -194,7 +194,7 @@ void DatabaseManagerThread::run() {
           break;
         }
 
-        std::this_thread::sleep_for(std::chrono::microseconds(waitTime()));
+        arangodb::basics::sleep_for(std::chrono::microseconds(waitTime()));
 
         // The following is only necessary after a wait:
         auto queryRegistry = QueryRegistryFeature::registry();
@@ -486,7 +486,7 @@ void DatabaseFeature::unprepare() {
     _databaseManager->beginShutdown();
 
     while (_databaseManager->isRunning()) {
-      std::this_thread::sleep_for(std::chrono::milliseconds(5));
+      arangodb::basics::sleep_for(std::chrono::milliseconds(5));
     }
   }
 

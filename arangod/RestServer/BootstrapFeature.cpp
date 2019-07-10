@@ -89,7 +89,7 @@ void raceForClusterBootstrap() {
       // Error in communication, note that value not found is not an error
       LOG_TOPIC("2488f", TRACE, Logger::STARTUP)
           << "raceForClusterBootstrap: no agency communication";
-      std::this_thread::sleep_for(std::chrono::seconds(1));
+      arangodb::basics::sleep_for(std::chrono::seconds(1));
       continue;
     }
 
@@ -108,7 +108,7 @@ void raceForClusterBootstrap() {
       }
       LOG_TOPIC("49437", DEBUG, Logger::STARTUP)
           << "raceForClusterBootstrap: somebody else does the bootstrap";
-      std::this_thread::sleep_for(std::chrono::seconds(1));
+      arangodb::basics::sleep_for(std::chrono::seconds(1));
       continue;
     }
 
@@ -120,7 +120,7 @@ void raceForClusterBootstrap() {
       LOG_TOPIC("a1ecb", DEBUG, Logger::STARTUP)
           << "raceForClusterBootstrap: lost race, somebody else will bootstrap";
       // Cannot get foot into the door, try again later:
-      std::this_thread::sleep_for(std::chrono::seconds(1));
+      arangodb::basics::sleep_for(std::chrono::seconds(1));
       continue;
     }
     // OK, we handle things now
@@ -136,7 +136,7 @@ void raceForClusterBootstrap() {
       LOG_TOPIC("0ad1c", TRACE, Logger::STARTUP)
           << "raceForClusterBootstrap: no DBservers, waiting";
       agency.removeValues(boostrapKey, false);
-      std::this_thread::sleep_for(std::chrono::seconds(1));
+      arangodb::basics::sleep_for(std::chrono::seconds(1));
       continue;
     }
 
@@ -151,7 +151,7 @@ void raceForClusterBootstrap() {
       LOG_TOPIC("8903f", ERR, Logger::STARTUP) << "Problems with cluster bootstrap, "
                                       << "marking as not successful.";
       agency.removeValues(boostrapKey, false);
-      std::this_thread::sleep_for(std::chrono::seconds(1));
+      arangodb::basics::sleep_for(std::chrono::seconds(1));
       continue;
     }
 
@@ -178,7 +178,7 @@ void raceForClusterBootstrap() {
 
     LOG_TOPIC("04fb7", TRACE, Logger::STARTUP)
         << "raceForClusterBootstrap: could not indicate success";
-    std::this_thread::sleep_for(std::chrono::seconds(1));
+    arangodb::basics::sleep_for(std::chrono::seconds(1));
   }
 }
 
@@ -218,7 +218,7 @@ void runCoordinatorJS(TRI_vocbase_t* vocbase) {
           << ". retrying bootstrap in 1s.";
     }
     if (!success) {
-      std::this_thread::sleep_for(std::chrono::seconds(1));
+      arangodb::basics::sleep_for(std::chrono::seconds(1));
     }
   }
 }

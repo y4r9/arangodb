@@ -972,7 +972,7 @@ arangodb::Result processInputDirectory(
 
         // don't sleep for too long, as we want to quickly terminate
         // when the gets empty
-        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+        arangodb::basics::sleep_for(std::chrono::milliseconds(200));
       }
     }
 

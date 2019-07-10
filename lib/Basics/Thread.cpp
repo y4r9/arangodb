@@ -215,7 +215,7 @@ void Thread::shutdown() {
         if (_state.load() == ThreadState::STOPPED) {
           break;
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        arangodb::basics::sleep_for(std::chrono::milliseconds(100));
       }
 
       // we still have to wait here until the thread has terminated, but this should

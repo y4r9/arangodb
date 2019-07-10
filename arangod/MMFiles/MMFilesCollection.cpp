@@ -725,7 +725,7 @@ int MMFilesCollection::close() {
     // give the cleanup thread more time to clean up
     {
       WRITE_UNLOCKER(unlocker, _logicalCollection.lock());
-      std::this_thread::sleep_for(std::chrono::milliseconds(20));
+      arangodb::basics::sleep_for(std::chrono::milliseconds(20));
     }
 
     if ((++tries % 50) == 0) {
@@ -2597,7 +2597,7 @@ int MMFilesCollection::lockRead(bool useDeadlockDetector,
         return TRI_ERROR_ARANGO_DATA_SOURCE_NOT_FOUND;
       }
 
-      std::this_thread::sleep_for(std::chrono::microseconds(waitTime));
+      arangodb::basics::sleep_for(std::chrono::microseconds(waitTime));
       if (waitTime < 32) {
         waitTime *= 2;
       }
@@ -2713,7 +2713,7 @@ int MMFilesCollection::lockWrite(bool useDeadlockDetector,
       if (_logicalCollection.vocbase().isDropped()) {
         return TRI_ERROR_ARANGO_DATA_SOURCE_NOT_FOUND;
       }
-      std::this_thread::sleep_for(std::chrono::microseconds(waitTime));
+      arangodb::basics::sleep_for(std::chrono::microseconds(waitTime));
       if (waitTime < 32) {
         waitTime *= 2;
       }

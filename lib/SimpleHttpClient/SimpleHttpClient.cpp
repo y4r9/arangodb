@@ -192,7 +192,7 @@ SimpleHttpResult* SimpleHttpClient::retryRequest(
     }
 
     // 1 microsecond == 10^-6 seconds
-    std::this_thread::sleep_for(std::chrono::microseconds(_params._retryWaitTime));
+    arangodb::basics::sleep_for(std::chrono::microseconds(_params._retryWaitTime));
   }
 
   return result;
@@ -331,7 +331,7 @@ SimpleHttpResult* SimpleHttpClient::doRequest(
           this->close();  // this sets the state to IN_CONNECT for a retry
           LOG_TOPIC("e5154", DEBUG, arangodb::Logger::HTTPCLIENT) << _errorMessage;
 
-          std::this_thread::sleep_for(std::chrono::milliseconds(5));
+          arangodb::basics::sleep_for(std::chrono::milliseconds(5));
           break;
         }
 

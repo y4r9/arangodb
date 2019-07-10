@@ -27,6 +27,7 @@
 #include <chrono>
 #include <thread>
 #include "Basics/Common.h"
+#include "Basics/threads.h"
 
 namespace arangodb {
 namespace basics {
@@ -143,7 +144,7 @@ class DataProtector {
     for (int i = 0; i < DATA_PROTECTOR_MULTIPLICITY; i++) {
       while (reinterpret_cast<Entry*>(_list + i)->_count > 0) {
         // let other threads do some work while we're waiting
-        std::this_thread::sleep_for(std::chrono::microseconds(250));
+        arangodb::basics::sleep_for(std::chrono::microseconds(250));
       }
     }
   }

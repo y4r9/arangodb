@@ -662,7 +662,7 @@ bool RestAqlHandler::findQuery(std::string const& idString, Query*& query) {
     } catch (...) {
       // we can only get here if the query is currently used by someone
       // else. in this case we sleep for a while and re-try
-      std::this_thread::sleep_for(std::chrono::microseconds(SingleWaitPeriod));
+      arangodb::basics::sleep_for(std::chrono::microseconds(SingleWaitPeriod));
     }
   }
 

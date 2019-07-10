@@ -227,7 +227,7 @@ void ClientFeature::validateOptions(std::shared_ptr<ProgramOptions> options) {
 }
 
 void ClientFeature::readPassword() {
-  std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  arangodb::basics::sleep_for(std::chrono::milliseconds(10));
 
   try {
     ConsoleFeature* console =
@@ -246,7 +246,7 @@ void ClientFeature::readPassword() {
 }
 
 void ClientFeature::readJwtSecret() {
-  std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  arangodb::basics::sleep_for(std::chrono::milliseconds(10));
 
   try {
     ConsoleFeature* console =

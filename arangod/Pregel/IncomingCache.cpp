@@ -138,7 +138,7 @@ void ArrayInCache<M>::mergeCache(WorkerConfig const& config, InCache<M> const* o
       
       if (!guard) {
         if (i == 0) {  // eventually we hit the last one
-          std::this_thread::sleep_for(std::chrono::microseconds(100));  // don't busy wait
+          arangodb::basics::sleep_for(std::chrono::microseconds(100));  // don't busy wait
         }
         continue;
       }
@@ -253,7 +253,7 @@ void CombiningInCache<M>::mergeCache(WorkerConfig const& config, InCache<M> cons
       
       if (!guard) {
         if (i == 0) {  // eventually we hit the last one
-          std::this_thread::sleep_for(std::chrono::microseconds(100));  // don't busy wait
+          arangodb::basics::sleep_for(std::chrono::microseconds(100));  // don't busy wait
         }
         continue;
       }

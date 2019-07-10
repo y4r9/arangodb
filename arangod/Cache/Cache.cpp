@@ -344,7 +344,7 @@ void Cache::shutdown() {
       }
       _metadata.readUnlock();
       _taskLock.writeUnlock();
-      std::this_thread::sleep_for(std::chrono::microseconds(10));
+      arangodb::basics::sleep_for(std::chrono::microseconds(10));
       _taskLock.writeLock();
       _metadata.readLock();
     }

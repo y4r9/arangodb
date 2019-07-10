@@ -190,7 +190,7 @@ void Task::shutdownTasks() {
     if (++iterations % 10 == 0) {
       LOG_TOPIC("3966b", INFO, Logger::FIXME) << "waiting for " << size << " task(s) to complete";
     }
-    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    arangodb::basics::sleep_for(std::chrono::milliseconds(200));
   }
 }
 
