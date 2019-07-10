@@ -75,7 +75,7 @@ time_point lastQueueFullWarning[3];
 int64_t fullQueueEvents[3] = {0, 0, 0};
 std::mutex fullQueueWarningMutex[3];
 
-void logQueueWarningEveryNowAndThen(int64_t events) {
+bool logQueueWarningEveryNowAndThen(int64_t events) {
   auto const& now = std::chrono::steady_clock::now();
   uint64_t totalEvents;
   bool printLog = false;
@@ -98,6 +98,7 @@ void logQueueWarningEveryNowAndThen(int64_t events) {
         << " is filled more than 50% in last " << sinceLast.count()
         << "s. (happened " << totalEvents << " times since last message)";
   }
+  return printLog;
 }
 
 void logQueueFullEveryNowAndThen(int64_t fifo) {
@@ -203,8 +204,16 @@ bool SupervisedScheduler::queue(RequestLane lane, std::function<void()> handler,
     logQueueFullEveryNowAndThen(queueNo);
     return false;
   }
+
   // queue now has ownership for the WorkItem
   work.release();
+  if (queueNo == 0) {
+    _fastLaneJobs++;
+  } else if (queueNo == 1) {
+    _medLaneJobs++;
+  } else {
+    _slowLaneJobs++;
+  }
 
   static thread_local uint64_t lastSubmitTime_ns;
 
@@ -219,12 +228,22 @@ bool SupervisedScheduler::queue(RequestLane lane, std::function<void()> handler,
     if ((queueWarningTick++ & 0xFF) == 0) {
       auto const& now = std::chrono::steady_clock::now();
       if (conditionQueueFullSince == time_point{}) {
-        logQueueWarningEveryNowAndThen(queueWarningTick);
+        auto logged = logQueueWarningEveryNowAndThen(queueWarningTick);
         conditionQueueFullSince = now;
+        if (logged) {
+          LOG_TOPIC("katze", ERR, Logger::THREADS)
+              << "Jobs waiting in lanes F: " << _fastLaneJobs << " M: " << _medLaneJobs
+              << " S: " << _slowLaneJobs << " approx: " << approxQueueLength;
+        }
       } else if (now - conditionQueueFullSince > std::chrono::seconds(5)) {
-        logQueueWarningEveryNowAndThen(queueWarningTick);
+        auto logged = logQueueWarningEveryNowAndThen(queueWarningTick);
         queueWarningTick = 0;
         conditionQueueFullSince = now;
+        if (logged) {
+          LOG_TOPIC("katze", ERR, Logger::THREADS)
+              << "Jobs waiting in lanes F: " << _fastLaneJobs << " M: " << _medLaneJobs
+              << " S: " << _slowLaneJobs << " approx: " << approxQueueLength;
+        }
       }
     }
   } else {
@@ -481,6 +500,13 @@ std::unique_ptr<SupervisedScheduler::WorkItem> SupervisedScheduler::getWork(
       // Order of this if is important! First check if we are allowed to pull,
       // then really pull from queue
       if (canPullFromQueue(queueIdx) && _queue[queueIdx].pop(work)) {
+        if (queueIdx == 0) {
+          _fastLaneJobs--;
+        } else if (queueIdx == 1) {
+          _medLaneJobs--;
+        } else {
+          _slowLaneJobs--;
+        }
         return std::unique_ptr<WorkItem>(work);
       }
 
@@ -493,6 +519,9 @@ std::unique_ptr<SupervisedScheduler::WorkItem> SupervisedScheduler::getWork(
     if (state->_stop) {
       break;
     }
+    LOG_TOPIC("hunde", ERR, Logger::THREADS)
+        << "Sleeping with jobs F: " << _fastLaneJobs << " M: " << _medLaneJobs
+        << " S: " << _slowLaneJobs;
     if (state->_sleepTimeout_ms == 0) {
       _conditionWork.wait(guard);
     } else {

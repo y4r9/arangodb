@@ -139,6 +139,9 @@ class SupervisedScheduler final : public Scheduler {
   std::unique_ptr<SupervisedSchedulerManagerThread> _manager;
 
   size_t _maxFifoSize;
+  std::atomic<uint64_t> _fastLaneJobs;
+  std::atomic<uint64_t> _medLaneJobs;
+  std::atomic<uint64_t> _slowLaneJobs;
 
   std::unique_ptr<WorkItem> getWork(std::shared_ptr<WorkerState>& state);
 
