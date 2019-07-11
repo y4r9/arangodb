@@ -519,9 +519,6 @@ std::unique_ptr<SupervisedScheduler::WorkItem> SupervisedScheduler::getWork(
     if (state->_stop) {
       break;
     }
-    LOG_TOPIC("hunde", ERR, Logger::THREADS)
-        << "Sleeping with jobs F: " << _fastLaneJobs << " M: " << _medLaneJobs
-        << " S: " << _slowLaneJobs;
     if (state->_sleepTimeout_ms == 0) {
       _conditionWork.wait(guard);
     } else {
