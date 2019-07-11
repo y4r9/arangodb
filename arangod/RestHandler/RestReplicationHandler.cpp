@@ -799,10 +799,10 @@ void RestReplicationHandler::handleCommandRestoreCollection() {
   ;
   bool ignoreDistributeShardsLikeErrors =
       _request->parsedValue<bool>("ignoreDistributeShardsLikeErrors", false);
-  uint64_t numberOfShards = _request->parsedValue<uint64_t>(StaticStrings::NumberOfShards, 0);
+  uint64_t numberOfShards =
+      _request->parsedValue<uint64_t>(StaticStrings::NumberOfShards, 0);
   uint64_t replicationFactor =
-      _request->parsedValue<uint64_t>(StaticStrings::ReplicationFactor, 1
-      );
+      _request->parsedValue<uint64_t>(StaticStrings::ReplicationFactor, 1);
   uint64_t minReplicationFactor =
       _request->parsedValue<uint64_t>(StaticStrings::MinReplicationFactor, 1);
 
@@ -1150,10 +1150,12 @@ Result RestReplicationHandler::processRestoreCollectionCoordinator(
   }
 
   if (!isValidMinReplFactorSlice) {
-    if (minReplicationFactor <= 0) {
+    if (replFactorSlice.isString() && replFactorSlice.isEqualString("satellite")) {
+      minReplicationFactor = 0;
+    } else if (minReplicationFactor <= 0) {
       minReplicationFactor = 1;
     }
-    TRI_ASSERT(minReplicationFactor > 0 && minReplicationFactor <= replicationFactor);
+    TRI_ASSERT(minReplicationFactor <= replicationFactor);
     toMerge.add(StaticStrings::MinReplicationFactor, VPackValue(minReplicationFactor));
   }
 
@@ -2365,7 +2367,7 @@ void RestReplicationHandler::handleCommandAddFollower() {
     THROW_ARANGO_EXCEPTION(res);
   }
 
-  { // untrack the (async) replication client, so the WAL may be cleaned
+  {  // untrack the (async) replication client, so the WAL may be cleaned
     std::string const serverId =
         basics::VelocyPackHelper::getStringValue(body, "serverId", "");
     SyncerId const syncerId = SyncerId{StringUtils::uint64(
@@ -2488,7 +2490,7 @@ void RestReplicationHandler::handleCommandHoldReadLockCollection() {
 
   // This is an optional parameter, it may not be set (backwards compatible)
   // If it is not set it will default to a hard-lock, otherwise we do a
-  // potentially faster soft-lock synchronisation with a smaller hard-lock
+  // potentially faster soft-lock synchronization with a smaller hard-lock
   // phase.
 
   bool doSoftLock = VelocyPackHelper::getBooleanValue(body, "doSoftLockOnly", false);
