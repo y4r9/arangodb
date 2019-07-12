@@ -34,6 +34,8 @@
 #include "VocBase/ticks.h"
 #include "VocBase/vocbase.h"
 
+#include "Basics/ScopeGuard.h"
+
 #include <boost/uuid/random_generator.hpp>
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_io.hpp>
@@ -269,7 +271,8 @@ class TraditionalKeyGeneratorSingle final : public TraditionalKeyGenerator {
     TraditionalKeyGenerator::toVelocyPack(builder);
 
     // add our specific stuff
-    builder.add(StaticStrings::LastValue, VPackValue(_lastValue.load(std::memory_order_relaxed)));
+    builder.add(StaticStrings::LastValue,
+                VPackValue(_lastValue.load(std::memory_order_relaxed)));
   }
 
  private:
@@ -284,7 +287,7 @@ class TraditionalKeyGeneratorSingle final : public TraditionalKeyGenerator {
 
     // keep track of last assigned value, and make sure the value
     // we hand out is always higher than it
-    auto lastValue = _lastValue.load(std::memory_order_relaxed);    
+    auto lastValue = _lastValue.load(std::memory_order_relaxed);
     if (ADB_UNLIKELY(lastValue >= UINT64_MAX - 1ULL)) {
       // oops, out of keys!
       return 0;
@@ -295,7 +298,7 @@ class TraditionalKeyGeneratorSingle final : public TraditionalKeyGenerator {
         tick = _lastValue.fetch_add(1, std::memory_order_relaxed) + 1;
         break;
       }
-    } while(!_lastValue.compare_exchange_weak(lastValue, tick, std::memory_order_relaxed));
+    } while (!_lastValue.compare_exchange_weak(lastValue, tick, std::memory_order_relaxed));
 
     return tick;
   }
@@ -334,6 +337,9 @@ class TraditionalKeyGeneratorCluster final : public TraditionalKeyGenerator {
   /// @brief generate a key value (internal)
   uint64_t generateValue() override {
     ClusterInfo* ci = ClusterInfo::instance();
+    auto startTime = TRI_microtime();
+    TRI_DEFER(LOG_TOPIC_IF("hunde", ERR, Logger::REPLICATION, TRI_microtime() - startTime > 0.4)
+              << "Generating a uniqueValue: " << TRI_microtime() - startTime << "s");
     return ci->uniqid();
   }
 
@@ -466,7 +472,8 @@ class PaddedKeyGeneratorSingle final : public PaddedKeyGenerator {
     PaddedKeyGenerator::toVelocyPack(builder);
 
     // add our own specific values
-    builder.add(StaticStrings::LastValue, VPackValue(_lastValue.load(std::memory_order_relaxed)));
+    builder.add(StaticStrings::LastValue,
+                VPackValue(_lastValue.load(std::memory_order_relaxed)));
   }
 
  private:
@@ -490,8 +497,7 @@ class PaddedKeyGeneratorSingle final : public PaddedKeyGenerator {
         tick = _lastValue.fetch_add(1, std::memory_order_relaxed) + 1;
         break;
       }
-    } while(!_lastValue.compare_exchange_weak(lastValue, tick, std::memory_order_relaxed));
-
+    } while (!_lastValue.compare_exchange_weak(lastValue, tick, std::memory_order_relaxed));
 
     return tick;
   }
@@ -530,6 +536,9 @@ class PaddedKeyGeneratorCluster final : public PaddedKeyGenerator {
   /// @brief generate a key value (internal)
   uint64_t generateValue() override {
     ClusterInfo* ci = ClusterInfo::instance();
+    auto startTime = TRI_microtime();
+    TRI_DEFER(LOG_TOPIC_IF("hunde", ERR, Logger::REPLICATION, TRI_microtime() - startTime > 0.4)
+              << "Generating a uniqueValue: " << TRI_microtime() - startTime << "s");
     return ci->uniqid();
   }
 
@@ -566,7 +575,7 @@ class AutoIncrementKeyGenerator final : public KeyGenerator {
 
       TRI_ASSERT(keyValue > lastValue);
       // update our last value
-    } while(!_lastValue.compare_exchange_weak(lastValue, keyValue, std::memory_order_relaxed));
+    } while (!_lastValue.compare_exchange_weak(lastValue, keyValue, std::memory_order_relaxed));
 
     return arangodb::basics::StringUtils::itoa(keyValue);
   }
@@ -618,13 +627,14 @@ class AutoIncrementKeyGenerator final : public KeyGenerator {
 
     builder.add("offset", VPackValue(_offset));
     builder.add("increment", VPackValue(_increment));
-    builder.add(StaticStrings::LastValue, VPackValue(_lastValue.load(std::memory_order_relaxed)));
+    builder.add(StaticStrings::LastValue,
+                VPackValue(_lastValue.load(std::memory_order_relaxed)));
   }
 
  private:
   std::atomic<uint64_t> _lastValue;  // last value assigned
-  const uint64_t _offset;  // start value
-  const uint64_t _increment;  // increment value
+  const uint64_t _offset;            // start value
+  const uint64_t _increment;         // increment value
 };
 
 /// @brief uuid key generator
