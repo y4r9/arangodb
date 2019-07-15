@@ -299,7 +299,7 @@ class EngineInfoContainerDBServer {
 
   // @brief Reference to the last inserted EngineInfo, used for back linking of
   // QueryIds
-  std::stack<std::shared_ptr<EngineInfo>> _engineStack;
+  std::stack<std::shared_ptr<EngineInfo>, std::vector<std::shared_ptr<EngineInfo>>> _engineStack;
 
   // @brief A map of Collection => Info required for distribution
   std::unordered_map<Collection const*, CollectionInfo> _collectionInfos;

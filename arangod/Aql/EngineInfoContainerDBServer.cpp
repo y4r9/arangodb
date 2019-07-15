@@ -34,6 +34,7 @@
 #include "Aql/ModificationNodes.h"
 #include "Aql/Query.h"
 #include "Aql/QueryRegistry.h"
+#include "Basics/HashSet.h"
 #include "Basics/Result.h"
 #include "Cluster/ClusterComm.h"
 #include "Cluster/ClusterMethods.h"
@@ -254,6 +255,7 @@ void EngineInfoContainerDBServer::EngineInfo::addClient(ServerID const& server) 
   }
 }
 
+/// @brief serialize snippet for a view-related part
 void EngineInfoContainerDBServer::EngineInfo::serializeSnippet(
     ServerID const& serverId, Query& query, std::vector<ShardID> const& shards,
     VPackBuilder& infoBuilder, bool isResponsibleForInitializeCursor) const {
@@ -311,6 +313,7 @@ void EngineInfoContainerDBServer::EngineInfo::serializeSnippet(
   plan.root()->toVelocyPack(infoBuilder, flags, /*keepTopLevelOpen*/ false);
 }
 
+/// @brief serialize snippet for a non-view-related part
 void EngineInfoContainerDBServer::EngineInfo::serializeSnippet(
     Query& query, const ShardID& id, VPackBuilder& infoBuilder,
     bool isResponsibleForInitializeCursor) const {
@@ -353,7 +356,7 @@ void EngineInfoContainerDBServer::EngineInfo::serializeSnippet(
   // this clone does the translation collection => shardId implicitly
   // at the relevant parts of the query.
 
-  std::unordered_set<aql::Collection*> cleanup;
+  arangodb::HashSet<aql::Collection*> cleanup;
   cleanup.emplace(collection->collection);
 
   collection->collection->setCurrentShard(id);
@@ -418,6 +421,8 @@ void EngineInfoContainerDBServer::EngineInfo::serializeSnippet(
 
 #warning FIX THIS PROPERLY
     if (clone->getType() == ExecutionNode::SINGLETON) {
+      // necessary for subqueries to work properly in case we can push
+      // everything down to a single server
       previous = nullptr;
     }
 
@@ -667,12 +672,7 @@ void EngineInfoContainerDBServer::DBServerInfo::buildMessage(
 
   auto isAnyResponsibleForInitializeCursor =
       [&isResponsibleForInitializeCursor](std::vector<ShardID> const& ids) {
-        for (auto const& id : ids) {
-          if (isResponsibleForInitializeCursor(id)) {
-            return true;
-          }
-        }
-        return false;
+        return std::any_of(ids.begin(), ids.end(), isResponsibleForInitializeCursor);
       };
 
   for (auto const& it : _engineInfos) {

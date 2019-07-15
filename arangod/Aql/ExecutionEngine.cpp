@@ -375,7 +375,9 @@ struct DistributedQueryInstanciator final : public WalkerWorker<ExecutionNode> {
         case ExecutionNode::TRAVERSAL:
         case ExecutionNode::SHORTEST_PATH:
         case ExecutionNode::K_SHORTEST_PATHS:
-          _dbserverParts.addGraphNode(ExecutionNode::castTo<GraphNode*>(en));
+          if (!_pushToSingleServer) {
+            _dbserverParts.addGraphNode(ExecutionNode::castTo<GraphNode*>(en));
+          }
           break;
         default:
           // Do nothing
