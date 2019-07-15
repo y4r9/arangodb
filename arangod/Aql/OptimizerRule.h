@@ -237,7 +237,9 @@ struct OptimizerRule {
     // gets pushed to a single server
     // if applied, this rule will turn all other cluster rules off
     // for the current plan
+#ifdef USE_ENTERPRISE
     clusterOneShardRule,
+#endif
 
     // make operations on sharded collections use distribute
     distributeInClusterRule,

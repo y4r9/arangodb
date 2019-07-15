@@ -276,13 +276,11 @@ void OptimizerRulesFeature::addRules() {
                OptimizerRule::applySortLimitRule,
                OptimizerRule::makeFlags(OptimizerRule::Flags::CanBeDisabled));
 
-#if 0
 #ifdef USE_ENTERPRISE
   // must be the first cluster optimizer rule
   registerRule("cluster-one-shard", clusterOneShardRule,
                OptimizerRule::clusterOneShardRule,
                OptimizerRule::makeFlags(OptimizerRule::Flags::CanBeDisabled, OptimizerRule::Flags::ClusterOnly));
-#endif
 #endif
 
   registerRule("optimize-cluster-single-document-operations", substituteClusterSingleDocumentOperationsRule,
@@ -349,15 +347,15 @@ void OptimizerRulesFeature::addStorageEngineRules() {
 }
 
 /// @brief translate a list of rule ids into rule names
-std::vector<std::string> OptimizerRulesFeature::translateRules(std::vector<int> const& rules) {
-  std::vector<std::string> names;
+std::vector<char const*> OptimizerRulesFeature::translateRules(std::vector<int> const& rules) {
+  std::vector<char const*> names;
   names.reserve(rules.size());
 
   for (auto const& rule : rules) {
     char const* name = translateRule(rule);
-
+    
     if (name != nullptr) {
-      names.emplace_back(std::string(name));
+      names.emplace_back(name);
     }
   }
   return names;

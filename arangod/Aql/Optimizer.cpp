@@ -24,6 +24,7 @@
 #include "Optimizer.h"
 #include "Aql/AqlItemBlock.h"
 #include "Aql/ExecutionEngine.h"
+#include "Aql/OptimizerRule.h"
 #include "Aql/OptimizerRulesFeature.h"
 #include "Aql/QueryOptions.h"
 #include "Cluster/ServerState.h"
@@ -37,12 +38,32 @@ Optimizer::Optimizer(size_t maxNumberOfPlans)
   for (auto& r : OptimizerRulesFeature::_rules) {
     _rules.emplace(r.first, Rule{r.second, true});
   }
+#ifdef USE_ENTERPRISE
+#warning FIXME
+  disableRule(static_cast<int>(OptimizerRule::RuleLevel::clusterOneShardRule));
+#endif
 }
 
 void Optimizer::disableRule(int rule) {
   auto it = _rules.find(rule);
-  TRI_ASSERT(it != _rules.end());
-  it->second.enabled = false;
+  if (it != _rules.end()) {
+    it->second.enabled = false;
+  }
+}
+
+void Optimizer::enableRule(int rule) {
+  auto it = _rules.find(rule);
+  if (it != _rules.end()) {
+    it->second.enabled = true;
+  }
+}
+
+void Optimizer::disableRules(std::function<bool(OptimizerRule const&)> const& predicate) {
+  for (auto& it : _rules) {
+    if (predicate(it.second.rule)) {
+      it.second.enabled = false;
+    }
+  }
 }
 
 bool Optimizer::isDisabled(int rule) const {
@@ -95,8 +116,8 @@ void Optimizer::addPlan(std::unique_ptr<ExecutionPlan> plan,
 }
 
 // @brief the actual optimization
-int Optimizer::createPlans(std::unique_ptr<ExecutionPlan> plan,
-                           QueryOptions const& queryOptions, bool estimateAllPlans) {
+void Optimizer::createPlans(std::unique_ptr<ExecutionPlan> plan,
+                            QueryOptions const& queryOptions, bool estimateAllPlans) {
   _runOnlyRequiredRules = false;
   ExecutionPlan* initialPlan = plan.get();
 
@@ -116,7 +137,7 @@ int Optimizer::createPlans(std::unique_ptr<ExecutionPlan> plan,
       initialPlan->invalidateCost();
       initialPlan->getCost();
     }
-    return TRI_ERROR_NO_ERROR;
+    return;
   }
 
   TRI_ASSERT(!_rules.empty());
@@ -125,7 +146,14 @@ int Optimizer::createPlans(std::unique_ptr<ExecutionPlan> plan,
   for (auto rule : OptimizerRulesFeature::getDisabledRuleIds(queryOptions.optimizerRules)) {
     disableRule(rule);
   }
-
+#ifdef USE_ENTERPRISE
+  for (auto const& it : queryOptions.optimizerRules) {
+#warning FIXME
+    if (it == "+cluster-one-shard" || it == "cluster-one-shard") {
+      enableRule(static_cast<int>(OptimizerRule::RuleLevel::clusterOneShardRule));
+    }
+  }
+#endif
   _newPlans.clear();
 
   while (true) {
@@ -202,10 +230,11 @@ int Optimizer::createPlans(std::unique_ptr<ExecutionPlan> plan,
     // reuse them in the next iteration
     _plans.swap(_newPlans);
 
-    auto fully_optimized = [this](auto const& v) {
+    auto fullyOptimized = [this](auto const& v) {
       return v.second == _rules.end();
     };
-    if (std::all_of(_plans.list.begin(), _plans.list.end(), fully_optimized)) {
+
+    if (std::all_of(_plans.list.begin(), _plans.list.end(), fullyOptimized)) {
       break;
     }
   }
@@ -241,6 +270,5 @@ int Optimizer::createPlans(std::unique_ptr<ExecutionPlan> plan,
   }
 
   LOG_TOPIC("5b5f6", TRACE, Logger::FIXME) << "optimization ends with " << _plans.size() << " plans";
-
-  return TRI_ERROR_NO_ERROR;
 }
+

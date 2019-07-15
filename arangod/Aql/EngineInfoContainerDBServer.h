@@ -122,6 +122,10 @@ class EngineInfoContainerDBServer {
       return _nodes;
     }
 
+    void addSubquery(ExecutionNode const* super, ExecutionNode const* sub) {
+      _subqueries.emplace(sub->id(), super->id());
+    }
+
    private:
     struct CollectionSource {
       explicit CollectionSource(aql::Collection* collection) noexcept
@@ -154,11 +158,13 @@ class EngineInfoContainerDBServer {
     size_t _idOfRemoteNode;  // id of the remote node
     QueryId _otherId;        // Id of query engine before this one
     mutable boost::variant<CollectionSource, ViewSource> _source;
+    // @brief temporary map of subqueries (subquery root node -> subquery node)
+     std::unordered_map<size_t, size_t> _subqueries;
   };
 
   struct DBServerInfo {
    public:
-    void addShardLock(AccessMode::Type const& lock, ShardID const& id);
+    void addShardLock(AccessMode::Type const& type, ShardID const& id);
 
     void addEngine(std::shared_ptr<EngineInfo> const& info, ShardID const& id);
 
@@ -244,7 +250,9 @@ class EngineInfoContainerDBServer {
   // Insert a GraphNode that needs to generate TraverserEngines on
   // the DBServers. The GraphNode itself will retain on the coordinator.
   void addGraphNode(GraphNode* node);
-
+  
+  void addSubquery(ExecutionNode const* super, ExecutionNode const* sub);
+ 
  private:
   /**
    * @brief Take care of this collection, set the lock state accordingly

@@ -257,6 +257,7 @@ void EngineInfoContainerDBServer::EngineInfo::addClient(ServerID const& server) 
 void EngineInfoContainerDBServer::EngineInfo::serializeSnippet(
     ServerID const& serverId, Query& query, std::vector<ShardID> const& shards,
     VPackBuilder& infoBuilder, bool isResponsibleForInitializeCursor) const {
+    
   // The Key is required to build up the queryId mapping later
   // We're using serverId as queryId for the snippet since currently
   // it's impossible to have more than one view per engine
@@ -313,6 +314,7 @@ void EngineInfoContainerDBServer::EngineInfo::serializeSnippet(
 void EngineInfoContainerDBServer::EngineInfo::serializeSnippet(
     Query& query, const ShardID& id, VPackBuilder& infoBuilder,
     bool isResponsibleForInitializeCursor) const {
+  
   auto* collection = boost::get<CollectionSource>(&_source);
   TRI_ASSERT(collection);
   auto& restrictedShard = collection->restrictedShard;
@@ -361,8 +363,15 @@ void EngineInfoContainerDBServer::EngineInfo::serializeSnippet(
 
   for (auto enIt = _nodes.rbegin(), end = _nodes.rend(); enIt != end; ++enIt) {
     ExecutionNode const* current = *enIt;
-    auto clone = current->clone(&plan, false, false);
-    auto const nodeType = clone->getType();
+    auto const nodeType = current->getType();
+    ExecutionNode* clone = nullptr;
+    if (nodeType == ExecutionNode::SUBQUERY) {
+      auto sq = ExecutionNode::castTo<SubqueryNode const*>(current);
+      clone = sq->shallowClone(&plan, false, false, plan.getNodeById(sq->getSubquery()->id()));
+    } else {
+      clone = current->clone(&plan, false, false);
+    }
+    TRI_ASSERT(clone != nullptr);
 
     // we need to count nodes by type ourselves, as we will set the
     // "varUsageComputed" flag below (which will handle the counting)
@@ -407,6 +416,11 @@ void EngineInfoContainerDBServer::EngineInfo::serializeSnippet(
       rem->isResponsibleForInitializeCursor(isResponsibleForInitializeCursor);
     }
 
+#warning FIX THIS PROPERLY
+    if (clone->getType() == ExecutionNode::SINGLETON) {
+      previous = nullptr;
+    }
+
     if (previous != nullptr) {
       clone->addDependency(previous);
     }
@@ -414,7 +428,7 @@ void EngineInfoContainerDBServer::EngineInfo::serializeSnippet(
     previous = clone;
   }
   TRI_ASSERT(previous != nullptr);
-
+  
   plan.root(previous);
   plan.setVarUsageComputed();
   const unsigned flags = ExecutionNode::SERIALIZE_DETAILS;
@@ -580,9 +594,9 @@ void EngineInfoContainerDBServer::updateCollection(Collection const* col) {
 }
 #endif
 
-void EngineInfoContainerDBServer::DBServerInfo::addShardLock(AccessMode::Type const& lock,
+void EngineInfoContainerDBServer::DBServerInfo::addShardLock(AccessMode::Type const& type,
                                                              ShardID const& id) {
-  _shardLocking[lock].emplace_back(id);
+  _shardLocking[type].emplace_back(id);
 }
 
 void EngineInfoContainerDBServer::DBServerInfo::addEngine(
@@ -784,6 +798,11 @@ void EngineInfoContainerDBServer::DBServerInfo::combineTraverserEngines(ServerID
 void EngineInfoContainerDBServer::DBServerInfo::addTraverserEngine(GraphNode* node,
                                                                    TraverserEngineShardLists&& shards) {
   _traverserEngineInfos.emplace_back(std::make_pair(node, std::move(shards)));
+}
+
+void EngineInfoContainerDBServer::addSubquery(ExecutionNode const* super, ExecutionNode const* sub) {
+  TRI_ASSERT(!_engineStack.empty());
+  _engineStack.top()->addSubquery(super, sub);
 }
 
 std::map<ServerID, EngineInfoContainerDBServer::DBServerInfo> EngineInfoContainerDBServer::createDBServerMapping() const {
