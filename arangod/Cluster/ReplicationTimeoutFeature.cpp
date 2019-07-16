@@ -31,7 +31,7 @@ namespace arangodb {
 
 double ReplicationTimeoutFeature::timeoutFactor = 1.0;
 double ReplicationTimeoutFeature::timeoutPer4k = 0.1;
-double ReplicationTimeoutFeature::lowerLimit = 0.5;
+double ReplicationTimeoutFeature::lowerLimit = 15;
 
 ReplicationTimeoutFeature::ReplicationTimeoutFeature(application_features::ApplicationServer& server)
     : ApplicationFeature(server, "ReplicationTimeout") {
