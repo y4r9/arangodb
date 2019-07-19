@@ -174,7 +174,7 @@ TEST(CacheWithBackingStoreTest, test_hit_rate_for_mixed_workload_LongRunning) {
       }
       bool ok = store.commit(tx);
       TRI_ASSERT(ok);
-      std::this_thread::sleep_for(writeWaitInterval);
+      arangodb::basics::sleep_for(writeWaitInterval);
     }
     writersDone++;
   };
@@ -264,7 +264,7 @@ TEST(CacheWithBackingStoreTest, test_transactionality_for_mixed_workload_LongRun
       }
       bool ok = store.commit(tx);
       TRI_ASSERT(ok);
-      std::this_thread::sleep_for(writeWaitInterval);
+      arangodb::basics::sleep_for(writeWaitInterval);
     }
     writersDone++;
   };
@@ -316,9 +316,9 @@ TEST(CacheWithBackingStoreTest, test_rebalancing_in_the_wild_LongRunning) {
     while (!doneRebalancing) {
       int status = rebalancer.rebalance();
       if (status != TRI_ERROR_ARANGO_BUSY) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        arangodb::basics::sleep_for(std::chrono::milliseconds(500));
       } else {
-        std::this_thread::sleep_for(std::chrono::microseconds(100));
+        arangodb::basics::sleep_for(std::chrono::microseconds(100));
       }
     }
   };
@@ -371,7 +371,7 @@ TEST(CacheWithBackingStoreTest, test_rebalancing_in_the_wild_LongRunning) {
       }
       bool ok = store->commit(tx);
       TRI_ASSERT(ok);
-      std::this_thread::sleep_for(writeWaitInterval);
+      arangodb::basics::sleep_for(writeWaitInterval);
     }
     writersDone++;
   };

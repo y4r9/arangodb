@@ -180,7 +180,7 @@ public:
 
     do {
       again = false;
-      std::this_thread::sleep_for(std::chrono::seconds(1));
+      arangodb::basics::sleep_for(std::chrono::seconds(1));
 
       VPackBuilder registryBuilder(toVelocyPack());
       VPackArrayIterator registry(registryBuilder.slice());

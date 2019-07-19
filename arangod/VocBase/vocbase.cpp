@@ -1393,7 +1393,7 @@ arangodb::Result TRI_vocbase_t::renameCollection(TRI_voc_cid_t cid,
 
     // sleep for a while
     std::this_thread::yield();
-    arangodb::basics::sleep_for(std::chrono::milliseconds(10));
+    arangodb::basics::sleep_for(std::chrono::microseconds(10000));
   }
 
   TRI_ASSERT(writeLocker.isLocked());

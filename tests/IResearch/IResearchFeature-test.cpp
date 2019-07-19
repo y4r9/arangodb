@@ -57,6 +57,7 @@
 #include "Rest/Version.h"
 #include "RestServer/DatabaseFeature.h"
 #include "RestServer/DatabasePathFeature.h"
+#include "RestServer/FlushFeature.h"
 #include "RestServer/QueryRegistryFeature.h"
 #include "RestServer/SystemDatabaseFeature.h"
 #include "RestServer/UpgradeFeature.h"
@@ -228,6 +229,7 @@ TEST_F(IResearchFeatureTest, test_upgrade0_1) {
     arangodb::iresearch::IResearchFeature feature(server);
     arangodb::iresearch::IResearchAnalyzerFeature* analyzerFeature{};
     arangodb::DatabasePathFeature* dbPathFeature;
+    server.addFeature(new arangodb::FlushFeature(server)); // required to skip IResearchView validation
     server.addFeature(new arangodb::DatabaseFeature(server)); // required to skip IResearchView validation
     server.addFeature(dbPathFeature = new arangodb::DatabasePathFeature(server)); // required for IResearchLink::initDataStore()
     server.addFeature(analyzerFeature = new arangodb::iresearch::IResearchAnalyzerFeature(server)); // required for restoring link analyzers
@@ -319,6 +321,7 @@ TEST_F(IResearchFeatureTest, test_upgrade0_1) {
     arangodb::iresearch::IResearchFeature feature(server);
     arangodb::iresearch::IResearchAnalyzerFeature* analyzerFeature{};
     arangodb::DatabasePathFeature* dbPathFeature;
+    server.addFeature(new arangodb::FlushFeature(server)); // required to skip IResearchView validation
     server.addFeature(new arangodb::DatabaseFeature(server)); // required to skip IResearchView validation
     server.addFeature(dbPathFeature = new arangodb::DatabasePathFeature(server)); // required for IResearchLink::initDataStore()
     server.addFeature(analyzerFeature = new arangodb::iresearch::IResearchAnalyzerFeature(server)); // required for restoring link analyzers
@@ -420,6 +423,7 @@ TEST_F(IResearchFeatureTest, test_upgrade0_1) {
     arangodb::DatabaseFeature* database;
     arangodb::iresearch::IResearchFeature feature(server);
     arangodb::iresearch::IResearchAnalyzerFeature* analyzerFeature{};
+    server.addFeature(new arangodb::FlushFeature(server)); // required for constructing TRI_vocbase_t
     server.addFeature(new arangodb::QueryRegistryFeature(server)); // required for constructing TRI_vocbase_t
     TRI_vocbase_t system(TRI_vocbase_type_e::TRI_VOCBASE_TYPE_NORMAL, 0, TRI_VOC_SYSTEM_DATABASE);
     server.addFeature(new arangodb::AuthenticationFeature(server)); // required for ClusterComm::instance()
@@ -455,7 +459,7 @@ TEST_F(IResearchFeatureTest, test_upgrade0_1) {
 
     ASSERT_TRUE((TRI_ERROR_NO_ERROR == database->createDatabase(1, "testDatabase", vocbase)));
     ASSERT_TRUE((ci->createDatabaseCoordinator(vocbase->name(), arangodb::velocypack::Slice::emptyObjectSlice(), 0.0).ok()));
-    ASSERT_TRUE((ci->createCollectionCoordinator(vocbase->name(), collectionId, 0, 1, false, collectionJson->slice(), 0.0).ok()));
+    ASSERT_TRUE((ci->createCollectionCoordinator(vocbase->name(), collectionId, 0, 1, 1, false, collectionJson->slice(), 0.0).ok()));
     auto logicalCollection = ci->getCollection(vocbase->name(), collectionId);
     ASSERT_TRUE((false == !logicalCollection));
     EXPECT_TRUE((ci->createViewCoordinator(vocbase->name(), viewId, viewJson->slice()).ok()));
@@ -538,6 +542,7 @@ TEST_F(IResearchFeatureTest, test_upgrade0_1) {
     arangodb::iresearch::IResearchFeature feature(server);
     arangodb::DatabasePathFeature* dbPathFeature;
     arangodb::iresearch::IResearchAnalyzerFeature* analyzerFeature{};
+    server.addFeature(new arangodb::FlushFeature(server)); // required to skip IResearchView validation
     server.addFeature(new arangodb::AuthenticationFeature(server)); // required for ClusterInfo::loadPlan()
     server.addFeature(new arangodb::application_features::CommunicationFeaturePhase(server)); // required for SimpleHttpClient::doRequest()
     server.addFeature(new arangodb::DatabaseFeature(server)); // required to skip IResearchView validation
@@ -624,6 +629,7 @@ TEST_F(IResearchFeatureTest, test_upgrade0_1) {
     arangodb::iresearch::IResearchFeature feature(server);
     arangodb::DatabasePathFeature* dbPathFeature;
     arangodb::iresearch::IResearchAnalyzerFeature* analyzerFeature{};
+    server.addFeature(new arangodb::FlushFeature(server)); // required to skip IResearchView validation
     server.addFeature(new arangodb::AuthenticationFeature(server)); // required for ClusterInfo::loadPlan()
     server.addFeature(new arangodb::application_features::CommunicationFeaturePhase(server)); // required for SimpleHttpClient::doRequest()
     server.addFeature(new arangodb::DatabaseFeature(server)); // required to skip IResearchView validation
@@ -722,7 +728,7 @@ TEST_F(IResearchFeatureTest, test_async) {
       feature.async(nullptr, [&cond, &mutex, flag](size_t&, bool)->bool { SCOPED_LOCK(mutex); cond.notify_all(); return false; });
     }
     EXPECT_TRUE((std::cv_status::timeout != cond.wait_for(lock, std::chrono::milliseconds(100))));
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    arangodb::basics::sleep_for(std::chrono::milliseconds(100));
     EXPECT_TRUE((true == deallocated));
   }
 
@@ -752,7 +758,7 @@ TEST_F(IResearchFeatureTest, test_async) {
       feature.async(resourceMutex, [&cond, &mutex, flag](size_t&, bool)->bool { SCOPED_LOCK(mutex); cond.notify_all(); return false; });
     }
     EXPECT_TRUE((std::cv_status::timeout == cond.wait_for(lock, std::chrono::milliseconds(100))));
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    arangodb::basics::sleep_for(std::chrono::milliseconds(100));
     EXPECT_TRUE((true == deallocated));
   }
 
@@ -839,7 +845,7 @@ TEST_F(IResearchFeatureTest, test_async) {
       feature.async(resourceMutex, [&cond, &mutex, flag](size_t&, bool)->bool { SCOPED_LOCK(mutex); cond.notify_all(); return false; });
     }
     EXPECT_TRUE((std::cv_status::timeout != cond.wait_for(lock, std::chrono::milliseconds(100))));
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    arangodb::basics::sleep_for(std::chrono::milliseconds(100));
     EXPECT_TRUE((true == deallocated));
   }
 
@@ -880,7 +886,7 @@ TEST_F(IResearchFeatureTest, test_async) {
       });
     }
     EXPECT_TRUE((std::cv_status::timeout != cond.wait_for(lock, std::chrono::milliseconds(1000))));
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    arangodb::basics::sleep_for(std::chrono::milliseconds(100));
     EXPECT_TRUE((true == deallocated));
     EXPECT_TRUE((2 == count));
     EXPECT_TRUE((std::chrono::milliseconds(100) < diff));
@@ -920,7 +926,7 @@ TEST_F(IResearchFeatureTest, test_async) {
     EXPECT_TRUE((false == deallocated));
     feature.asyncNotify();
     EXPECT_TRUE((std::cv_status::timeout != cond.wait_for(lock, std::chrono::milliseconds(100))));
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    arangodb::basics::sleep_for(std::chrono::milliseconds(100));
     EXPECT_TRUE((true == deallocated));
     EXPECT_TRUE((false == execVal));
     auto diff = std::chrono::system_clock::now() - last;
@@ -964,7 +970,7 @@ TEST_F(IResearchFeatureTest, test_async) {
     EXPECT_TRUE((std::cv_status::timeout != cond.wait_for(lock, std::chrono::milliseconds(100)))); // first run invoked immediately
     EXPECT_TRUE((false == deallocated));
     EXPECT_TRUE((std::cv_status::timeout != cond.wait_for(lock, std::chrono::milliseconds(1000))));
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    arangodb::basics::sleep_for(std::chrono::milliseconds(100));
     EXPECT_TRUE((true == deallocated));
     EXPECT_TRUE((true == execVal));
     auto diff = std::chrono::system_clock::now() - last;
@@ -1059,7 +1065,7 @@ TEST_F(IResearchFeatureTest, test_async) {
     EXPECT_TRUE((std::cv_status::timeout != cond.wait_for(lock, std::chrono::milliseconds(1000)))); // wait for the first task to start
 
     std::thread thread([resourceMutex]()->void { resourceMutex->reset(); }); // try to aquire a write lock
-    std::this_thread::sleep_for(std::chrono::milliseconds(100)); // hopefully a write-lock aquisition attempt is in progress
+    arangodb::basics::sleep_for(std::chrono::milliseconds(100)); // hopefully a write-lock aquisition attempt is in progress
 
     {
       TRY_SCOPED_LOCK_NAMED(resourceMutex->mutex(), resourceLock);
@@ -1072,7 +1078,7 @@ TEST_F(IResearchFeatureTest, test_async) {
     }
     cond.notify_all(); // wake up first task after resourceMutex write-lock aquired (will process pending tasks)
     lock.unlock(); // allow first task to run
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    arangodb::basics::sleep_for(std::chrono::milliseconds(100));
     EXPECT_TRUE((true == deallocated0));
     EXPECT_TRUE((true == deallocated1));
     thread.join();
@@ -1119,7 +1125,7 @@ TEST_F(IResearchFeatureTest, test_async) {
     }
     feature.prepare(); // start thread pool after a task has been scheduled, to trigger resize with a task
     EXPECT_TRUE((std::cv_status::timeout != cond.wait_for(lock, std::chrono::milliseconds(1000))));
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    arangodb::basics::sleep_for(std::chrono::milliseconds(100));
     EXPECT_TRUE((true == deallocated));
     EXPECT_TRUE((2 == count));
     EXPECT_TRUE((std::chrono::milliseconds(100) < diff));

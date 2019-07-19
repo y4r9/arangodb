@@ -63,7 +63,7 @@ TEST(SimpleHttpClientCommunicatorTest, requests_are_properly_aborted) {
   communicator.work_once();
   communicator.abortRequests();
   while (communicator.work_once() > 0) {
-    std::this_thread::sleep_for(std::chrono::microseconds(1));
+    arangodb::basics::sleep_for(std::chrono::microseconds(1));
   }
   ASSERT_TRUE(callbacksCalled);
 }
@@ -95,7 +95,7 @@ TEST(SimpleHttpClientCommunicatorTest, requests_will_call_the_progress_callback)
   communicator.work_once();
   communicator.abortRequests();
   while (communicator.work_once() > 0) {
-    std::this_thread::sleep_for(std::chrono::microseconds(1));
+    arangodb::basics::sleep_for(std::chrono::microseconds(1));
   }
   ASSERT_TRUE(curlRc == CURLE_ABORTED_BY_CALLBACK); // curlRcFn was called
 }

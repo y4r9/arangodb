@@ -192,7 +192,7 @@ TEST(ClusterCommTest, time_delayed_out_of_order_response) {
   std::future<void> f1(std::async(std::launch::async,
                                   [&] {
                                     timespec ts = {0, 15000000};
-                                    std::this_thread::sleep_for(
+                                    arangodb::basics::sleep_for(
                                         std::chrono::microseconds(ts.tv_nsec / 1000L));
                                     testme.getResponse(0).result->status = CL_COMM_RECEIVED;
                                     testme.signalResponse();
@@ -212,7 +212,7 @@ TEST(ClusterCommTest, time_delayed_out_of_order_response) {
   std::future<void> f2(std::async(std::launch::async,
                                   [&] {
                                     timespec ts = {0, 30000000};
-                                    std::this_thread::sleep_for(
+                                    arangodb::basics::sleep_for(
                                         std::chrono::microseconds(ts.tv_nsec / 1000L));
                                     testme.getResponse(0).result->status = CL_COMM_RECEIVED;
                                     testme.signalResponse();
@@ -245,7 +245,7 @@ TEST(ClusterCommTest, time_delayed_out_of_order_response) {
   std::future<void> f3(std::async(std::launch::async,
                                   [&] {
                                     timespec ts = {0, 15000000};
-                                    std::this_thread::sleep_for(
+                                    arangodb::basics::sleep_for(
                                         std::chrono::microseconds(ts.tv_nsec / 1000L));
                                     testme.getResponse(1).result->status = CL_COMM_RECEIVED;
                                     testme.signalResponse();
@@ -265,7 +265,7 @@ TEST(ClusterCommTest, time_delayed_out_of_order_response) {
   std::future<void> f4(std::async(std::launch::async,
                                   [&] {
                                     timespec ts = {0, 30000000};
-                                    std::this_thread::sleep_for(
+                                    arangodb::basics::sleep_for(
                                         std::chrono::microseconds(ts.tv_nsec / 1000L));
                                     testme.getResponse(0).result->status = CL_COMM_RECEIVED;
                                     testme.signalResponse();
@@ -287,7 +287,7 @@ TEST(ClusterCommTest, time_delayed_out_of_order_response) {
       std::async(std::launch::async,
                  [&] {
                    timespec ts = {0, 500000000};  // 0.5 seconds
-                   std::this_thread::sleep_for(std::chrono::microseconds(ts.tv_nsec / 1000L));
+                   arangodb::basics::sleep_for(std::chrono::microseconds(ts.tv_nsec / 1000L));
                    testme.getResponse(0).result->status = CL_COMM_RECEIVED;
                    testme.signalResponse();
                  }  // lambda
