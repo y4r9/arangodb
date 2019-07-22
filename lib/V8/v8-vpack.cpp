@@ -52,6 +52,17 @@ static inline v8::Handle<v8::Value> ObjectVPackString(v8::Isolate* isolate,
   return TRI_V8_PAIR_STRING(isolate, val, l);
 }
 
+
+static inline v8::Handle<v8::Value> ObjectVPackBinary(v8::Isolate* isolate,
+                                                      VPackSlice const& slice) {
+  arangodb::velocypack::ValueLength l;
+  auto const* val = slice.getBinary(l);
+  if (l == 0) {
+    return v8::String::Empty(isolate);
+  }
+  return TRI_V8_ASCII_PAIR_STRING(isolate, val, l);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 /// @brief converts a VelocyValueType::Object into a V8 object
 ////////////////////////////////////////////////////////////////////////////////
@@ -233,6 +244,9 @@ v8::Handle<v8::Value> TRI_VPackToV8(v8::Isolate* isolate, VPackSlice const& slic
     case VPackValueType::External: {
       // resolve external
       return TRI_VPackToV8(isolate, VPackSlice(reinterpret_cast<uint8_t const*>(slice.getExternal())), options, base);
+    }
+    case VPackValueType::Binary: {
+      return  ObjectVPackBinary(isolate, slice);
     }
     case VPackValueType::Custom: {
       if (options == nullptr || options->customTypeHandler == nullptr || base == nullptr) {

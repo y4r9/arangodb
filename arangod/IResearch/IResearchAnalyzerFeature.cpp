@@ -491,14 +491,12 @@ arangodb::aql::AqlValue aqlFnTokens(arangodb::aql::ExpressionContext* expression
     case VPackValueType::Bool:
       builder.add(
         arangodb::iresearch::toValuePair(
-          arangodb::basics::StringUtils::encodeBase64(irs::ref_cast<char>(
-            irs::boolean_token_stream::value(current.getBoolean())))));
+          irs::boolean_token_stream::value(current.getBoolean())));
       break;
     case VPackValueType::Null:
       builder.add(
         arangodb::iresearch::toValuePair(
-          arangodb::basics::StringUtils::encodeBase64(
-          irs::ref_cast<char>(irs::null_token_stream::value_null()))));
+          irs::ref_cast<char>(irs::null_token_stream::value_null())));
       break;
     case VPackValueType::Array: // we get there only when empty array encountered
       TRI_ASSERT(current.isEmptyArray());
@@ -526,9 +524,7 @@ arangodb::aql::AqlValue aqlFnTokens(arangodb::aql::ExpressionContext* expression
         numeric_analyzer->reset(current.getNumber<double>());
         while (numeric_analyzer->next()) {
           builder.add(
-            arangodb::iresearch::toValuePair(
-              arangodb::basics::StringUtils::encodeBase64(
-                  irs::ref_cast<char>(numeric_terms->value()))));
+            arangodb::iresearch::toValuePair(numeric_terms->value()));
         }
       } else {
         auto const message = "unexpected parameter type '"s + current.typeName() +
