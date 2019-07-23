@@ -52,6 +52,9 @@ static inline v8::Handle<v8::Value> ObjectVPackString(v8::Isolate* isolate,
   return TRI_V8_PAIR_STRING(isolate, val, l);
 }
 
+////////////////////////////////////////////////////////////////////////////////
+/// @brief converts a VelocyValueType::Binary into a V8 object
+////////////////////////////////////////////////////////////////////////////////
 
 static inline v8::Handle<v8::Value> ObjectVPackBinary(v8::Isolate* isolate,
                                                       VPackSlice const& slice) {

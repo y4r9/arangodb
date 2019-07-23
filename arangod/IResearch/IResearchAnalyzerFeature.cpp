@@ -495,8 +495,7 @@ arangodb::aql::AqlValue aqlFnTokens(arangodb::aql::ExpressionContext* expression
       break;
     case VPackValueType::Null:
       builder.add(
-        arangodb::iresearch::toValuePair(
-          irs::ref_cast<char>(irs::null_token_stream::value_null())));
+        arangodb::iresearch::toValuePair(irs::null_token_stream::value_null()));
       break;
     case VPackValueType::Array: // we get there only when empty array encountered
       TRI_ASSERT(current.isEmptyArray());

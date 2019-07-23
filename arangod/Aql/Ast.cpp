@@ -1078,6 +1078,13 @@ AstNode* Ast::createNodeValueString(char const* value, size_t length) {
   return node;
 }
 
+/// @brief create an AST binary string value node
+AstNode* Ast::createNodeValueBinaryString(char const* value, size_t length) {
+  auto node = createNodeValueString(value, length);
+  node->setFlag(FLAG_BINARYSTRING);
+  return node;
+}
+
 /// @brief create an AST array node
 AstNode* Ast::createNodeArray() { return createNode(NODE_TYPE_ARRAY); }
 
@@ -3521,7 +3528,15 @@ AstNode* Ast::nodeFromVPack(VPackSlice const& slice, bool copyStringValues) {
     // we can get away without copying string values
     return createNodeValueString(p, static_cast<size_t>(length));
   }
-
+  if (slice.isBinary()) {
+    VPackValueLength length;
+    auto const* p = reinterpret_cast<const char*>(slice.getBinary(length));
+    if (copyStringValues) {
+      // we must copy binary values!
+      p = _query->registerString(p, static_cast<size_t>(length));
+    }
+    return createNodeValueBinaryString(p, static_cast<size_t>(length));
+  }
   if (slice.isArray()) {
     VPackArrayIterator it(slice);
     auto node = createNodeArray(static_cast<size_t>(it.size()));

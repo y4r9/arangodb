@@ -318,6 +318,9 @@ class Ast {
   /// @brief create an AST string value node
   AstNode* createNodeValueString(char const*, size_t);
 
+  /// @brief create an AST binary string value node
+  AstNode* createNodeValueBinaryString(char const*, size_t);
+
   /// @brief create an AST array node
   AstNode* createNodeArray();
 

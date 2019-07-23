@@ -996,7 +996,12 @@ void AstNode::toVelocyPackValue(VPackBuilder& builder) const {
         builder.add(VPackValue(value.value._double));
         break;
       case VALUE_TYPE_STRING:
-        builder.add(VPackValuePair(value.value._string, value.length, VPackValueType::String));
+        if (isBinaryString()) {
+          builder.add(VPackValuePair(value.value._string, value.length, VPackValueType::Binary));
+        }
+        else {
+          builder.add(VPackValuePair(value.value._string, value.length, VPackValueType::String));
+        }
         break;
     }
     return;
