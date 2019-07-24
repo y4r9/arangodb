@@ -30,6 +30,7 @@
 #include "Aql/Variable.h"
 #include "Aql/VariableGenerator.h"
 #include "Basics/Common.h"
+#include "Basics/SmallVector.h"
 #include "Transaction/Methods.h"
 #include "VocBase/AccessMode.h"
 
@@ -418,7 +419,7 @@ class Ast {
   /// variable
   static TopLevelAttributes getReferencedAttributes(AstNode const*, bool&);
   static std::unordered_set<std::string> getReferencedAttributesForKeep(
-      AstNode const*, Variable const* searchVariable, bool&);
+      AstNode const*, SmallVector<Variable const*> searchVariables, bool& isSafeForOptimization);
 
   static bool getReferencedAttributes(AstNode const*, Variable const*,
                                       std::unordered_set<std::string>&);

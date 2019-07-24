@@ -1255,6 +1255,11 @@ void arangodb::aql::removeCollectVariablesRule(Optimizer* opt,
       // we will now check how many part of "g" are used later
       std::unordered_set<std::string> keepAttributes;
 
+      SmallVector<Variable const*>::allocator_type::arena_type a;
+      SmallVector<Variable const*> searchVariables{a};
+
+      searchVariables.push_back(outVariable);
+
       bool stop = false;
       auto p = collectNode->getFirstParent();
       while (p != nullptr) {
@@ -1264,8 +1269,7 @@ void arangodb::aql::removeCollectVariablesRule(Optimizer* opt,
           if (exp != nullptr && exp->node() != nullptr) {
             bool isSafeForOptimization;
             auto usedThere =
-                Ast::getReferencedAttributesForKeep(exp->node(), outVariable,
-                                                    isSafeForOptimization);
+                Ast::getReferencedAttributesForKeep(exp->node(), searchVariables, isSafeForOptimization);
             if (isSafeForOptimization) {
               for (auto const& it : usedThere) {
                 keepAttributes.emplace(it);
@@ -1274,7 +1278,17 @@ void arangodb::aql::removeCollectVariablesRule(Optimizer* opt,
               stop = true;
             }
           }
+        } else if (p->getType() == EN::COLLECT) {
+          auto cc = ExecutionNode::castTo<CollectNode const*>(p);
+          if (cc->hasOutVariable()) {
+            // we found another COLLECT ... INTO
+            searchVariables.push_back(cc->outVariable());
+          } else {
+            // no output variables, so we can forget whatever we have seen
+            searchVariables.clear();
+          }
         }
+
         if (stop) {
           break;
         }
@@ -1297,6 +1311,12 @@ void arangodb::aql::removeCollectVariablesRule(Optimizer* opt,
               }
             }
           }
+          if (current->getType() == EN::COLLECT) {
+            // when we find another COLLECT, it will have invalidated all previous
+            // variables in the scope
+            break;
+          }
+
           if (keepAttributes.empty()) {
             // done
             break;

@@ -2228,8 +2228,14 @@ TopLevelAttributes Ast::getReferencedAttributes(AstNode const* node, bool& isSaf
 
 /// @brief determines the to-be-kept attribute of an INTO expression
 std::unordered_set<std::string> Ast::getReferencedAttributesForKeep(
-    AstNode const* node, Variable const* searchVariable, bool& isSafeForOptimization) {
-  auto isTargetVariable = [&searchVariable](AstNode const* node) {
+    AstNode const* node, SmallVector<Variable const*> searchVariables, bool& isSafeForOptimization) {
+    
+  LOG_DEVEL << "GETREFERENCED ATTRS. NODE: " << node;
+  for (auto const& it : searchVariables) {
+    LOG_DEVEL << " - " << it->name;
+  }
+
+  auto isRealTargetVariable = [](AstNode const* node, Variable const* searchVariable) {
     if (node->type == NODE_TYPE_INDEXED_ACCESS) {
       auto sub = node->getMemberUnchecked(0);
       if (sub->type == NODE_TYPE_REFERENCE) {
@@ -2257,8 +2263,70 @@ std::unordered_set<std::string> Ast::getReferencedAttributesForKeep(
         return true;
       }
     }
-
     return false;
+  };
+
+  auto isTargetVariable = [&searchVariables, &isRealTargetVariable](AstNode const* node) {
+    size_t const n = searchVariables.size();
+    TRI_ASSERT(n > 0);
+
+    size_t i = 0;
+    while (true) {
+      Variable const* searchVariable = searchVariables[i];
+      Variable const* otherVariable = i < n - 1 ? searchVariables[i + 1] : nullptr;
+      LOG_DEVEL << "- ITERATION. I: " << i << ", NODE: " << node << ", SEARCH: " << searchVariable->name << ", OTHER: " << (otherVariable != nullptr ? otherVariable->name : "");
+
+      if (otherVariable != nullptr) {
+        if (node->type == NODE_TYPE_ATTRIBUTE_ACCESS && i > 0) {
+          if (node->getString() == searchVariable->name) {
+            node = node->getMemberUnchecked(0);
+            if (++i <= n - 1) {
+              continue;
+            }
+          }
+        } else if (node->type == NODE_TYPE_INDEXED_ACCESS) {
+          auto sub = node->getMemberUnchecked(0);
+          if (sub->type == NODE_TYPE_ATTRIBUTE_ACCESS) {
+            if (sub->getMember(0)->type == NODE_TYPE_INDEXED_ACCESS && 
+                sub->getString() == searchVariable->name) {
+              node = sub = sub->getMemberUnchecked(0)->getMember(0);
+              if (++i < n - 1) {
+                continue;
+              }
+            }
+          }
+          if (sub->type == NODE_TYPE_REFERENCE) {
+            Variable const* v = static_cast<Variable const*>(sub->getData());
+            if (v->id == otherVariable->id) {
+              return true;
+            }
+          }
+          return false;
+        } else if (node->type == NODE_TYPE_EXPANSION) {
+          if (node->numMembers() < 2) {
+            return false;
+          }
+          auto it = node->getMemberUnchecked(0);
+          if (it->type != NODE_TYPE_ITERATOR || it->numMembers() != 2) {
+            return false;
+          }
+          auto sub1 = it->getMember(0);
+          auto sub2 = it->getMember(1);
+          if (sub1->type == NODE_TYPE_VARIABLE && 
+              sub2->type == NODE_TYPE_ATTRIBUTE_ACCESS &&
+              sub2->getString() == otherVariable->name) {
+            node = sub2->getMember(0);
+   //         if (!isRealTargetVariable(sub2->getMember(0), searchVariable)) {
+   //           return false;
+   //         }
+            if (++i <= n - 1) {
+              continue;
+            }
+          }
+        }
+      }
+      return isRealTargetVariable(node, searchVariable);
+    }
   };
 
   std::unordered_set<std::string> result;
@@ -2266,7 +2334,7 @@ std::unordered_set<std::string> Ast::getReferencedAttributesForKeep(
 
   std::function<bool(AstNode const*)> visitor = [&isSafeForOptimization,
                                                  &result, &isTargetVariable,
-                                                 &searchVariable](AstNode const* node) {
+                                                 &searchVariables](AstNode const* node) {
     if (!isSafeForOptimization) {
       return false;
     }
@@ -2282,7 +2350,7 @@ std::unordered_set<std::string> Ast::getReferencedAttributesForKeep(
       }
     } else if (node->type == NODE_TYPE_REFERENCE) {
       Variable const* v = static_cast<Variable const*>(node->getData());
-      if (v->id == searchVariable->id) {
+      if (v->id == searchVariables.back()->id) {
         isSafeForOptimization = false;
         return false;
       }
