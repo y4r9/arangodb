@@ -266,7 +266,7 @@ arangodb::Result RocksDBTransactionState::internalCommit() {
     }
   }
   
-  auto commitCounts = [&](rocksdb::SequenceNumber seq) {
+  auto commitCounts = [this]() {
     for (auto& trxColl : _collections) {
       auto* coll = static_cast<RocksDBTransactionCollection*>(trxColl);
       // we need this in case of an intermediate commit. The number of
@@ -275,12 +275,13 @@ arangodb::Result RocksDBTransactionState::internalCommit() {
       TRI_IF_FAILURE("RocksDBCommitCounts") {
         continue;
       }
-      coll->commitCounts(id(), seq);
+      coll->commitCounts(id(), _lastWrittenOperationTick);
     }
   };
   
   if (isSingleTimeseriesTransaction()) {
-    commitCounts(rocksutils::latestSequenceNumber());
+    _lastWrittenOperationTick = rocksutils::latestSequenceNumber();
+    commitCounts();
     return Result();
   }
   
@@ -358,7 +359,9 @@ arangodb::Result RocksDBTransactionState::internalCommit() {
     postCommitSeq += numOps - 1;  // add to get to the next batch
   }
   TRI_ASSERT(postCommitSeq <= rocksutils::globalRocksDB()->GetLatestSequenceNumber());
-  commitCounts(postCommitSeq);
+  _lastWrittenOperationTick = postCommitSeq;
+  
+  commitCounts();
   cleanupCollTrx.cancel();
 
 #ifndef _WIN32

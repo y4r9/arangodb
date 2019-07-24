@@ -296,7 +296,7 @@ ClusterComm::ClusterComm(bool ignored)
 /// @brief ClusterComm destructor
 ////////////////////////////////////////////////////////////////////////////////
 
-ClusterComm::~ClusterComm() { stopBackgroundThreads(); }
+ClusterComm::~ClusterComm() { deleteBackgroundThreads(); }
 
 ////////////////////////////////////////////////////////////////////////////////
 /// @brief getter for our singleton instance
@@ -383,7 +383,16 @@ void ClusterComm::stopBackgroundThreads() {
   }  // for
 
   // pass 2:  verify each thread is stopped, wait if necessary
-  //          (happens in destructor)
+  //          No communication after this.
+  for (ClusterCommThread* thread : _backgroundThreads) {
+    thread->shutdown();
+  }  // for
+}
+
+void ClusterComm::deleteBackgroundThreads() {
+  // pass 3:  de-allocate instances
+  // we want to keep the thread objects allocated till now,
+  // so eventual access to them doesn't fail.
   for (ClusterCommThread* thread : _backgroundThreads) {
     delete thread;
   }
@@ -448,7 +457,7 @@ OperationID ClusterComm::getOperationID() { return TRI_NewTickServer(); }
 /// limit the time to send the initial request away. If `initTimeout`
 /// is negative (as for example in the default value), then `initTimeout`
 /// is taken to be the same as `timeout`. The idea behind the two timeouts
-/// is to be able to specify correct behaviour for automatic failover.
+/// is to be able to specify correct behavior for automatic failover.
 /// The idea is that if the initial request cannot be sent within
 /// `initTimeout`, one can retry after a potential failover.
 ////////////////////////////////////////////////////////////////////////////////
@@ -661,7 +670,7 @@ std::unique_ptr<ClusterCommResult> ClusterComm::syncRequest(
   communicator()->addRequest(std::move(newRequest));
 
   while (!sharedData->wasSignaled
-         && application_features::ApplicationServer::isRetryOK()) {
+         && !application_features::ApplicationServer::isStopping()) {
     sharedData->cv.wait(100000);
   } // while
 
@@ -1144,6 +1153,27 @@ void ClusterComm::scheduleMe(std::function<void()> task) {
   arangodb::SchedulerFeature::SCHEDULER->queue(RequestLane::CLUSTER_INTERNAL, std::move(task));
 }
 
+
+/// @brief logs a connection error (backend unavailable)
+void ClusterComm::logConnectionError(bool useErrorLogLevel, ClusterCommResult const* result,
+                                     double timeout, int /*line*/) {
+  std::string msg = "cannot create connection to server";
+  if (!result->serverID.empty()) {
+    msg += ": '" + result->serverID + '\'';
+  }
+  msg += " at endpoint '" + result->endpoint + "', timeout: " + std::to_string(timeout);
+
+  if (useErrorLogLevel) {
+    LOG_TOPIC("30467", ERR, Logger::CLUSTER) << msg;
+  } else {
+    LOG_TOPIC("b82cb", INFO, Logger::CLUSTER) << msg;
+  }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+/// Cluster Comm Thread
+////////////////////////////////////////////////////////////////////////////////
+
 ClusterCommThread::ClusterCommThread() : Thread("ClusterComm"), _cc(nullptr) {
   _cc = ClusterComm::instance().get();
   _communicator = std::make_shared<communicator::Communicator>();
@@ -1209,20 +1239,4 @@ void ClusterCommThread::run() {
   }
 
   LOG_TOPIC("5d12a", DEBUG, Logger::CLUSTER) << "stopped ClusterComm thread";
-}
-
-/// @brief logs a connection error (backend unavailable)
-void ClusterComm::logConnectionError(bool useErrorLogLevel, ClusterCommResult const* result,
-                                     double timeout, int /*line*/) {
-  std::string msg = "cannot create connection to server";
-  if (!result->serverID.empty()) {
-    msg += ": '" + result->serverID + '\'';
-  }
-  msg += " at endpoint '" + result->endpoint + "', timeout: " + std::to_string(timeout);
-
-  if (useErrorLogLevel) {
-    LOG_TOPIC("30467", ERR, Logger::CLUSTER) << msg;
-  } else {
-    LOG_TOPIC("b82cb", INFO, Logger::CLUSTER) << msg;
-  }
 }

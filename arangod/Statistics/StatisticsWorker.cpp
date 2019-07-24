@@ -1096,7 +1096,7 @@ void StatisticsWorker::run() {
       // startup aborted
       return;
     }
-    std::this_thread::sleep_for(std::chrono::microseconds(100000));
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
 
   try {
@@ -1112,17 +1112,6 @@ void StatisticsWorker::run() {
 
   uint64_t seconds = 0;
   while (!isStopping() && StatisticsFeature::enabled()) {
-#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
-    double lastActivity = arangodb::lastStatisticsThreadActivity;
-    auto now = TRI_microtime();
-    auto delta = now - lastActivity;
-    if ((lastActivity >= 0) && (delta > 1)) {
-      LOG_TOPIC("92a39", ERR, Logger::STATISTICS)
-        << "Statistics Thread is asleep! " <<
-        delta;
-    }
-#endif
-
     try {
       if (seconds % STATISTICS_INTERVAL == 0) {
         // new stats are produced every 10 seconds

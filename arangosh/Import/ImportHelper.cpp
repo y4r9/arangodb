@@ -32,7 +32,6 @@
 #include "Import/SenderThread.h"
 #include "Logger/Logger.h"
 #include "Rest/GeneralResponse.h"
-#include "Rest/HttpRequest.h"
 #include "Shell/ClientFeature.h"
 #include "SimpleHttpClient/SimpleHttpClient.h"
 #include "SimpleHttpClient/SimpleHttpResult.h"
@@ -865,7 +864,7 @@ void ImportHelper::sendCsvBuffer() {
   SenderThread* t = findIdleSender();
   if (t != nullptr) {
     uint64_t tmp_length = _outputBuffer.length();
-    t->sendData(url, &_outputBuffer);
+    t->sendData(url, &_outputBuffer, _rowOffset + 1, _rowsRead);
     addPeriodByteCount(tmp_length + url.length());
   }
 
@@ -948,7 +947,7 @@ void ImportHelper::waitForSenders() {
     if (numIdle == _senderThreads.size()) {
       return;
     }
-    std::this_thread::sleep_for(std::chrono::microseconds(10000));
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
 }
 }  // namespace import
