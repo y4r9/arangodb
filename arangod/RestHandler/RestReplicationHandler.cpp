@@ -205,33 +205,35 @@ bool RestReplicationHandler::isCoordinatorError() {
   return false;
 }
 
-std::string RestReplicationHandler::LoggerState = "logger-state";
-std::string RestReplicationHandler::LoggerTickRanges = "logger-tick-ranges";
-std::string RestReplicationHandler::LoggerFirstTick = "logger-first-tick";
-std::string RestReplicationHandler::LoggerFollow = "logger-follow";
-std::string RestReplicationHandler::OpenTransactions =
-    "determine-open-transactions";
-std::string RestReplicationHandler::Batch = "batch";
-std::string RestReplicationHandler::Barrier = "barrier";
-std::string RestReplicationHandler::Inventory = "inventory";
-std::string RestReplicationHandler::Keys = "keys";
-std::string RestReplicationHandler::Dump = "dump";
-std::string RestReplicationHandler::RestoreCollection = "restore-collection";
-std::string RestReplicationHandler::RestoreIndexes = "restore-indexes";
-std::string RestReplicationHandler::RestoreData = "restore-data";
-std::string RestReplicationHandler::RestoreView = "restore-view";
-std::string RestReplicationHandler::Sync = "sync";
-std::string RestReplicationHandler::MakeSlave = "make-slave";
-std::string RestReplicationHandler::ServerId = "server-id";
-std::string RestReplicationHandler::ApplierConfig = "applier-config";
-std::string RestReplicationHandler::ApplierStart = "applier-start";
-std::string RestReplicationHandler::ApplierStop = "applier-stop";
-std::string RestReplicationHandler::ApplierState = "applier-state";
-std::string RestReplicationHandler::ApplierStateAll = "applier-state-all";
-std::string RestReplicationHandler::ClusterInventory = "clusterInventory";
-std::string RestReplicationHandler::AddFollower = "addFollower";
-std::string RestReplicationHandler::RemoveFollower = "removeFollower";
-std::string RestReplicationHandler::HoldReadLockCollection =
+std::string const RestReplicationHandler::LoggerState = "logger-state";
+std::string const RestReplicationHandler::LoggerTickRanges =
+    "logger-tick-ranges";
+std::string const RestReplicationHandler::LoggerFirstTick = "logger-first-tick";
+std::string const RestReplicationHandler::LoggerFollow = "logger-follow";
+std::string const RestReplicationHandler::OpenTransactions =
+    "determiconst ne-open-transactions";
+std::string const RestReplicationHandler::Batch = "batch";
+std::string const RestReplicationHandler::Barrier = "barrier";
+std::string const RestReplicationHandler::Inventory = "inventory";
+std::string const RestReplicationHandler::Keys = "keys";
+std::string const RestReplicationHandler::Dump = "dump";
+std::string const RestReplicationHandler::RestoreCollection =
+    "restore-collection";
+std::string const RestReplicationHandler::RestoreIndexes = "restore-indexes";
+std::string const RestReplicationHandler::RestoreData = "restore-data";
+std::string const RestReplicationHandler::RestoreView = "restore-view";
+std::string const RestReplicationHandler::Sync = "sync";
+std::string const RestReplicationHandler::MakeSlave = "make-slave";
+std::string const RestReplicationHandler::ServerId = "server-id";
+std::string const RestReplicationHandler::ApplierConfig = "applier-config";
+std::string const RestReplicationHandler::ApplierStart = "applier-start";
+std::string const RestReplicationHandler::ApplierStop = "applier-stop";
+std::string const RestReplicationHandler::ApplierState = "applier-state";
+std::string const RestReplicationHandler::ApplierStateAll = "applier-state-all";
+std::string const RestReplicationHandler::ClusterInventory = "clusterInventory";
+std::string const RestReplicationHandler::AddFollower = "addFollower";
+std::string const RestReplicationHandler::RemoveFollower = "removeFollower";
+std::string const RestReplicationHandler::HoldReadLockCollection =
     "holdReadLockCollection";
 
 // main function that dispatches the different routes and commands
@@ -1147,7 +1149,8 @@ Result RestReplicationHandler::processRestoreCollectionCoordinator(
   }
 
   if (!isValidMinReplFactorSlice) {
-    if (replFactorSlice.isString() && replFactorSlice.isEqualString("satellite")) {
+    if (replFactorSlice.isString() &&
+        replFactorSlice.isEqualString("satellite")) {
       minReplicationFactor = 0;
     } else if (minReplicationFactor <= 0) {
       minReplicationFactor = 1;
@@ -2364,12 +2367,14 @@ void RestReplicationHandler::handleCommandAddFollower() {
   }
 
   {  // untrack the (async) replication client, so the WAL may be cleaned
-    std::string const serverId =
-        basics::VelocyPackHelper::getStringValue(body, "serverId", "");
+    TRI_server_id_t const serverId = StringUtils::uint64(
+        basics::VelocyPackHelper::getStringValue(body, "serverId", ""));
     SyncerId const syncerId = SyncerId{StringUtils::uint64(
         basics::VelocyPackHelper::getStringValue(body, "syncerId", ""))};
+    std::string const clientInfo =
+        basics::VelocyPackHelper::getStringValue(body, "clientInfo", "");
 
-    _vocbase.replicationClients().untrack(SyncerId{syncerId}, serverId);
+    _vocbase.replicationClients().untrack(SyncerId{syncerId}, serverId, clientInfo);
   }
 
   VPackBuilder b;

@@ -166,6 +166,30 @@ class CollectionInfoCurrent {
   }
 
   //////////////////////////////////////////////////////////////////////////////
+  /// @brief returns the current failover candidates for the given shard
+  //////////////////////////////////////////////////////////////////////////////
+
+  TEST_VIRTUAL std::vector<ServerID> failoverCandidates(ShardID const& shardID) const {
+    std::vector<ServerID> v;
+
+    auto it = _vpacks.find(shardID);
+    if (it != _vpacks.end()) {
+      VPackSlice slice = it->second->slice();
+
+      VPackSlice servers = slice.get(StaticStrings::FailoverCandidates);
+      if (servers.isArray()) {
+        for (auto const& server : VPackArrayIterator(servers)) {
+          TRI_ASSERT(server.isString());
+          if (server.isString()) {
+            v.push_back(server.copyString());
+          }
+        }
+      }
+    }
+    return v;
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
   /// @brief returns the errorMessage entry for one shardID
   //////////////////////////////////////////////////////////////////////////////
 
@@ -274,6 +298,9 @@ class ClusterInfo final {
   static void cleanup();
 
  public:
+  /// @brief produces an agency dump and logs it
+  void logAgencyDump() const;
+
   //////////////////////////////////////////////////////////////////////////////
   /// @brief get a number of cluster-wide unique IDs, returns the first
   /// one and guarantees that <number> are reserved for the caller.
@@ -397,17 +424,22 @@ class ClusterInfo final {
       double timeout  // request timeout
   );
 
-  //////////////////////////////////////////////////////////////////////////////
+  /// @brief this method does an atomic check of the preconditions for the
+  /// collections to be created, using the currently loaded plan. it populates
+  /// the plan version used for the checks
+  Result checkCollectionPreconditions(std::string const& databaseName,
+                                      std::vector<ClusterCollectionCreationInfo> const& infos,
+                                      uint64_t& planVersion);
+
   /// @brief create multiple collections in coordinator
   ///        If any one of these collections fails, all creations will be
   ///        rolled back.
-  //////////////////////////////////////////////////////////////////////////////
-
+  /// Note that in contrast to most other methods here, this method does not
+  /// get a timeout parameter, but an endTime parameter!!!
   Result createCollectionsCoordinator(std::string const& databaseName,
                                       std::vector<ClusterCollectionCreationInfo>&,
-                                      double timeout);
+                                      double endTime);
 
-  //////////////////////////////////////////////////////////////////////////////
   /// @brief drop collection in coordinator
   //////////////////////////////////////////////////////////////////////////////
   Result dropCollectionCoordinator(     // drop collection
@@ -633,19 +665,19 @@ class ClusterInfo final {
    */
   arangodb::Result getShardServers(ShardID const& shardId, std::vector<ServerID>&);
 
- private:
-  void loadClusterId();
-
   //////////////////////////////////////////////////////////////////////////////
   /// @brief get an operation timeout
   //////////////////////////////////////////////////////////////////////////////
 
-  double getTimeout(double timeout) const {
+  static double getTimeout(double timeout) {
     if (timeout == 0.0) {
       return 24.0 * 3600.0;
     }
     return timeout;
   }
+
+ private:
+  void loadClusterId();
 
   //////////////////////////////////////////////////////////////////////////////
   /// @brief get the poll interval
