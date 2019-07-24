@@ -537,6 +537,7 @@ SET(ARANGOD_SOURCES
   StorageEngine/TransactionCollection.cpp
   StorageEngine/TransactionState.cpp
   StorageEngine/WalAccess.cpp
+  Time/IndexAttributeMatcher.cpp
   Time/Series.cpp
   Transaction/ClusterUtils.cpp
   Transaction/Context.cpp

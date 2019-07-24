@@ -45,6 +45,7 @@
 #include "RocksDBEngine/RocksDBTransactionState.h"
 #include "StorageEngine/EngineSelectorFeature.h"
 #include "StorageEngine/StorageEngine.h"
+#include "Time/IndexAttributeMatcher.h"
 #include "Transaction/Helpers.h"
 #include "Utils/CollectionNameResolver.h"
 #include "Utils/Events.h"
@@ -60,9 +61,6 @@
 #include <rocksdb/utilities/transaction_db.h>
 #include <velocypack/Iterator.h>
 #include <velocypack/velocypack-aliases.h>
-
-
-#include "Indexes/SortedIndexAttributeMatcher.h"
 
 using namespace arangodb;
 
@@ -115,7 +113,7 @@ namespace {
     
     bool isSorted() const override { return true; }
     
-    bool hasSelectivityEstimate() const override { return true; }
+    bool hasSelectivityEstimate() const override { return false; }
     
     double selectivityEstimate(arangodb::velocypack::StringRef const& = arangodb::velocypack::StringRef()) const override {
       return 1.0;
@@ -154,13 +152,13 @@ namespace {
                                               arangodb::aql::AstNode const* node,
                                               arangodb::aql::Variable const* reference,
                                               size_t itemsInIndex) const override {
-      return SortedIndexAttributeMatcher::supportsFilterCondition(allIndexes, this, node, reference, itemsInIndex);
+      return time::IndexAttributeMatcher::supportsFilterCondition(allIndexes, this, node, reference, itemsInIndex);
     }
     
     Index::SortCosts supportsSortCondition(arangodb::aql::SortCondition const* sortCondition,
-                                            arangodb::aql::Variable const* reference,
-                                            size_t itemsInIndex) const override {
-      return SortedIndexAttributeMatcher::supportsSortCondition(this, sortCondition, reference, itemsInIndex);
+                                           arangodb::aql::Variable const* reference,
+                                           size_t itemsInIndex) const override {
+      return time::IndexAttributeMatcher::supportsSortCondition(this, sortCondition, reference, itemsInIndex);
     }
     
     std::unique_ptr<IndexIterator> iteratorForCondition(transaction::Methods* trx,
@@ -172,7 +170,7 @@ namespace {
     
     arangodb::aql::AstNode* specializeCondition(arangodb::aql::AstNode* node,
                                                 arangodb::aql::Variable const* reference) const override {
-      return SortedIndexAttributeMatcher::specializeCondition(this, node, reference);
+      return time::IndexAttributeMatcher::specializeCondition(this, node, reference);
     }
   };
 } // namespace
