@@ -366,6 +366,7 @@ MockClusterServer::~MockClusterServer() {}
 MockDBServer::MockDBServer() : MockClusterServer() {
   arangodb::ServerState::instance()->setRole(arangodb::ServerState::RoleEnum::ROLE_DBSERVER);
   _features.emplace(new arangodb::FlushFeature(_server), false);  // do not start the thread
+  startFeatures();
 }
 
 MockDBServer::~MockDBServer() {}

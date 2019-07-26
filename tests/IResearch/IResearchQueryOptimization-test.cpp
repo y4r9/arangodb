@@ -139,7 +139,7 @@ class IResearchQueryOptimizationTest : public ::testing::Test {
 
     auto* dbFeature =
         arangodb::application_features::ApplicationServer::getFeature<arangodb::DatabaseFeature>(
-            "DatabaseFeature");
+            "Database");
 
     TRI_ASSERT(dbFeature != nullptr);
     dbFeature->createDatabase(1, "testVocbase", _vocbase);  // required for IResearchAnalyzerFeature::emplace(...)
@@ -591,7 +591,7 @@ TEST_F(IResearchQueryOptimizationTest, DISABLED_test_In_A_A_AND_NE_A) {
   EXPECT_TRUE(expectedDoc == expectedDocs.end());
 }
 
-TEST_F(IResearchQueryOptimizationTest, DISABLED_test_In_C_B_AND_NE_A) {
+TEST_F(IResearchQueryOptimizationTest, test_In_C_B_AND_NE_A) {
   // a IN [ x ] && a != y, x > y
   std::string const query =
       "FOR d IN testView SEARCH d.values IN [ 'C', 'B' ] AND d.values != 'A' "
@@ -640,7 +640,7 @@ TEST_F(IResearchQueryOptimizationTest, DISABLED_test_In_C_B_AND_NE_A) {
   EXPECT_TRUE(expectedDoc == expectedDocs.end());
 }
 
-TEST_F(IResearchQueryOptimizationTest, test) {
+TEST_F(IResearchQueryOptimizationTest, test_part_1) {
   // a IN [ x ] && a != y, x > y
   {
     std::string const query =
@@ -1637,7 +1637,9 @@ TEST_F(IResearchQueryOptimizationTest, test) {
     }
     EXPECT_TRUE(expectedDoc == expectedDocs.end());
   }
+}
 
+TEST_F(IResearchQueryOptimizationTest, test_part_2) {
   // a IN [ x ] && a != y, x > y
   {
     std::string const query =
@@ -2583,7 +2585,9 @@ TEST_F(IResearchQueryOptimizationTest, test) {
     }
     EXPECT_TRUE(expectedDoc == expectedDocs.end());
   }
+}
 
+TEST_F(IResearchQueryOptimizationTest, test_part_3) {
   // a == x && a < y, x > y
   {
     std::string const query =
@@ -3588,7 +3592,9 @@ TEST_F(IResearchQueryOptimizationTest, test) {
     }
     EXPECT_TRUE(expectedDoc == expectedDocs.end());
   }
+}
 
+TEST_F(IResearchQueryOptimizationTest, test_part_4) {
   // a != x && a < y, x == y
   {
     std::string const query =
@@ -4905,7 +4911,7 @@ TEST_F(IResearchQueryOptimizationTest, test) {
   }
 }
 
-TEST_F(IResearchQueryOptimizationTest, test_2) {
+TEST_F(IResearchQueryOptimizationTest, test_part_5) {
   // a < x && a != y, x == y
   {
     std::string const query =
@@ -6813,7 +6819,7 @@ TEST_F(IResearchQueryOptimizationTest, test_2) {
   }
 }
 
-TEST_F(IResearchQueryOptimizationTest, test_3) {
+TEST_F(IResearchQueryOptimizationTest, test_part_6) {
   // a >= x && a != y, x < y
   {
     std::string const query =
@@ -8116,7 +8122,7 @@ TEST_F(IResearchQueryOptimizationTest, test_3) {
   }
 }
 
-TEST_F(IResearchQueryOptimizationTest, test_4) {
+TEST_F(IResearchQueryOptimizationTest, test_part_7) {
   // a > x && a < y, x < y
   {
     std::string const query =
@@ -8646,7 +8652,7 @@ TEST_F(IResearchQueryOptimizationTest, test_4) {
   }
 }
 
-TEST_F(IResearchQueryOptimizationTest, test_5) {
+TEST_F(IResearchQueryOptimizationTest, test_part_8) {
   // a > x && a > y, x > y
   {
     std::string const query =
