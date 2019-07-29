@@ -157,7 +157,8 @@ class IResearchQueryOptimizationTest : public ::testing::Test {
         "{ \"links\" : {"
         "\"collection_1\" : { \"includeAllFields\" : true }"
         "}}");
-    EXPECT_TRUE((view->properties(updateJson->slice(), true).ok()));
+    auto res = view->properties(updateJson->slice(), true);
+    EXPECT_TRUE(res.ok());
 
     arangodb::velocypack::Builder builder;
 
@@ -173,7 +174,8 @@ class IResearchQueryOptimizationTest : public ::testing::Test {
                 arangodb::iresearch::DATA_SOURCE_TYPE.name());
     EXPECT_TRUE(slice.get("deleted").isNone());  // no system properties
     auto tmpSlice = slice.get("links");
-    EXPECT_TRUE((true == tmpSlice.isObject() && 1 == tmpSlice.length()));
+    ASSERT_TRUE(tmpSlice.isObject());
+    ASSERT_EQ(1, tmpSlice.length());
   }
 
   void SetUp() override {
@@ -181,6 +183,7 @@ class IResearchQueryOptimizationTest : public ::testing::Test {
     auto collectionJson = VPackParser::fromJson(createCollectionString);
     auto logicalCollection1 = _vocbase->createCollection(collectionJson->slice());
     ASSERT_NE(logicalCollection1.get(), nullptr);
+    ASSERT_EQ("collection_1", logicalCollection1->name());
 
     // add view
     auto createViewString = R"({"name": "testView", "type": "arangosearch"})";
