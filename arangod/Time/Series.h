@@ -29,6 +29,10 @@
 #include <velocypack/Slice.h>
 
 namespace arangodb {
+namespace aql {
+  struct AstNode;
+}
+  
 namespace time {
   
 struct LabelInfo {
@@ -49,9 +53,17 @@ struct Series {
   /// calculate 2-byte bucket ID
   uint16_t bucketId(arangodb::velocypack::Slice) const;
   
+  struct Range {
+    uint16_t begin;
+    uint16_t end;
+  };
+  uint16_t bucketId(arangodb::aql::AstNode const& node) const;
+  
  public:
   std::vector<LabelInfo> labels;
 };
+  
+uint64_t to_timevalue(arangodb::aql::AstNode const* node);
   
 } // namespace time
 } // namespace arangodb

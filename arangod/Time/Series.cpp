@@ -22,7 +22,9 @@
 
 #include "Series.h"
 
+#include "Aql/AstNode.h"
 #include "Basics/Common.h"
+#include "Basics/datetime.h"
 #include "Basics/Exceptions.h"
 
 #include <cmath>
@@ -95,4 +97,40 @@ uint16_t Series::bucketId(arangodb::velocypack::Slice slice) const {
   TRI_ASSERT(bucketId <= std::numeric_limits<uint16_t>::max());
   
   return bucketId;
+}
+
+// std::vector<Series::Range>
+uint16_t Series::bucketId(arangodb::aql::AstNode const& node) const {
+  TRI_ASSERT(node.isSimple());
+  if (labels.size() == 1) {
+    return static_cast<uint16_t>(node.hashValue(VPackSlice::defaultSeed) % labels[0].numBuckets);
+  }
+  TRI_ASSERT(false);
+  
+  return 0;
+}
+
+namespace arangodb {
+namespace time {
+
+uint64_t to_timevalue(arangodb::aql::AstNode const* node) {
+  using namespace arangodb::aql;
+  if (node->isStringValue()) {
+    // FIXME do not copy
+    auto str = node->getString();
+    arangodb::tp_sys_clock_ms tp;  // unused
+    bool success = arangodb::basics::parseDateTime(str, tp);
+    
+    if (success) {
+      return std::chrono::duration_cast<std::chrono::nanoseconds>(tp.time_since_epoch()).count();
+    }
+    return 0;
+  } else if(node->isNumericValue()) {
+    return node->getIntValue() * 1e9;
+  }
+  
+  return 0;
+}
+
+}
 }

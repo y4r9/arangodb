@@ -66,125 +66,319 @@ using namespace arangodb;
 
 
 namespace {
-  using namespace arangodb;
+using namespace arangodb;
+
+class TimeIndexIterator final : public IndexIterator {
+public:
+  TimeIndexIterator(LogicalCollection* collection,
+                    transaction::Methods* trx,
+                    bool reverse, uint16_t bucket, uint64_t low, uint64_t high)
+  : IndexIterator(collection, trx),
+    _cmp(RocksDBColumnFamily::time()->GetComparator()),
+    _reverse(reverse),
+    _bounds(RocksDBKeyBounds::Timeseries(bucket, low, high)) {
+    
+    RocksDBMethods* mthds = RocksDBTransactionState::toMethods(trx);
+    rocksdb::ReadOptions options = mthds->iteratorReadOptions();
+    // we need to have a pointer to a slice for the upper bound
+    // so we need to assign the slice to an instance variable here
+    if (_reverse) {
+      _rangeBound = _bounds.start();
+      options.iterate_lower_bound = &_rangeBound;
+    } else {
+      _rangeBound = _bounds.end();
+      options.iterate_upper_bound = &_rangeBound;
+    }
+    
+    TRI_ASSERT(options.prefix_same_as_start);
+    _iterator = mthds->NewIterator(options, RocksDBColumnFamily::time());
+    this->reset();
+  }
   
-  class TimeIndexIterator final : public IndexIterator {
-  public:
-    TimeIndexIterator(LogicalCollection* collection,
-                      transaction::Methods* trx)
-    : IndexIterator(collection, trx) {}
+  char const* typeName() const override { return "time-index-iterator"; }
+  
+  bool outOfRange() const {
+    TRI_ASSERT(_trx->state()->isRunning());
+    return _cmp->Compare(_iterator->key(), _bounds.end()) > 0;
+  }
+  
+  inline bool advance() {
+    if (_reverse) {
+      _iterator->Prev();
+    } else {
+      _iterator->Next();
+    }
     
-    char const* typeName() const override { return "time-index-iterator"; }
+    return _iterator->Valid() && !outOfRange();
+  }
+  
+  bool next(LocalDocumentIdCallback const& cb, size_t limit) override {
+    THROW_ARANGO_EXCEPTION_MESSAGE(TRI_ERROR_INTERNAL, "assasas");
+    return false;
+  }
+  
+  bool nextDocument(IndexIterator::DocumentCallback const& cb,
+                   size_t limit) override {
+    TRI_ASSERT(_trx->state()->isRunning());
     
-    bool next(LocalDocumentIdCallback const& cb, size_t limit) override {
+    if (limit == 0 || !_iterator->Valid() || outOfRange()) {
+      // No limit no data, or we are actually done. The last call should have
+      // returned false
+      TRI_ASSERT(limit > 0);  // Someone called with limit == 0. Api broken
+      // validate that Iterator is in a good shape and hasn't failed
+      arangodb::rocksutils::checkIteratorStatus(_iterator.get());
       return false;
     }
     
-    void reset() override {  }
-    
-    void skip(uint64_t count, uint64_t& skipped) override {
-      
+    while (limit > 0) {
+      cb(RocksDBKey::documentId(_iterator->key()),
+         RocksDBValue::data(_iterator->value()));
+      --limit;
+      if (!advance()) {
+        // validate that Iterator is in a good shape and hasn't failed
+        arangodb::rocksutils::checkIteratorStatus(_iterator.get());
+        return false;
+      }
     }
-  };
+    
+    return true;
+  }
   
-  class TimeIndex final : public RocksDBIndex {
-  public:
-    TimeIndex() = delete;
-    
-    TimeIndex(arangodb::LogicalCollection& collection,
-                     std::vector<std::vector<arangodb::basics::AttributeName>> const& attributes,
-                     VPackSlice info)
-    : RocksDBIndex(0, collection, StaticStrings::IndexNameTime,
-                   attributes, /*unique*/false, /*sparse*/false, RocksDBColumnFamily::time(),
-                   /*objectId*/basics::VelocyPackHelper::stringUInt64(info, "objectId"), /*useCache*/false) {
-      TRI_ASSERT(_cf == RocksDBColumnFamily::time());
-      TRI_ASSERT(_objectId != 0);
+  void reset() override {
+    if (_reverse) {
+      _iterator->SeekForPrev(_bounds.end());
+    } else {
+      _iterator->Seek(_bounds.start());
+    }
+  }
+  
+  void skip(uint64_t count, uint64_t& skipped) override {
+    if (!_iterator->Valid() || outOfRange()) {
+      // validate that Iterator is in a good shape and hasn't failed
+      arangodb::rocksutils::checkIteratorStatus(_iterator.get());
+      return;
     }
     
-    ~TimeIndex() {}
-    
-    IndexType type() const override { return Index::TRI_IDX_TYPE_TIMESERIES; }
-    
-    char const* typeName() const override { return "time"; }
-    
-    bool canBeDropped() const override { return false; }
-    
-    bool hasCoveringIterator() const override { return false; }
-    
-    bool isSorted() const override { return true; }
-    
-    bool hasSelectivityEstimate() const override { return false; }
-    
-    double selectivityEstimate(arangodb::velocypack::StringRef const& = arangodb::velocypack::StringRef()) const override {
-      return 1.0;
+    while (count > 0) {
+//      TRI_ASSERT(_index->objectId() == RocksDBKey::objectId(_iterator->key()));
+      
+      --count;
+      ++skipped;
+      if (!advance()) {
+        // validate that Iterator is in a good shape and hasn't failed
+        arangodb::rocksutils::checkIteratorStatus(_iterator.get());
+        return;
+      }
     }
+  }
+  
+ private:
+  rocksdb::Comparator const* _cmp;
+  std::unique_ptr<rocksdb::Iterator> _iterator;
+  bool const _reverse;
+  RocksDBKeyBounds _bounds;
+  // used for iterate_upper_bound iterate_lower_bound
+  rocksdb::Slice _rangeBound;
+};
+
+class TimeIndex final : public RocksDBIndex {
+public:
+  TimeIndex() = delete;
+  
+  TimeIndex(arangodb::LogicalCollection& collection,
+           std::vector<std::vector<arangodb::basics::AttributeName>> const& attributes,
+           VPackSlice info)
+  : RocksDBIndex(0, collection, StaticStrings::IndexNameTime,
+                 attributes, /*unique*/false, /*sparse*/false, RocksDBColumnFamily::time(),
+                 /*objectId*/basics::VelocyPackHelper::stringUInt64(info, "objectId"), /*useCache*/false) {
+    TRI_ASSERT(_cf == RocksDBColumnFamily::time());
+    TRI_ASSERT(_objectId != 0);
+  }
+  
+  ~TimeIndex() {}
+  
+  IndexType type() const override { return Index::TRI_IDX_TYPE_TIMESERIES; }
+  
+  char const* typeName() const override { return "time"; }
+  
+  bool canBeDropped() const override { return false; }
+  
+  bool hasCoveringIterator() const override { return false; }
+  
+  bool isSorted() const override { return true; }
+  
+  bool hasSelectivityEstimate() const override { return false; }
+  
+  double selectivityEstimate(arangodb::velocypack::StringRef const& = arangodb::velocypack::StringRef()) const override {
+    return 1.0;
+  }
+  
+  void toVelocyPack(VPackBuilder& builder, std::underlying_type<Index::Serialize>::type flags) const override {
+    builder.openObject();
+    RocksDBIndex::toVelocyPack(builder, flags);
+    builder.close();
+  }
+  
+  Result insert(transaction::Methods& trx, RocksDBMethods* methods,
+                LocalDocumentId const& documentId,
+                arangodb::velocypack::Slice const& doc,
+                Index::OperationMode mode) override {
+    return Result(TRI_ERROR_NOT_IMPLEMENTED);
+  }
+  
+  /// remove index elements and put it in the specified write batch.
+  Result remove(transaction::Methods& trx, RocksDBMethods* methods,
+                LocalDocumentId const& documentId,
+                arangodb::velocypack::Slice const& doc,
+                Index::OperationMode mode) override {
+    return Result(TRI_ERROR_NOT_IMPLEMENTED);
+  }
+  
+  Result update(transaction::Methods& trx, RocksDBMethods* methods,
+                LocalDocumentId const& oldDocumentId,
+                arangodb::velocypack::Slice const& oldDoc,
+                LocalDocumentId const& newDocumentId,
+                velocypack::Slice const& newDoc, Index::OperationMode mode) override {
+    return Result(TRI_ERROR_NOT_IMPLEMENTED);
+  }
+  
+  Index::FilterCosts supportsFilterCondition(std::vector<std::shared_ptr<arangodb::Index>> const& allIndexes,
+                                            arangodb::aql::AstNode const* node,
+                                            arangodb::aql::Variable const* reference,
+                                            size_t itemsInIndex) const override {
+    return time::IndexAttributeMatcher::supportsFilterCondition(allIndexes, this, node, reference, itemsInIndex);
+  }
+  
+  Index::SortCosts supportsSortCondition(arangodb::aql::SortCondition const* sortCondition,
+                                         arangodb::aql::Variable const* reference,
+                                         size_t itemsInIndex) const override {
+    // FIME
+    Index::SortCosts costs;
+    return costs;//time::IndexAttributeMatcher::supportsSortCondition(this, sortCondition, reference, itemsInIndex);
+  }
+  
+  arangodb::aql::AstNode* specializeCondition(arangodb::aql::AstNode* node,
+                                              arangodb::aql::Variable const* reference) const override {
+    return time::IndexAttributeMatcher::specializeCondition(this, node, reference);
+  }
+  
+  std::unique_ptr<IndexIterator> iteratorForCondition(transaction::Methods* trx,
+                                                      arangodb::aql::AstNode const* node,
+                                                      arangodb::aql::Variable const* reference,
+                                                      IndexIteratorOptions const& opts) override {
+    TRI_ASSERT(!isSorted() || opts.sorted);
     
-    void toVelocyPack(VPackBuilder& builder, std::underlying_type<Index::Serialize>::type flags) const override {
-      builder.openObject();
-      RocksDBIndex::toVelocyPack(builder, flags);
-      builder.close();
-    }
+    uint64_t low = 0;
+    uint64_t high = std::numeric_limits<uint64_t>::max();
+    uint16_t bucketId = 0;
     
-    Result insert(transaction::Methods& trx, RocksDBMethods* methods,
-                  LocalDocumentId const& documentId,
-                  arangodb::velocypack::Slice const& doc,
-                  Index::OperationMode mode) override {
-      return Result(TRI_ERROR_NOT_IMPLEMENTED);
-    }
-    
-    /// remove index elements and put it in the specified write batch.
-    Result remove(transaction::Methods& trx, RocksDBMethods* methods,
-                  LocalDocumentId const& documentId,
-                  arangodb::velocypack::Slice const& doc,
-                  Index::OperationMode mode) override {
-      return Result(TRI_ERROR_NOT_IMPLEMENTED);
-    }
-    
-    Result update(transaction::Methods& trx, RocksDBMethods* methods,
-                  LocalDocumentId const& oldDocumentId,
-                  arangodb::velocypack::Slice const& oldDoc,
-                  LocalDocumentId const& newDocumentId,
-                  velocypack::Slice const& newDoc, Index::OperationMode mode) override {
-      return Result(TRI_ERROR_NOT_IMPLEMENTED);
-    }
-    
-    Index::FilterCosts supportsFilterCondition(std::vector<std::shared_ptr<arangodb::Index>> const& allIndexes,
-                                              arangodb::aql::AstNode const* node,
-                                              arangodb::aql::Variable const* reference,
-                                              size_t itemsInIndex) const override {
-      return time::IndexAttributeMatcher::supportsFilterCondition(allIndexes, this, node, reference, itemsInIndex);
-    }
-    
-    Index::SortCosts supportsSortCondition(arangodb::aql::SortCondition const* sortCondition,
-                                           arangodb::aql::Variable const* reference,
-                                           size_t itemsInIndex) const override {
-      return time::IndexAttributeMatcher::supportsSortCondition(this, sortCondition, reference, itemsInIndex);
-    }
-    
-    std::unique_ptr<IndexIterator> iteratorForCondition(transaction::Methods* trx,
-                                                        arangodb::aql::AstNode const* node,
-                                                        arangodb::aql::Variable const* reference,
-                                                        IndexIteratorOptions const& opts) override {
+    if (node == nullptr) {
+      // We only use this index for sort. Empty searchValue
+      TRI_ASSERT(false);
       return nullptr;
     }
+  
+    std::unordered_map<size_t, std::vector<arangodb::aql::AstNode const*>> found;
+    std::unordered_set<std::string> nonNullAttributes;
+    size_t unused = 0;
     
-    arangodb::aql::AstNode* specializeCondition(arangodb::aql::AstNode* node,
-                                                arangodb::aql::Variable const* reference) const override {
-      return time::IndexAttributeMatcher::specializeCondition(this, node, reference);
+    time::IndexAttributeMatcher::matchAttributes(this, node, reference, found,
+                                                 unused, unused, nonNullAttributes, true);
+    
+    // found contains all attributes that are relevant for this node.
+    // It might be less than fields().
+    //
+    // Handle the first attributes. They can only be == or IN and only
+    // one node per attribute
+    
+    auto getValueAccess = [&](arangodb::aql::AstNode const* comp,
+                              arangodb::aql::AstNode const*& access,
+                              arangodb::aql::AstNode const*& value) {
+      access = comp->getMember(0);
+      value = comp->getMember(1);
+      std::pair<arangodb::aql::Variable const*, std::vector<arangodb::basics::AttributeName>> paramPair;
+      if (!(access->isAttributeAccessForVariable(paramPair) && paramPair.first == reference)) {
+        access = comp->getMember(1);
+        value = comp->getMember(0);
+        if (!(access->isAttributeAccessForVariable(paramPair) && paramPair.first == reference)) {
+          // Both side do not have a correct AttributeAccess, this should not
+          // happen and indicates an error in the optimizer
+          TRI_ASSERT(false);
+        }
+      }
+    };
+    
+    // first handle _time column
+    auto it = found.find(0);
+    if (it != found.end()) {
+      for (auto const& comp : it->second) {
+        TRI_ASSERT(comp->numMembers() == 2);
+        arangodb::aql::AstNode const* access = nullptr;
+        arangodb::aql::AstNode const* value = nullptr;
+        getValueAccess(comp, access, value);
+        
+        if (!value->isNumericValue() || value->isStringValue()) {
+          continue;
+        }
+        
+        const uint64_t val = time::to_timevalue(value);
+        if (comp->type == arangodb::aql::NODE_TYPE_OPERATOR_BINARY_LT) {
+          high = std::max<uint64_t>(val - 1, 0);
+        } else if (comp->type == arangodb::aql::NODE_TYPE_OPERATOR_BINARY_LE) {
+          high = std::max<uint64_t>(val, 0);
+        } else if (comp->type == arangodb::aql::NODE_TYPE_OPERATOR_BINARY_GT) {
+          low = val + 1;
+        } else if (comp->type == arangodb::aql::NODE_TYPE_OPERATOR_BINARY_GE) {
+          low = val;
+        }
+      }
     }
-  };
+    
+    size_t usedFields = 1;
+    for (; usedFields < _fields.size(); ++usedFields) {
+      auto it = found.find(usedFields);
+      if (it == found.end()) {
+        // We are either done
+        // or this is a range.
+        // Continue with more complicated loop
+        break;
+      }
+      
+      auto comp = it->second[0];
+      TRI_ASSERT(comp->numMembers() == 2);
+      arangodb::aql::AstNode const* access = nullptr;
+      arangodb::aql::AstNode const* value = nullptr;
+      getValueAccess(comp, access, value);
+      // We found an access for this field
+      
+      if (comp->type == arangodb::aql::NODE_TYPE_OPERATOR_BINARY_EQ) {
+        RocksDBTimeseries* time = static_cast<RocksDBTimeseries*>(_collection.getPhysical());
+        bucketId = time->seriesInfo().bucketId(*value);
+        break;
+      } else if (comp->type == arangodb::aql::NODE_TYPE_OPERATOR_BINARY_IN) {
+        TRI_ASSERT(false);
+      } else {
+        // This is a one-sided range
+        break;
+      }
+    }
+    
+    return std::make_unique<TimeIndexIterator>(&_collection, trx, opts.ascending, bucketId, low, high);
+  }
+};
 } // namespace
 
 RocksDBTimeseries::RocksDBTimeseries(LogicalCollection& collection,
                                      VPackSlice const& info)
-    : RocksDBMetaCollection(collection, info), _seriesInfo(info) {
+    : RocksDBMetaCollection(collection, info), _seriesInfo(info), _counter(0) {
   TRI_ASSERT(_logicalCollection.isAStub() || _objectId != 0);
 }
 
 RocksDBTimeseries::RocksDBTimeseries(LogicalCollection& collection,
                                      PhysicalCollection const* physical)
     : RocksDBMetaCollection(collection, this),
-      _seriesInfo(static_cast<RocksDBTimeseries const*>(physical)->_seriesInfo) {}
+      _seriesInfo(static_cast<RocksDBTimeseries const*>(physical)->_seriesInfo),
+      _counter(0) {}
 
 RocksDBTimeseries::~RocksDBTimeseries() {}
 
@@ -311,6 +505,7 @@ bool RocksDBTimeseries::lookupRevision(transaction::Methods* trx, VPackSlice con
   TRI_ASSERT(key.isString());
   revisionId = 0;
   TRI_ASSERT(false);
+  return false;
 }
 
 Result RocksDBTimeseries::read(transaction::Methods* trx,
@@ -350,7 +545,8 @@ Result RocksDBTimeseries::newTimepointForInsert(transaction::Methods* trx,
   auto now = std::chrono::system_clock::now();
   auto epos = std::chrono::duration_cast<std::chrono::nanoseconds>(now.time_since_epoch());
   epoch64 = epos.count();
-//  epoch64 = (epoch64 & (~0xFFULL)) | (aaaaa.fetch_add(1));
+  epoch64 = (epoch64 & (~0xFFULL)) | (_counter.fetch_add(1ULL));
+  
   
   VPackSlice timeSlice = value.get(StaticStrings::TimeString);
   if (!timeSlice.isNone()) {
@@ -413,12 +609,12 @@ Result RocksDBTimeseries::newTimepointForInsert(transaction::Methods* trx,
   }
   
   // _time
-  if (!timeSlice.isNone()) {
-    // TODO reset epoch64
-    builder.add(StaticStrings::TimeString, timeSlice);
-  } else {
+//  if (!timeSlice.isNone()) {
+//    // TODO reset epoch64
+//    builder.add(StaticStrings::TimeString, timeSlice);
+//  } else {
     builder.add(StaticStrings::TimeString, VPackValue(epoch64));
-  }
+//  }
   
   // add other attributes after the system attributes
   TRI_SanitizeObjectWithEdges(value, builder); // TODO sanitize _time
@@ -442,13 +638,12 @@ Result RocksDBTimeseries::insert(arangodb::transaction::Methods* trx,
   uint64_t epoch;
   TRI_voc_tick_t revisionId;
   Result res(newTimepointForInsert(trx, slice, *builder.get(),
-                                     options.isRestore, epoch, revisionId));
+                                   options.isRestore, epoch, revisionId));
   if (res.fail()) {
     return res;
   }
 
   VPackSlice newSlice = builder->slice();
-
 
 //  LocalDocumentId const documentId = LocalDocumentId::create();
   LocalDocumentId const documentId = LocalDocumentId::create(epoch);

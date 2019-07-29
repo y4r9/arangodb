@@ -267,6 +267,7 @@ arangodb::Result RocksDBTransactionState::internalCommit() {
   }
   
   auto commitCounts = [this]() {
+    TRI_ASSERT(_lastWrittenOperationTick > 0);
     for (auto& trxColl : _collections) {
       auto* coll = static_cast<RocksDBTransactionCollection*>(trxColl);
       // we need this in case of an intermediate commit. The number of

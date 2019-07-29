@@ -369,10 +369,10 @@ Index::SortCosts IndexAttributeMatcher::supportsSortCondition(
   if (!idx->hasExpansion() && sortCondition->isUnidirectional() &&
       sortCondition->isOnlyAttributeAccess()) {
     
-    std::vector<std::vector<arangodb::basics::AttributeName>> fields;
-    fields.emplace_back(std::vector<arangodb::basics::AttributeName>{basics::AttributeName(StaticStrings::TimeString, /*expand*/false)});
+//    std::vector<std::vector<arangodb::basics::AttributeName>> fields;
+//    fields.emplace_back(std::vector<arangodb::basics::AttributeName>{basics::AttributeName(StaticStrings::TimeString, /*expand*/false)});
 
-    costs.coveredAttributes = sortCondition->coveredAttributes(reference, fields);
+    costs.coveredAttributes = sortCondition->coveredAttributes(reference, idx->fields());
 
     if (costs.coveredAttributes >= sortCondition->numAttributes()) {
       // sort is fully covered by index. no additional sort costs!

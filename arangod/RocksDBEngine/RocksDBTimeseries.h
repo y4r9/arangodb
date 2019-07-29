@@ -126,6 +126,8 @@ class RocksDBTimeseries final : public RocksDBMetaCollection {
                 ManagedDocumentResult& previous, OperationOptions& options,
                 bool lock, KeyLockInfo* keyLockInfo,
                 std::function<void()> const& cbDuringLock) override;
+  
+  arangodb::time::Series const& seriesInfo() const { return _seriesInfo; }
 
  private:
   
@@ -140,6 +142,7 @@ class RocksDBTimeseries final : public RocksDBMetaCollection {
   
 private:
   arangodb::time::Series _seriesInfo;
+  mutable std::atomic<uint16_t> _counter;
 };
 
 inline RocksDBTimeseries* toRocksDBTimeseries(PhysicalCollection* physical) {

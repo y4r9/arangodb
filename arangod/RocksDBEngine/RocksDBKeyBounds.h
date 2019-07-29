@@ -166,6 +166,8 @@ class RocksDBKeyBounds {
   /// @brief Bounds for all entries of a fulltext index, matching the word
   //////////////////////////////////////////////////////////////////////////////
   static RocksDBKeyBounds FulltextIndexComplete(uint64_t, arangodb::velocypack::StringRef const&);
+  
+  static RocksDBKeyBounds Timeseries(uint16_t bucket, uint64_t low, uint64_t hight);
 
  public:
   RocksDBKeyBounds(RocksDBKeyBounds const& other);

@@ -156,6 +156,23 @@ RocksDBKeyBounds RocksDBKeyBounds::FulltextIndexComplete(uint64_t indexId,
   return RocksDBKeyBounds(RocksDBEntryType::FulltextIndexValue, indexId, word);
 }
 
+RocksDBKeyBounds RocksDBKeyBounds::Timeseries(uint16_t bucket, uint64_t low, uint64_t high) {
+  RocksDBKeyBounds b(RocksDBEntryType::Timepoint);
+  
+  size_t length = 2 * sizeof(uint64_t) + 2 * sizeof(uint16_t);
+  auto& internals = b.internals();
+
+  internals.reserve(length);
+  uintToPersistentBigEndian<uint16_t>(internals.buffer(), bucket);
+  uintToPersistentBigEndian<uint64_t>(internals.buffer(), low);
+  internals.separate();
+  uintToPersistentBigEndian<uint16_t>(internals.buffer(), bucket);
+  uintToPersistentBigEndian<uint64_t>(internals.buffer(), high);
+  
+  return b;
+}
+
+
 // ============================ Member Methods ==============================
 
 RocksDBKeyBounds::RocksDBKeyBounds(RocksDBKeyBounds const& other)
@@ -300,6 +317,7 @@ RocksDBKeyBounds::RocksDBKeyBounds(RocksDBEntryType type) : _type(type) {
       break;
     }
     case RocksDBEntryType::FulltextIndexValue:
+    case RocksDBEntryType::Timepoint:
       // intentionally empty
       break;
 

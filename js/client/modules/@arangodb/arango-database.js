@@ -420,7 +420,7 @@ ArangoDatabase.prototype._createEdgeCollection = function (name, properties) {
 // / @brief creates a new timeseries collection
 // //////////////////////////////////////////////////////////////////////////////
 
-ArangoDatabase.prototype._createTimeseriesCollection = function (name, properties) {
+ArangoDatabase.prototype._createTimeCollection = function (name, properties) {
   return this._create(name, properties, ArangoCollection.TYPE_TIMESERIES);
 };
 
