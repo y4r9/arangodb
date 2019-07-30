@@ -38,7 +38,7 @@
 #include "Basics/VelocyPackHelper.h"
 #include "Basics/WriteLocker.h"
 #include "Cluster/ClusterInfo.h"
-#include "Cluster/ResultT.h"
+// #include "Cluster/ResultT.h"
 #include "Logger/Logger.h"
 #include "Rest/Version.h"
 #include "RestServer/DatabaseFeature.h"
@@ -335,7 +335,7 @@ bool ServerState::unregister() {
   return r.successful();
 }
 
-ResultT<uint64_t> ServerState::readRebootIdFromAgency(AgencyComm& comm)
+uint64_t ServerState::readRebootIdFromAgency(AgencyComm& comm)
 {
   TRI_ASSERT(!_id.empty());
   std::string rebootIdPath = "Current/ServersKnown/" + _id + "/rebootId";
@@ -345,7 +345,7 @@ ResultT<uint64_t> ServerState::readRebootIdFromAgency(AgencyComm& comm)
     LOG_TOPIC("762ed", WARN, Logger::CLUSTER)
       << "Could not read back " << rebootIdPath;
 
-    ResultT<uint64_t>::error(TRI_ERROR_INTERNAL, "could not read rebootId from agency");
+    return 0;
   }
 
   auto slicePath = AgencyCommManager::slicePath(rebootIdPath);
@@ -355,10 +355,10 @@ ResultT<uint64_t> ServerState::readRebootIdFromAgency(AgencyComm& comm)
     LOG_TOPIC("38a4a", WARN, Logger::CLUSTER)
       << "rebootId is not an integer";
 
-    ResultT<uint64_t>::error(TRI_ERROR_INTERNAL, "rebootId is not an integer");
+    return 0;
   }
 
-  return ResultT<uint64_t>::success(valueSlice.getNumericValue<uint64_t>());
+  return 0;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -728,7 +728,7 @@ bool ServerState::registerAtAgencyPhase2(AgencyComm& comm, bool const hadPersist
     auto result = readRebootIdFromAgency(comm);
 
     if (result) {
-      setRebootId(result.get());
+      setRebootId(result);
       return true;
     }
     std::this_thread::sleep_for(std::chrono::seconds(1));
