@@ -102,8 +102,11 @@ uint16_t Series::bucketId(arangodb::velocypack::Slice slice) const {
 // std::vector<Series::Range>
 uint16_t Series::bucketId(arangodb::aql::AstNode const& node) const {
   TRI_ASSERT(node.isSimple());
+  VPackBuilder b;
+  node.toVelocyPackValue(b);
+  
   if (labels.size() == 1) {
-    return static_cast<uint16_t>(node.hashValue(VPackSlice::defaultSeed) % labels[0].numBuckets);
+    return static_cast<uint16_t>(b.slice().normalizedHash() % labels[0].numBuckets);
   }
   TRI_ASSERT(false);
   

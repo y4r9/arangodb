@@ -167,7 +167,8 @@ class RocksDBKeyBounds {
   //////////////////////////////////////////////////////////////////////////////
   static RocksDBKeyBounds FulltextIndexComplete(uint64_t, arangodb::velocypack::StringRef const&);
   
-  static RocksDBKeyBounds Timeseries(uint16_t bucket, uint64_t low, uint64_t hight);
+  static RocksDBKeyBounds Timeseries(uint64_t objectId, uint16_t bucket,
+                                     uint64_t low, uint64_t hight);
 
  public:
   RocksDBKeyBounds(RocksDBKeyBounds const& other);

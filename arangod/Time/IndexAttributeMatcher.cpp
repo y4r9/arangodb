@@ -419,25 +419,21 @@ arangodb::aql::AstNode* IndexAttributeMatcher::specializeCondition(
   matchAttributes(idx, node, reference, found, postFilterConditions, values, nonNullAttributes, false);
 
   std::vector<arangodb::aql::AstNode const*> children;
-  bool lastContainsEquality = true;
+//  bool lastContainsEquality = true;
 
   for (size_t i = 0; i < idx->fields().size(); ++i) {
     auto it = found.find(i);
-
-    if (it == found.end() || !lastContainsEquality) {
-      // index attribute not covered by condition, or unsupported condition. 
+    if (it == found.end()) {
+      if (i == 0) { // _time is optional
+        continue;
+      }
+      // index attribute not covered by condition, or unsupported condition.
       // must abort
       break;
     }
 
     // check if the current condition contains an equality condition
     auto& nodes = (*it).second;
-    lastContainsEquality =
-        (std::find_if(nodes.begin(), nodes.end(), [](arangodb::aql::AstNode const* node) {
-           return (node->type == arangodb::aql::NODE_TYPE_OPERATOR_BINARY_EQ ||
-                   node->type == arangodb::aql::NODE_TYPE_OPERATOR_BINARY_IN);
-         }) != nodes.end());
-
     std::sort(nodes.begin(), nodes.end(),
               [](arangodb::aql::AstNode const* lhs, arangodb::aql::AstNode const* rhs) -> bool {
                 return Index::sortWeight(lhs) < Index::sortWeight(rhs);
