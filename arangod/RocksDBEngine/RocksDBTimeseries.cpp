@@ -547,7 +547,6 @@ Result RocksDBTimeseries::newTimepointForInsert(transaction::Methods* trx,
   epoch64 = epos.count();
   epoch64 = (epoch64 & (~0xFFULL)) | (_counter.fetch_add(1ULL));
   
-  
   VPackSlice timeSlice = value.get(StaticStrings::TimeString);
   if (!timeSlice.isNone()) {
     TRI_ASSERT(false);
@@ -560,13 +559,16 @@ Result RocksDBTimeseries::newTimepointForInsert(transaction::Methods* trx,
   VPackSlice s = value.get(StaticStrings::KeyString);
   if (s.isNone()) {
     TRI_ASSERT(!isRestore);  // need key in case of restore
-    auto keyString = _logicalCollection.keyGenerator()->generate();
-    
-    if (keyString.empty()) {
-      return Result(TRI_ERROR_ARANGO_OUT_OF_KEYS);
-    }
-    
-    builder.add(StaticStrings::KeyString, VPackValue(keyString));
+    // FIXME: can we use _time == _key ???
+//    auto keyString = _logicalCollection.keyGenerator()->generate();
+//
+//    if (keyString.empty()) {
+//      return Result(TRI_ERROR_ARANGO_OUT_OF_KEYS);
+//    }
+//
+    builder.add(StaticStrings::KeyString, VPackValue(std::to_string(epoch64)));
+  } else if (isRestore) {
+    builder.add(StaticStrings::KeyString, s);
   } else {
     return Result(TRI_ERROR_ARANGO_DOCUMENT_KEY_BAD, "custom key not supported");
   }
@@ -635,13 +637,14 @@ Result RocksDBTimeseries::insert(arangodb::transaction::Methods* trx,
   }
 
   transaction::BuilderLeaser builder(trx);
-  uint64_t epoch;
+  uint64_t epoch = 0;
   TRI_voc_tick_t revisionId;
   Result res(newTimepointForInsert(trx, slice, *builder.get(),
                                    options.isRestore, epoch, revisionId));
   if (res.fail()) {
     return res;
   }
+  TRI_ASSERT(epoch != 0);
 
   VPackSlice newSlice = builder->slice();
 
@@ -664,7 +667,7 @@ Result RocksDBTimeseries::insert(arangodb::transaction::Methods* trx,
   trackWaitForSync(trx, options);
   
   rocksdb::Status s;
-  if (trx->isSingleOperationTransaction()) {
+  if (trx->isSingleOperationTransaction()) { // commit directly into DB
     TRI_ASSERT(state->rocksdbMethods() == nullptr);
     auto* db = rocksutils::globalRocksDB()->GetRootDB();
     rocksdb::WriteOptions wo;

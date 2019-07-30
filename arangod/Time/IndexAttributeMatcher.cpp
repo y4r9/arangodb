@@ -199,8 +199,9 @@ Index::FilterCosts IndexAttributeMatcher::supportsFilterCondition(
   size_t values = 0;
   size_t postFilterConditions = 0;
   matchAttributes(idx, node, reference, found, postFilterConditions, values, nonNullAttributes, false);
-
-  bool lastContainsEquality = true;
+  
+  Index::FilterCosts costs = Index::FilterCosts::defaultCosts(itemsInIndex);
+  
   size_t attributesCovered = 0;
   size_t attributesCoveredByEquality = 0;
   double equalityReductionFactor = 20.0;
@@ -208,10 +209,12 @@ Index::FilterCosts IndexAttributeMatcher::supportsFilterCondition(
   
   for (size_t i = 0; i < idx->fields().size(); ++i) {
     auto it = found.find(i);
-
-    if (it == found.end() || !lastContainsEquality) {
+    if (it == found.end()) {
       // index attribute not covered by condition, or unsupported condition. 
       // must abort
+      if (i == 0) { // _time is not required
+        continue;
+      }
       break;
     }
     
@@ -226,6 +229,10 @@ Index::FilterCosts IndexAttributeMatcher::supportsFilterCondition(
         containsEquality = true;
         break;
       }
+    }
+    
+    if (!containsEquality && i > 0) {
+      break;
     }
 
     if (containsEquality) {
@@ -249,17 +256,15 @@ Index::FilterCosts IndexAttributeMatcher::supportsFilterCondition(
         estimatedCosts /= 2.0;
       }
     }
-
-    lastContainsEquality = containsEquality;
   }
 
   if (values == 0) {
     values = 1;
   }
   
-  Index::FilterCosts costs = Index::FilterCosts::defaultCosts(itemsInIndex);
   costs.coveredAttributes = attributesCovered;
 
+#if 0
   if (attributesCoveredByEquality == idx->fields().size()) {
     // index is unique and condition covers all attributes by equality
     costs.supportsCondition = true;
@@ -274,8 +279,10 @@ Index::FilterCosts IndexAttributeMatcher::supportsFilterCondition(
     }
     // cost is already low... now slightly prioritize unique indexes
     costs.estimatedCosts *= 0.995 - 0.05 * (idx->fields().size() - 1);
-  } else if (attributesCovered > 0 &&
-             (!idx->sparse() || attributesCovered == idx->fields().size())) {
+  } else
+#endif
+    
+  if (attributesCoveredByEquality >= idx->fields().size() - 1) {
     // if the condition contains at least one index attribute and is not sparse,
     // or the index is sparse and all attributes are covered by the condition,
     // then it can be used (note: additional checks for condition parts in
