@@ -64,6 +64,7 @@ struct Series {
 };
   
 uint64_t to_timevalue(arangodb::aql::AstNode const* node);
+uint64_t to_timevalue(arangodb::velocypack::Slice const slice);
   
 } // namespace time
 } // namespace arangodb

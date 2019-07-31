@@ -131,7 +131,28 @@ uint64_t to_timevalue(arangodb::aql::AstNode const* node) {
   } else if(node->isNumericValue()) {
     return node->getIntValue() * 1e9;
   }
+  THROW_ARANGO_EXCEPTION(TRI_ERROR_BAD_PARAMETER);
+  return 0;
+}
   
+uint64_t to_timevalue(arangodb::velocypack::Slice const slice) {
+  using namespace arangodb::aql;
+  if (slice.isString()) {
+    // FIXME do not copy
+    auto str = slice.copyString();
+    arangodb::tp_sys_clock_ms tp;  // unused
+    bool success = arangodb::basics::parseDateTime(str, tp);
+    
+    if (success) {
+      return std::chrono::duration_cast<std::chrono::nanoseconds>(tp.time_since_epoch()).count();
+    }
+    return 0;
+  } else if (slice.isDouble()) {
+    return static_cast<uint64_t>(slice.getNumber<double>() * 1e9);
+  } else if (slice.isInteger()) {
+    return static_cast<uint64_t>(slice.getInt() * 1e9);
+  }
+  THROW_ARANGO_EXCEPTION(TRI_ERROR_BAD_PARAMETER);
   return 0;
 }
 

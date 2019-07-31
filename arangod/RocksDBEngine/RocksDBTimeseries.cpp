@@ -573,15 +573,7 @@ Result RocksDBTimeseries::newTimepointForInsert(transaction::Methods* trx,
   
   builder.openObject(true);
   
-  auto now = std::chrono::system_clock::now();
-  auto epos = std::chrono::duration_cast<std::chrono::nanoseconds>(now.time_since_epoch());
-  epoch64 = epos.count();
-  epoch64 = (epoch64 & (~0xFFULL)) | (_counter.fetch_add(1ULL));
-  
   VPackSlice timeSlice = value.get(StaticStrings::TimeString);
-  if (!timeSlice.isNone()) {
-    TRI_ASSERT(false);
-  }
   
   // add system attributes first, in this order:
   // _key, _id, _from, _to, _rev
@@ -591,13 +583,12 @@ Result RocksDBTimeseries::newTimepointForInsert(transaction::Methods* trx,
   if (s.isNone()) {
     TRI_ASSERT(!isRestore);  // need key in case of restore
     // FIXME: can we use _time == _key ???
-//    auto keyString = _logicalCollection.keyGenerator()->generate();
-//
-//    if (keyString.empty()) {
-//      return Result(TRI_ERROR_ARANGO_OUT_OF_KEYS);
-//    }
-//
-    builder.add(StaticStrings::KeyString, VPackValue(std::to_string(epoch64)));
+    auto keyString = _logicalCollection.keyGenerator()->generate();
+
+    if (keyString.empty()) {
+      return Result(TRI_ERROR_ARANGO_OUT_OF_KEYS);
+    }
+    builder.add(StaticStrings::KeyString, VPackValue(keyString));
   } else if (isRestore) {
     builder.add(StaticStrings::KeyString, s);
   } else {
@@ -642,12 +633,16 @@ Result RocksDBTimeseries::newTimepointForInsert(transaction::Methods* trx,
   }
   
   // _time
-//  if (!timeSlice.isNone()) {
-//    // TODO reset epoch64
-//    builder.add(StaticStrings::TimeString, timeSlice);
-//  } else {
+  if (!timeSlice.isNone()) {
+    epoch64 = time::to_timevalue(timeSlice);
+    epoch64 = (epoch64 & (~0xFFULL)) | (_counter.fetch_add(1ULL));
+    builder.add(StaticStrings::TimeString, timeSlice);
+  } else {
+    auto now = std::chrono::system_clock::now();
+    auto epos = std::chrono::duration_cast<std::chrono::nanoseconds>(now.time_since_epoch());
+    epoch64 = (epos.count() & (~0xFFULL)) | (_counter.fetch_add(1ULL));
     builder.add(StaticStrings::TimeString, VPackValue(epoch64));
-//  }
+  }
   
   // add other attributes after the system attributes
   TRI_SanitizeObjectWithEdges(value, builder); // TODO sanitize _time
