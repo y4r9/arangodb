@@ -20,6 +20,15 @@ keys.
 @RESTRETURNCODE{200}
 returns a JSON object containing a list of indexes on that collection.
 
+@RESTREPLYBODY{error,bool,required,}
+Flag showing if an Error occured
+
+@RESTREPLYBODY{code,integer,required,}
+Return code
+
+@RESTREPLYBODY{indexes,array,required,api_index_get_struct}
+The function in question
+
 @EXAMPLES
 
 Return information about all indexes
