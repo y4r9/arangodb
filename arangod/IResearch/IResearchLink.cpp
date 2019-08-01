@@ -33,6 +33,9 @@
 #include "IResearchViewCoordinator.h"
 #include "VelocyPackHelper.h"
 #include "Aql/QueryCache.h"
+#include "Basics/MutexLocker.h"
+#include "Basics/ReadLocker.h"
+#include "Basics/WriteLocker.h"
 #include "Basics/LocalTaskQueue.h"
 #include "Basics/StaticStrings.h"
 #include "Basics/VelocyPackHelper.h"
@@ -1235,8 +1238,7 @@ void IResearchLink::setupMaintenance() {
       // reload RuntimeState
       {
         TRI_ASSERT(_dataStore); // must be valid if _asyncSelf->get() is valid
-        ReadMutex mutex(_dataStore._mutex); // '_meta' can be asynchronously modified
-        SCOPED_LOCK(mutex);
+        READ_LOCKER(locker, _dataStore._mutex); // '_meta' can be asynchronously modified
         auto& stateMeta = static_cast<IResearchViewMeta&>(state);
 
         if (stateMeta != _dataStore._meta) {
@@ -1303,8 +1305,7 @@ void IResearchLink::setupMaintenance() {
       // reload RuntimeState
       {
         TRI_ASSERT(_dataStore); // must be valid if _asyncSelf->get() is valid
-        ReadMutex mutex(_dataStore._mutex); // '_meta' can be asynchronously modified
-        SCOPED_LOCK(mutex);
+        READ_LOCKER(locker, _dataStore._mutex);
         auto& stateMeta = static_cast<IResearchViewMeta&>(state);
 
         if (stateMeta != _dataStore._meta) {
@@ -1538,8 +1539,7 @@ Result IResearchLink::properties(IResearchViewMeta const& meta) {
   TRI_ASSERT(_dataStore);  // must be valid if _asyncSelf->get() is valid
 
   {
-    WriteMutex mutex(_dataStore._mutex); // '_meta' can be asynchronously read
-    SCOPED_LOCK(mutex);
+    WRITE_LOCKER(locker, _dataStore._mutex);
     _dataStore._meta = meta;
   }
 
