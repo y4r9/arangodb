@@ -23,7 +23,7 @@
 
 #ifndef ARANGODB_IRESEARCH__IRESEARCH_AGENCY_MOCK_H
 #define ARANGODB_IRESEARCH__IRESEARCH_AGENCY_MOCK_H 1
-
+#include "Basics/debugging.h"
 #include "AgencyCommManagerMock.h"
 
 namespace arangodb {
