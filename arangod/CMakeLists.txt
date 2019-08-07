@@ -643,6 +643,7 @@ target_link_libraries(arangoserver
   ${MSVC_LIBS}
   ${V8_LIBS}
   ${ROCKSDB_LIBS}
+  ${AKUMULI_LIBS}
   ${LIB_ARANGO_IRESEARCH}
   s2
   fuerte

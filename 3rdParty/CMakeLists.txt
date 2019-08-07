@@ -258,6 +258,14 @@ include_directories(${ROCKSDB_INCLUDE_DIR})
 set(ARANGO_ROCKSDB_VERSION "${ARANGO_ROCKSDB_VERSION}" PARENT_SCOPE)
 
 ################################################################################
+## AKUMULI
+################################################################################
+
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/akumuli)
+include_directories(${AKUMULI_INCLUDE_DIR})
+set(ARANGO_AKUMULI_VERSION "${ARANGO_AKUMULI_VERSION}" PARENT_SCOPE)
+
+################################################################################
 ## LINK_DIRECTORIES
 ################################################################################
 

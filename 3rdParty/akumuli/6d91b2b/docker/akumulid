@@ -1,0 +1,68 @@
+# akumulid configuration file (generated automatically).
+
+# path to database files.  Default values is  ~/.akumuli.
+path=/Akumuli
+
+# Number of volumes used  to store data.  Each volume  is
+# 4Gb in size by default and allocated beforehand. To change number
+# of  volumes  they  should  change  `nvolumes`  value in
+# configuration and restart daemon.
+nvolumes=__nvolumes__
+
+# Size of the individual volume. You can use MB or GB suffix.
+# Default value is 4GB (if value is not set).
+volume_size=__volume_size__
+
+
+# HTTP API endpoint configuration
+
+[HTTP]
+# port number
+port=8181
+
+
+# TCP ingestion server config (delete to disable)
+
+[TCP]
+# port number
+port=8282
+# worker pool size (0 means that the size of the pool will be chosen automatically)
+pool_size=0
+
+
+# UDP ingestion server config (delete to disable)
+
+[UDP]
+# port number
+port=8383
+# worker pool size
+pool_size=1
+
+# OpenTSDB telnet-style data connection enabled (remove this section to disable).
+
+[OpenTSDB]
+# port number
+port=4242
+
+
+
+# Logging configuration
+# This is just a log4cxx configuration without any modifications
+
+log4j.rootLogger=__log_level__, file, stdout
+# __log_level__  will be rewritten by the script
+
+log4j.appender.file=org.apache.log4j.DailyRollingFileAppender
+log4j.appender.file.layout=org.apache.log4j.PatternLayout
+log4j.appender.file.layout.ConversionPattern=%d{yyyy-MM-dd HH:mm:ss,SSS} %c [%p] %m%n
+log4j.appender.file.filename=/Akumuli/logs/akumuli.log
+log4j.appender.file.datePattern='.'yyyy-MM-dd
+log4j.appender.file.MaxFileSize=10MB
+log4j.appender.fileR.MaxBackupIndex=2
+
+log4j.appender.stdout=org.apache.log4j.ConsoleAppender
+log4j.appender.stdout.layout=org.apache.log4j.PatternLayout
+log4j.appender.stdout.layout.ConversionPattern=%d{yyyy-MM-dd HH:mm:ss,SSS} %c [%p] %m%n
+log4j.appender.stdout.datePattern='.'yyyy-MM-dd
+log4j.appender.stdout.Threshold=INFO
+
