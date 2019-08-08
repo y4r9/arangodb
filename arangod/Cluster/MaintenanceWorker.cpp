@@ -115,7 +115,7 @@ void MaintenanceWorker::run() {
       nextState(more);
 
     } else {
-      std::this_thread::sleep_for(std::chrono::milliseconds(100));
+      arangodb::basics::sleep_for(std::chrono::milliseconds(100));
     }
 
   }  // while

@@ -3793,7 +3793,7 @@ std::unordered_map<ShardID, ServerID> ClusterInfo::getResponsibleServers(std::un
     LOG_TOPIC("31428", INFO, Logger::CLUSTER)
               << "getResponsibleServers: found resigned leader,"
               << "waiting for half a second...";
-    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    arangodb::basics::sleep_for(std::chrono::milliseconds(500));
 
     // must load collections outside the lock
     loadCurrent();
@@ -4230,7 +4230,7 @@ arangodb::Result ClusterInfo::agencyHotBackupLock(
       wait *= 1.1;
     }
 
-    std::this_thread::sleep_for(std::chrono::duration<double>(wait));
+    arangodb::basics::sleep_for(std::chrono::duration<double>(wait));
 
   }
 
@@ -4320,7 +4320,7 @@ arangodb::Result ClusterInfo::agencyHotBackupUnlock(
       wait *= 1.1;
     }
 
-    std::this_thread::sleep_for(std::chrono::duration<double>(wait));
+    arangodb::basics::sleep_for(std::chrono::duration<double>(wait));
 
   }
 

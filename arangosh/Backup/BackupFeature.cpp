@@ -153,7 +153,7 @@ arangodb::Result waitForRestart(arangodb::ClientManager& clientManager,
       << "Waiting for server to restart...";
 
   // sleep once to allow shutdown to start
-  std::this_thread::sleep_for(std::chrono::seconds(1));
+  arangodb::basics::sleep_for(std::chrono::seconds(1));
 
   while (timeSinceStart() < maxWaitForRestart) {
     std::unique_ptr<arangodb::httpclient::SimpleHttpClient> client;
@@ -176,7 +176,7 @@ arangodb::Result waitForRestart(arangodb::ClientManager& clientManager,
     } catch (...) {
       return {TRI_ERROR_INTERNAL, "Caught unknown exception."};
     }
-    std::this_thread::sleep_for(std::chrono::seconds(1));
+    arangodb::basics::sleep_for(std::chrono::seconds(1));
   }
 
   // okay, we timed out

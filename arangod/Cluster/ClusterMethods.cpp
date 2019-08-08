@@ -3639,7 +3639,7 @@ arangodb::Result hotRestoreCoordinator(VPackSlice const payload, VPackBuilder& r
   }
 
   // Now I will have to wait for the plan to trickle down
-  std::this_thread::sleep_for(std::chrono::seconds(5));
+  arangodb::basics::sleep_for(std::chrono::seconds(5));
 
   // We keep the currently registered timestamps in Current/ServersRegistered,
   // such that we can wait until all have reregistered and are up:
@@ -3656,7 +3656,7 @@ arangodb::Result hotRestoreCoordinator(VPackSlice const payload, VPackBuilder& r
 
   auto startTime = std::chrono::steady_clock::now();
   while (true) {   // will be left by a timeout
-    std::this_thread::sleep_for(std::chrono::seconds(1));
+    arangodb::basics::sleep_for(std::chrono::seconds(1));
     if (application_features::ApplicationServer::isStopping()) {
       return arangodb::Result(TRI_ERROR_HOT_RESTORE_INTERNAL,
                               "Shutdown of coordinator!");
@@ -4109,7 +4109,7 @@ arangodb::Result hotBackupCoordinator(VPackSlice const payload, VPackBuilder& re
       }
       double tmp = duration<double>(iterEnd - steady_clock::now()).count();
       if (tmp > 0) {
-        std::this_thread::sleep_for(duration<double>(tmp));
+        arangodb::basics::sleep_for(duration<double>(tmp));
       }
     }
 
