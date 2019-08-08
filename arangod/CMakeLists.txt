@@ -413,6 +413,10 @@ SET(ARANGOD_SOURCES
   Indexes/SimpleAttributeEqualityMatcher.cpp
   Indexes/SortedIndexAttributeMatcher.cpp
   InternalRestHandler/InternalRestTraverserHandler.cpp
+  Lifeboat/LogApplier.cpp
+  Lifeboat/LogEntry.cpp
+  Lifeboat/LogManager.cpp
+  Lifeboat/RestLifeboatHandler.cpp
   Pregel/AggregatorHandler.cpp
   Pregel/AlgoRegistry.cpp
   Pregel/Algos/AsyncSCC.cpp
