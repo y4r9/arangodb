@@ -33,6 +33,8 @@
 
 #include <velocypack/StringRef.h>
 
+#include <cmath>
+
 namespace arangodb {
 namespace time {
 
