@@ -26,6 +26,7 @@
 #include "Basics/ReadLocker.h"
 #include "Basics/VelocyPackHelper.h"
 #include "Basics/WriteLocker.h"
+#include "Basics/system-functions.h"
 #include "Cluster/ServerState.h"
 #include "RocksDBEngine/RocksDBIndex.h"
 #include "RocksDBEngine/RocksDBLogValue.h"
@@ -223,6 +224,7 @@ uint64_t RocksDBMetaCollection::recalculateCounts() {
     return _meta.numberDocuments();
   }
   auto useGuard = scopeGuard([&] {
+    // cppcheck-suppress knownConditionTrueFalse
     if (snapshot) {
       db->ReleaseSnapshot(snapshot);
     }

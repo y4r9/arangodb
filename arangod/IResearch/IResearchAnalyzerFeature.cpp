@@ -28,31 +28,58 @@
 #undef NOEXCEPT
 #endif
 
-#include <deque>
-#include "analysis/analyzers.hpp"
-#include "analysis/token_streams.hpp"
-#include "analysis/token_attributes.hpp"
-#include "analysis/text_token_stream.hpp"
-#include "analysis/delimited_token_stream.hpp"
-#include "analysis/ngram_token_stream.hpp"
-#include "analysis/text_token_stemming_stream.hpp"
-#include "analysis/text_token_normalizing_stream.hpp"
-#include "utils/hash_utils.hpp"
-#include "utils/object_pool.hpp"
+#include <string.h>
+#include <cstdint>
+#include <exception>
+#include <iterator>
+#include <map>
+#include <unordered_set>
+#include <vector>
 
+#include <analysis/analyzers.hpp>
+#include <analysis/delimited_token_stream.hpp>
+#include <analysis/ngram_token_stream.hpp>
+#include <analysis/text_token_normalizing_stream.hpp>
+#include <analysis/text_token_stemming_stream.hpp>
+#include <analysis/text_token_stream.hpp>
+#include <analysis/token_attributes.hpp>
+#include <analysis/token_streams.hpp>
+#include <utils/hash_utils.hpp>
+#include <utils/object_pool.hpp>
+
+#include <velocypack/Buffer.h>
+#include <velocypack/Builder.h>
+#include <velocypack/Iterator.h>
+#include <velocypack/Slice.h>
+#include <velocypack/StringRef.h>
+
+#include "ApplicationFeatures/ApplicationServer.h"
 #include "ApplicationServerHelper.h"
 #include "Aql/AqlFunctionFeature.h"
+#include "Aql/AqlValue.h"
 #include "Aql/ExpressionContext.h"
+#include "Aql/Function.h"
+#include "Aql/Functions.h"
 #include "Aql/Query.h"
+#include "Aql/QueryResult.h"
 #include "Aql/QueryString.h"
+#include "Basics/Exceptions.h"
 #include "Basics/StaticStrings.h"
 #include "Basics/StringUtils.h"
+#include "Basics/VelocyPackHelper.h"
+#include "Basics/debugging.h"
+#include "Basics/error.h"
+#include "Basics/system-compiler.h"
+#include "Basics/voc-errors.h"
 #include "Cluster/ClusterComm.h"
 #include "Cluster/ClusterInfo.h"
 #include "Cluster/ServerState.h"
 #include "IResearchAnalyzerFeature.h"
 #include "IResearchCommon.h"
 #include "Logger/LogMacros.h"
+#include "Logger/LoggerStream.h"
+#include "Rest/CommonDefines.h"
+#include "Rest/GeneralRequest.h"
 #include "RestHandler/RestVocbaseBaseHandler.h"
 #include "RestServer/DatabaseFeature.h"
 #include "RestServer/QueryRegistryFeature.h"
@@ -63,13 +90,15 @@
 #include "Transaction/StandaloneContext.h"
 #include "Utils/ExecContext.h"
 #include "Utils/OperationOptions.h"
+#include "Utils/OperationResult.h"
 #include "Utils/SingleCollectionTransaction.h"
 #include "VelocyPackHelper.h"
-#include "VocBase/LocalDocumentId.h"
+#include "VocBase/AccessMode.h"
 #include "VocBase/LogicalCollection.h"
-#include "VocBase/ManagedDocumentResult.h"
-#include "VocBase/vocbase.h"
 #include "VocBase/Methods/Collections.h"
+#include "VocBase/Methods/Upgrade.h"
+#include "VocBase/vocbase.h"
+#include "shared.hpp"
 
 namespace iresearch {
 namespace text_format {
@@ -559,6 +588,7 @@ arangodb::aql::AqlValue aqlFnTokens(arangodb::aql::ExpressionContext* expression
   bool bufOwner = true;  // out parameter from AqlValue denoting ownership
                          // aquisition (must be true initially)
   auto release = irs::make_finally([&buffer, &bufOwner]() -> void {
+    // cppcheck-suppress knownConditionTrueFalse
     if (!bufOwner) {
       buffer.release();
     }
@@ -1249,6 +1279,7 @@ arangodb::Result IResearchAnalyzerFeature::emplaceAnalyzer( // emplace
   if (itr.second) {
     bool erase = true; // potentially invalid insertion took place
     auto cleanup = irs::make_finally([&erase, &analyzers, &itr]()->void {
+      // cppcheck-suppress knownConditionTrueFalse
       if (erase) {
         analyzers.erase(itr.first); // ensure no broken analyzers are left behind
       }
@@ -1380,6 +1411,7 @@ arangodb::Result IResearchAnalyzerFeature::ensure( // ensure analyzer existence 
 
       if (res.ok()) {
         result = std::make_pair(pool, itr.second);
+	// cppcheck-suppress unreadVariable
         erase = false; // successful pool creation, cleanup not required
       }
 
@@ -1661,6 +1693,7 @@ IResearchAnalyzerFeature::AnalyzerPool::ptr IResearchAnalyzerFeature::get( // fi
   };
   static const Instance instance;
 
+  // cppcheck-suppress returnReference
   return instance.analyzers;
 }
 
@@ -2050,6 +2083,13 @@ arangodb::Result IResearchAnalyzerFeature::loadAnalyzers(
   return FEATURE_NAME;
 }
 
+/*static*/ irs::string_ref IResearchAnalyzerFeature::extractVocbaseName(
+    irs::string_ref const& name) {// analyzer name (normalized)
+  auto split = splitAnalyzerName(name);
+  return split.first.empty() ? irs::string_ref::EMPTY : split.first;
+}
+
+
 /*static*/ std::string IResearchAnalyzerFeature::normalize( // normalize name
   irs::string_ref const& name, // analyzer name
   TRI_vocbase_t const& activeVocbase, // fallback vocbase if not part of name
@@ -2274,7 +2314,18 @@ void IResearchAnalyzerFeature::start() {
   if (!isEnabled()) {
     return;
   }
-
+  
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+  // sanity check: we rely on this condition is true internally
+  {
+    auto sysDbFeature =
+        arangodb::application_features::ApplicationServer::lookupFeature<arangodb::SystemDatabaseFeature>(
+            "SystemDatabase");
+    if (sysDbFeature && sysDbFeature->use()) {  // feature/db may be absent in some unit-test enviroment
+      TRI_ASSERT(sysDbFeature->use()->name() == arangodb::StaticStrings::SystemDatabase);
+    }
+  }
+#endif
   // register analyzer functions
   {
     auto* functions =
