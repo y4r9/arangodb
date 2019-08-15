@@ -65,20 +65,19 @@
 
 using namespace arangodb;
 
-
 namespace {
 using namespace arangodb;
 
+template<bool reverse>
 class TimeIndexIterator final : public IndexIterator {
 public:
   TimeIndexIterator(LogicalCollection* coll,
                     transaction::Methods* trx,
-                    bool reverse, uint16_t bucket,
+                    uint16_t bucket,
                     uint64_t low, uint64_t high,
                     VPackBuilder search)
   : IndexIterator(coll, trx),
     _cmp(RocksDBColumnFamily::time()->GetComparator()),
-    _reverse(reverse),
     _bounds(RocksDBKeyBounds::Timeseries(static_cast<RocksDBTimeseries*>(coll->getPhysical())->objectId(),
                                          bucket, low, high)),
     _searchValues(std::move(search)) {
@@ -87,7 +86,7 @@ public:
     rocksdb::ReadOptions options = mthds->iteratorReadOptions();
     // we need to have a pointer to a slice for the upper bound
     // so we need to assign the slice to an instance variable here
-    if (_reverse) {
+    if (reverse) {
       _rangeBound = _bounds.start();
       options.iterate_lower_bound = &_rangeBound;
     } else {
@@ -105,7 +104,7 @@ public:
   
   bool outOfRange() const {
     TRI_ASSERT(_trx->state()->isRunning());
-    if (_reverse) {
+    if (reverse) {
       return (_cmp->Compare(_iterator->key(), _rangeBound) < 0);
     } else {
       return (_cmp->Compare(_iterator->key(), _rangeBound) > 0);
@@ -113,7 +112,7 @@ public:
   }
   
   inline bool advance() {
-    if (_reverse) {
+    if (reverse) {
       _iterator->Prev();
     } else {
       _iterator->Next();
@@ -139,19 +138,22 @@ public:
       arangodb::rocksutils::checkIteratorStatus(_iterator.get());
       return false;
     }
+          
+    VPackObjectIterator searchIt(_searchValues.slice(), true);
     
     while (limit > 0) {
-
       bool match = true;
       VPackSlice slice = RocksDBValue::data(_iterator->value());
-      for (VPackObjectIterator::ObjectPair pair :
-          VPackObjectIterator(_searchValues.slice())) {
+      searchIt.reset();
+      do {
+        VPackObjectIterator::ObjectPair pair = (*searchIt);
         VPackSlice k = slice.get(pair.key.stringRef());
-        match = (0 == basics::VelocyPackHelper::compare(k, pair.value, false));
+        match = basics::VelocyPackHelper::equal(k, pair.value, false);
         if (!match) {
           break;
         }
-      }
+        searchIt.next();
+      } while (searchIt.valid());
       if (match) {
         --limit;
         cb(RocksDBKey::documentId(_iterator->key()), slice);
@@ -168,7 +170,7 @@ public:
   }
   
   void reset() override {
-    if (_reverse) {
+    if (reverse) {
       _iterator->SeekForPrev(_bounds.end());
     } else {
       _iterator->Seek(_bounds.start());
@@ -198,7 +200,6 @@ public:
  private:
   rocksdb::Comparator const* _cmp;
   std::unique_ptr<rocksdb::Iterator> _iterator;
-  bool const _reverse;
   RocksDBKeyBounds _bounds;
   // used for iterate_upper_bound iterate_lower_bound
   rocksdb::Slice _rangeBound;
@@ -392,9 +393,12 @@ public:
       }
     }
     b.close();
-    
-    return std::make_unique<TimeIndexIterator>(&_collection, trx, !opts.ascending,
-                                               bucketId, low, high, std::move(b));
+   
+    if (opts.ascending) {
+      return std::make_unique<TimeIndexIterator<false>>(&_collection, trx, bucketId, low, high, std::move(b));
+    }
+    // reverse version
+    return std::make_unique<TimeIndexIterator<true>>(&_collection, trx, bucketId, low, high, std::move(b));
   }
 };
 } // namespace
