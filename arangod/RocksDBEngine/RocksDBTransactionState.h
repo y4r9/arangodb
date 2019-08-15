@@ -148,6 +148,7 @@ class RocksDBTransactionState final : public TransactionState {
   void trackIndexRemove(TRI_voc_cid_t cid, TRI_idx_iid_t idxObjectId, uint64_t hash);
   
   bool isOnlyExclusiveTransaction() const;
+  
   bool isSingleTimeseriesTransaction() const;
 
  private:

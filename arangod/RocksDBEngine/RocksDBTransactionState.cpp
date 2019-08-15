@@ -242,11 +242,11 @@ void RocksDBTransactionState::cleanupTransaction() noexcept {
 }
 
 arangodb::Result RocksDBTransactionState::internalCommit() {
-  if (!hasOperations()) {
+  if (!hasOperations()) { // bail out early
     TRI_ASSERT(_rocksTransaction == nullptr ||
-               _rocksTransaction->GetNumKeys() == 0 &&
-               _rocksTransaction->GetNumPuts() == 0 &&
-               _rocksTransaction->GetNumDeletes() == 0);
+               (_rocksTransaction->GetNumKeys() == 0 &&
+                _rocksTransaction->GetNumPuts() == 0 &&
+                _rocksTransaction->GetNumDeletes() == 0));
     // this is most likely the fill index case
 #ifdef ARANGODB_ENABLE_MAINTAINER_MODE
     for (auto& trxColl : _collections) {
@@ -301,7 +301,7 @@ arangodb::Result RocksDBTransactionState::internalCommit() {
   }
 
 #ifdef ARANGODB_ENABLE_MAINTAINER_MODE
-    // sanity check for our on-disk WAL format
+  // sanity check our on-disk WAL format
   uint64_t x = _numInserts + _numRemoves + _numUpdates;
   if (hasHint(transaction::Hints::Hint::SINGLE_OPERATION)) {
     TRI_ASSERT(x <= 1 && _numLogdata == x);
@@ -327,7 +327,7 @@ arangodb::Result RocksDBTransactionState::internalCommit() {
     coll->prepareCommit(id(), preCommitSeq);
   }
   
-  // if we didn't commit, make sure we remove blockers, etc.
+  // if we fail during commit, make sure we remove blockers, etc.
   auto cleanupCollTrx = scopeGuard([this]() {
     for (auto& trxColl : _collections) {
       auto* coll = static_cast<RocksDBTransactionCollection*>(trxColl);
@@ -352,7 +352,7 @@ arangodb::Result RocksDBTransactionState::internalCommit() {
                     _rocksTransaction->GetNumMerges();
   
   rocksdb::Status s = _rocksTransaction->Commit();
-  if (!s.ok()) {
+  if (!s.ok()) { // cleanup performed by scope-guard
     return rocksutils::convertStatus(s);
   }
   
