@@ -35,7 +35,7 @@
 namespace arangodb {
 namespace consensus {
 
-enum NodeType { NODE, LEAF };
+enum NodeType { NODE, LEAF, ARRAY };
 enum Operation {
   SET,
   INCREMENT,
@@ -96,10 +96,13 @@ class Node {
   Node(Node&& other);
 
   /// @brief Construct with name and introduce to tree under parent
-  Node(std::string const& name, Node* parent);
+  Node(Slice const slice, Node* parent = nullptr);
 
   /// @brief Construct with name and introduce to tree under parent
   Node(std::string const& name, Store* store);
+
+  /// @brief Construct with name and introduce to tree under parent
+  Node(std::string const& name = std::string, Store* store = nullptr);
 
   /// @brief Default dtor
   virtual ~Node();
@@ -174,12 +177,6 @@ class Node {
   /// @brief Access children
   Children const& children() const;
 
-  /// @brief Create slice from value
-  Slice slice() const;
-
-  /// @brief Get value type
-  ValueType valueType() const;
-
   /// @brief Get our container
   Store& store();
 
@@ -232,6 +229,9 @@ public:
   /// @brief Is string
   bool isString() const;
 
+  /// @brief Is none
+  bool isNone() const;
+
   /**
    * @brief Get seconds this node still has to live. (Must be guarded by caller)
    * @return  seconds to live (int64_t::max, if none set)
@@ -255,10 +255,6 @@ public:
   /// @brief accessor to Node's type
   /// @return  second is true if url exists, first populated if second true
   std::pair<NodeType, bool> hasAsType(std::string const&) const;
-
-  /// @brief accessor to Node's Slice value
-  /// @return  second is true if url exists, first populated if second true
-  std::pair<Slice, bool> hasAsSlice(std::string const&) const;
 
   /// @brief accessor to Node's uint64_t value
   /// @return  second is true if url exists, first populated if second true
@@ -287,7 +283,7 @@ public:
 
   /// @brief accessor to Node's Array
   /// @return  second is true if url exists, first populated if second true
-  std::pair<Slice, bool> hasAsArray(std::string const&) const;
+  std::pair<Builder, bool> hasAsArray(std::string const&) const;
 
   //
   // These two operator() functions could be "protected" once
@@ -303,7 +299,7 @@ public:
   std::string getString() const;
 
   /// @brief Get array value
-  Slice getArray() const;
+  VPackArray getArray() const;
 
   /// @brief Get insigned value (throws if type NODE or if conversion fails)
   uint64_t getUInt() const;
@@ -348,10 +344,10 @@ public:
   Store* _store;                        ///< @brief Store
   Children _children;                   ///< @brief child nodes
   TimePoint _ttl;                       ///< @brief my expiry
-  std::vector<Buffer<uint8_t>> _value;  ///< @brief my value
-  mutable Buffer<uint8_t> _vecBuf;
-  mutable bool _vecBufDirty;
-  bool _isArray;
+
+  std::vector<std::shared_ptr<Node>> _array;  ///< @brief my value
+  NodeType _type;
+  mutable Buffer<uint8_t> _buffer;
   static Children const dummyChildren;
   static Node const _dummyNode;
 
