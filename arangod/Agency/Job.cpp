@@ -309,13 +309,13 @@ size_t Job::countGoodOrBadServersInList(Node const& snap,
 /// @brief Check if a server is cleaned or to be cleaned out:
 bool Job::isInServerList(Node const& snap, std::string const& prefix,
                          std::string const& server, bool isArray) {
-  VPackSlice slice;
+  VPackBuilder slice;
   bool found = false;
   if (isArray) {
     bool has;
-    std::tie(slice, has) = snap.hasAsSlice(prefix);
-    if (has && slice.isArray()) {
-      for (auto const& srv : VPackArrayIterator(slice)) {
+    std::tie(slice, has) = snap.hasAsArray(prefix);
+    if (has) {
+      for (auto const& srv : VPackArrayIterator(slice.slice())) {
         if (srv.isEqualString(server)) {
           found = true;
           break;
@@ -347,13 +347,13 @@ std::vector<std::string> Job::availableServers(Node const& snapshot) {
   }
 
   auto excludePrefix = [&ret, &snapshot](std::string const& prefix, bool isArray) {
-    VPackSlice slice;
+    VPackBuilder slice;
 
     if (isArray) {
       bool has;
-      std::tie(slice, has) = snapshot.hasAsSlice(prefix);
+      std::tie(slice, has) = snapshot.hasAsBuilder(prefix);
       if (has) {
-        for (auto const& srv : VPackArrayIterator(slice)) {
+        for (auto const& srv : VPackArrayIterator(slice.slice())) {
           ret.erase(std::remove(ret.begin(), ret.end(), srv.copyString()), ret.end());
         }
       }
@@ -435,8 +435,9 @@ std::vector<Job::shard_t> Job::clones(Node const& snapshot, std::string const& d
     auto const& col = *colptr.second;
     auto const& otherCollection = colptr.first;
 
+    
     if (otherCollection != collection && col.has("distributeShardsLike") &&  // use .has() form to prevent logging of missing
-        col.hasAsSlice("distributeShardsLike").first.copyString() == collection) {
+        col.hasAsString("distributeShardsLike").first == collection) {
       auto const& theirshards = sortedShardList(col.hasAsNode("shards").first);
       if (theirshards.size() > 0) {  // do not care about virtual collections
         if (theirshards.size() == myshards.size()) {
@@ -478,7 +479,7 @@ std::string Job::findNonblockedCommonHealthyInSyncFollower(  // Which is in "GOO
     }  // if
 
     bool isArray = false;
-    VPackSlice serverList;
+    VPackBuilder serverList;
     // If we do have failover candidates, we should use them
     std::tie(serverList, isArray) = snap.hasAsArray(currentFailoverCandidatesPath);
     if (!isArray) {
@@ -493,8 +494,6 @@ std::string Job::findNonblockedCommonHealthyInSyncFollower(  // Which is in "GOO
                 ", value is not an array.");
       }
     }
-    // Guaranteed by if above
-    TRI_ASSERT(serverList.isArray());
 
     size_t i = 0;
     for (const auto& server : VPackArrayIterator(serverList)) {
@@ -517,8 +516,9 @@ std::string Job::findNonblockedCommonHealthyInSyncFollower(  // Which is in "GOO
       // check if it is also part of the plan...because if not the soon to be
       // leader will drop the collection
       bool found = false;
-      for (const auto& plannedServer :
-           VPackArrayIterator(snap.hasAsArray(plannedShardPath).first)) {
+      auto const& tmp = snap.hasAsArray(plannedShardPath).first;
+      VPackSlice plannedServers = tmp.slice();
+      for (const auto& plannedServer : VPackArrayIterator(plannedServers)) {
         if (plannedServer.isEqualString(server.stringRef())) {
           found = true;
           break;
@@ -594,8 +594,10 @@ void Job::doForAllShards(
     std::string curPath =
         curColPrefix + database + "/" + collection + "/" + shard + "/servers";
 
-    Slice plan = snapshot.hasAsSlice(planPath).first;
-    Slice current = snapshot.hasAsSlice(curPath).first;
+    auto const& tmpp = snapshot.hasAsBuilder(planPath).first;
+    Slice plan = tmpp.slice();
+    auto const& tmpc = snapshot.hasAsBuilder(curPath).first;
+    Slice current = tmpc.slice();
 
     worker(plan, current, planPath, curPath);
   }

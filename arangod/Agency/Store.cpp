@@ -418,7 +418,8 @@ check_ret_t Store::check(VPackSlice const& slice, CheckMode mode) const {
               break;
             }
           }
-          bool isArray = (node->type() == LEAF && node->slice().isArray());
+          Builder tmp = node.toBuilder();
+          bool isArray = (node.type() == ARRAY);
           if (op.value.getBool() ? !isArray : isArray) {
             ret.push_back(precond.key);
             if (mode == FIRST_FAIL) {
@@ -442,9 +443,10 @@ check_ret_t Store::check(VPackSlice const& slice, CheckMode mode) const {
           }
         } else if (oper == "in") {  // in
           if (found) {
-            if (node->slice().isArray()) {
+            auto tmp = node.toBuilder();
+            if (tmp.slice().isArray()) {
               bool found = false;
-              for (auto const& i : VPackArrayIterator(node->slice())) {
+              for (auto const& i : VPackArrayIterator(tmp.slice())) {
                 if (basics::VelocyPackHelper::equal(i, op.value, false)) {
                   found = true;
                   break;
@@ -463,10 +465,11 @@ check_ret_t Store::check(VPackSlice const& slice, CheckMode mode) const {
         } else if (oper == "notin") {  // in
           if (!found) {
             continue;
-          } 
-          if (node->slice().isArray()) {
+          }
+          auto tmp = node.toBuilder();
+          if (tmp.slice().isArray()) {
             bool found = false;
-            for (auto const& i : VPackArrayIterator(node->slice())) {
+            for (auto const& i : VPackArrayIterator(tmp.slice())) {
               if (basics::VelocyPackHelper::equal(i, op.value, false)) {
                 found = true;
                 break;
@@ -584,7 +587,7 @@ bool Store::read(VPackSlice const& query, Builder& ret) const {
         for (size_t i = 0; i < pv.size() - e + 1; ++i) {
           pv.pop_back();
         }
-        if (copy(pv).type() == LEAF && copy(pv).slice().isNone()) {
+        if (copy(pv).type() == LEAF && copy(pv).isNone()) {
           copy(pv) = arangodb::velocypack::Slice::emptyObjectSlice();
         }
       }

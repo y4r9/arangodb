@@ -216,7 +216,8 @@ void Supervision::upgradeOne(Builder& builder) {
 void Supervision::upgradeZero(Builder& builder) {
   _lock.assertLockedByCurrentThread();
   // "/arango/Target/FailedServers" is still an array
-  Slice fails = _snapshot.hasAsSlice(failedServersPrefix).first;
+  VPackBuilder const tmp = _snapshot.hasAsBuilder(failedServersPrefix).first;
+  Slice fails = tmp.slice();
   if (fails.isArray()) {
     {
       VPackArrayBuilder trx(&builder);
@@ -1011,7 +1012,9 @@ void Supervision::cleanupLostCollections(Node const& snapshot, AgentInterface* a
         auto const& colname = collection.first;
 
         for (auto const& shard : collection.second->children()) {
-          auto const& servers = shard.second->hasAsArray("servers").first;
+          
+          auto const& tmp = shard.second->hasAsArray("servers").first;
+          auto const servers = tmp.slice();
 
           TRI_ASSERT(servers.isArray());
 
@@ -1296,7 +1299,8 @@ void Supervision::readyOrphanedIndexCreations() {
         std::unordered_set<std::string> built;
         Slice indexes;
         if (collection.has("indexes")) {
-          indexes = collection("indexes").getArray();
+          auto const& tmp = collection("indexes").getArray();
+          indexes = tmp.slice();
           if (indexes.length() > 0) {
             for (auto const& planIndex : VPackArrayIterator(indexes)) {
               if (planIndex.hasKey(StaticStrings::IndexIsBuilding) && collection.has("shards")) {
@@ -1312,10 +1316,12 @@ void Supervision::readyOrphanedIndexCreations() {
                   for (auto const& sh : shards.children()) {
                     auto const& shname = sh.first;
 
+                    auto const ci = currentDBs(colPath + shname + "/indexes").toBuilder();
                     if (currentDBs.has(colPath + shname + "/indexes")) {
-                      auto const& curIndexes =
-                          currentDBs(colPath + shname + "/indexes").slice();
-                      for (auto const& curIndex : VPackArrayIterator(curIndexes)) {
+
+                      auto const ci = currentDBs(colPath + shname + "/indexes").toBuilder();
+                      for (auto const& curIndex : VPackArrayIterator(ci.slice())) {
+
                         auto const& curId = curIndex.get("id");
                         if (basics::VelocyPackHelper::equal(planId, curId, false)) {
                           ++nIndexes;

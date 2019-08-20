@@ -141,8 +141,8 @@ bool FailedFollower::start(bool& aborts) {
   // Planned servers vector
   std::string planPath =
       planColPrefix + _database + "/" + _collection + "/shards/" + _shard;
-  auto plannedPair = _snapshot.hasAsSlice(planPath);
-  Slice const& planned = plannedPair.first;
+  auto plannedPair = _snapshot.hasAsBuilder(planPath);  
+  Slice const& planned = plannedPair.first.slice();
   if (!plannedPair.second) {
     finish("", _shard, true,
         "Plan entry for collection " + _collection + " gone");

@@ -69,8 +69,8 @@ MoveShard::MoveShard(Node const& snapshot, AgentInterface* agent,
   auto tmp_from = _snapshot.hasAsString(path + "fromServer");
   auto tmp_to = _snapshot.hasAsString(path + "toServer");
   auto tmp_shard = _snapshot.hasAsString(path + "shard");
-  auto tmp_isLeader = _snapshot.hasAsSlice(path + "isLeader");
-  auto tmp_remainsFollower = _snapshot.hasAsSlice(path + "remainsFollower");
+  auto tmp_isLeader = _snapshot.hasAsBuilder(path + "isLeader");
+  auto tmp_remainsFollower = _snapshot.hasAsBuilder(path + "remainsFollower");
   auto tmp_creator = _snapshot.hasAsString(path + "creator");
 
   if (tmp_database.second && tmp_collection.second && tmp_from.second && tmp_to.second &&
@@ -80,9 +80,9 @@ MoveShard::MoveShard(Node const& snapshot, AgentInterface* agent,
     _from = tmp_from.first;
     _to = tmp_to.first;
     _shard = tmp_shard.first;
-    _isLeader = tmp_isLeader.first.isTrue();
+    _isLeader = tmp_isLeader.first.slice().isTrue();
     _remainsFollower =
-        tmp_remainsFollower.second ? tmp_remainsFollower.first.isTrue() : _isLeader;
+      tmp_remainsFollower.second ? tmp_remainsFollower.first.slice()isTrue() : _isLeader;
     _toServerIsFollower = false;
     _creator = tmp_creator.first;
   } else {
@@ -117,8 +117,8 @@ bool MoveShard::create(std::shared_ptr<VPackBuilder> envelope) {
   std::string planPath =
       planColPrefix + _database + "/" + _collection + "/shards/" + _shard;
 
-  Slice plan = _snapshot.hasAsSlice(planPath).first;
-  TRI_ASSERT(plan.isArray());
+  Slice plan = _snapshot.hasAsBuilder(planPath).first;
+  TRI_ASSERT(plan.slice().isArray());
   TRI_ASSERT(plan[0].isString());
 #endif
 
@@ -268,7 +268,8 @@ bool MoveShard::start(bool&) {
   // Look at Plan:
   std::string planPath =
       planColPrefix + _database + "/" + _collection + "/shards/" + _shard;
-  Slice planned = _snapshot.hasAsSlice(planPath).first;
+  VPackBuilder tmp = _snapshot.hasBuilder(planPath).first;
+  Slice planned = tmp.slice();
   TRI_ASSERT(planned.isArray());
 
   int found = -1;
@@ -450,7 +451,9 @@ JOB_STATUS MoveShard::pendingLeader() {
   // in the Plan:
   std::string planPath =
       planColPrefix + _database + "/" + _collection + "/shards/" + _shard;
-  Slice plan = _snapshot.hasAsSlice(planPath).first;
+  VPackBuilder tmp = _snapshot.hasAsBuilder(planPath).first;
+  Slice plan = tmp.slice();
+  
   Builder trx;
   Builder pre;  // precondition
   bool finishedAfterTransaction = false;
@@ -684,7 +687,8 @@ JOB_STATUS MoveShard::pendingFollower() {
   // we abort:
   std::string planPath =
       planColPrefix + _database + "/" + _collection + "/shards/" + _shard;
-  Slice plan = _snapshot.hasAsSlice(planPath).first;
+  VPackBuilder tmp = _snapshot.hasAsBuilder(planPath).first; 
+  Slice plan = tmp.slice();
   if (plan.isArray() &&
       Job::countGoodOrBadServersInList(_snapshot, plan) < plan.length()) {
     LOG_TOPIC("f8c22", DEBUG, Logger::SUPERVISION)
@@ -819,8 +823,10 @@ arangodb::Result MoveShard::abort(std::string const& reason) {
   // shards of the distributeShardsLike group has already gone to new leader
   if (_isLeader) {
     for (auto const& i : shardsLikeMe) {
-      auto const& cur = _snapshot.hasAsArray(
+      
+      auto const& tmp = _snapshot.hasAsArray(
         curColPrefix + _database + "/" + i.collection + "/" + i.shard + "/" + "servers");
+      auto const cur = tmp.slice();
       if (cur.second && cur.first[0].copyString() == _to) {
         LOG_TOPIC("72a82", INFO, Logger::SUPERVISION) <<
           "MoveShard can no longer abort through reversion to where it started. Flight forward";

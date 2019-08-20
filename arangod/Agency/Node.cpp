@@ -636,7 +636,7 @@ template <>
 bool Node::handle<PREPEND>(VPackSlice const& slice) {
 
   if (!slice.hasKey("new")) {
-    LOG_TOPIC(WARN, Logger::AGENCY)
+    LOG_TOPIC("73gfe", WARN, Logger::AGENCY)
         << "Operator prepend without new value: " << slice.toJson();
     return false;
   }
@@ -1113,15 +1113,20 @@ std::string Node::getString() const {
   return slice().copyString();
 }
 
-Slice Node::getArray() const {
+Builder Node::getArray() const {
   if (type() == NODE) {
     throw StoreException("Must not convert NODE type to array");
   }
-  if (!_isArray) {
+  if (_type != ARRAY) {
     throw StoreException("Not an array type");
   }
-  rebuildVecBuf();
-  return Slice(_vecBuf.data());
+  Builder builder;
+  { VPackArrayBuilder b(&builder);
+    for (auto const a : _array) {
+      a->toBuilder(builder);
+    }
+  }
+  return builder;
 }
 
 void Node::clear() {

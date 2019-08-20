@@ -95,14 +95,14 @@ class Node {
   /// @brief Move constructor
   Node(Node&& other);
 
-  /// @brief Construct with name and introduce to tree under parent
+  /// @brief Copy constructor
   Node(Slice const slice, Node* parent = nullptr);
 
   /// @brief Construct with name and introduce to tree under parent
-  Node(std::string const& name, Store* store);
+  Node(std::string const& name = std::string(), Node* parent = nullptr);
 
   /// @brief Construct with name and introduce to tree under parent
-  Node(std::string const& name = std::string, Store* store = nullptr);
+  Node(std::string const& name, Store* store);
 
   /// @brief Default dtor
   virtual ~Node();
@@ -299,7 +299,7 @@ public:
   std::string getString() const;
 
   /// @brief Get array value
-  VPackArray getArray() const;
+  VPackBuilder getArray() const;
 
   /// @brief Get insigned value (throws if type NODE or if conversion fails)
   uint64_t getUInt() const;
