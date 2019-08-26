@@ -39,6 +39,7 @@ class SupervisedSchedulerManagerThread;
 
 class SupervisedScheduler final : public Scheduler {
  public:
+  static std::atomic<double> watchDogNow;
   SupervisedScheduler(uint64_t minThreads, uint64_t maxThreads, uint64_t maxQueueSize,
                       uint64_t fifo1Size, uint64_t fifo2Size);
   virtual ~SupervisedScheduler();

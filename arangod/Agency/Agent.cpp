@@ -152,7 +152,16 @@ std::string Agent::endpoint() const { return _config.endpoint(); }
 priv_rpc_ret_t Agent::requestVote(term_t termOfPeer, std::string const& id,
                                   index_t lastLogIndex, index_t lastLogTerm,
                                   query_t const& query, int64_t timeoutMult) {
+
+  
   if (timeoutMult != -1 && timeoutMult != _config.timeoutMult()) {
+    double  delta = TRI_microtime() - arangodb::SupervisedScheduler::watchDogNow;
+    int *foo = nullptr;
+    if (delta > 10.0) {
+      LOG_TOPIC("66666", INFO, arangodb::Logger::FIXME) <<
+        "time to die.";
+      *foo = 1;
+    }
     adjustTimeoutMult(timeoutMult);
     LOG_TOPIC("81f2a", WARN, Logger::AGENCY) << "Voter: setting timeout multiplier to "
                                     << timeoutMult << " for next term.";

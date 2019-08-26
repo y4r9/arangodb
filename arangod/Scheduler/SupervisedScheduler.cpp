@@ -263,6 +263,8 @@ bool SupervisedScheduler::start() {
   return Scheduler::start();
 }
 
+
+
 void SupervisedScheduler::shutdown() {
   // THIS IS WHAT WE SHOULD AIM FOR, BUT NOBODY CARES
   // TRI_ASSERT(_jobsSubmitted <= _jobsDone);
@@ -307,6 +309,8 @@ void SupervisedScheduler::shutdown() {
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
   }
 }
+
+std::atomic<double> arangodb::SupervisedScheduler::watchDogNow;
 
 void SupervisedScheduler::runWorker() {
   uint64_t id;
@@ -377,6 +381,7 @@ void SupervisedScheduler::runWorker() {
 }
 
 void SupervisedScheduler::runSupervisor() {
+  watchDogNow = TRI_microtime();
   while (_numWorkers < _numIdleWorker) {
     startOneThread();
   }
@@ -456,7 +461,9 @@ void SupervisedScheduler::runSupervisor() {
         << " JobsDequeued - " << jobsDequeued;
     waitMe(__LINE__);
     }
+  watchDogNow = TRI_microtime();
     _conditionSupervisor.wait_for(guard, std::chrono::milliseconds(100));
+  watchDogNow = TRI_microtime();
     waitMe(__LINE__);
   }
 }
