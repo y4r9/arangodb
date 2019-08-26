@@ -49,7 +49,14 @@ namespace basics {
 ///      The current implementation can starve readers, though.
 class ReadWriteLock {
  public:
-  ReadWriteLock() : _state(0) {}
+  ReadWriteLock() : 
+    _state(0)
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+        ,
+        _readLocks(0),
+        _readUnlocks(0)
+#endif
+  {}
 
   /// @brief locks for writing
   void writeLock();
@@ -96,6 +103,10 @@ class ReadWriteLock {
   /// @brief _state, lowest bit is write_lock, the next 15 bits is the number of
   /// queued writers, the last 16 bits the number of active readers.
   std::atomic<uint32_t> _state;
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+  std::atomic<uint32_t> _readLocks;
+  std::atomic<uint32_t> _readUnlocks;
+#endif
 
   static constexpr uint32_t WRITE_LOCK = 1;
 

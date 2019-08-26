@@ -129,6 +129,9 @@ bool ReadWriteLock::tryReadLock() {
   // try to acquire read lock as long as no writers are active or queued
   while ((state & ~READER_MASK) == 0) {
     if (_state.compare_exchange_weak(state, state + READER_INC, std::memory_order_acquire)) {
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+      _readLocks++;
+#endif
       return true;
     }
   }
@@ -166,6 +169,9 @@ void ReadWriteLock::unlockWrite() {
 void ReadWriteLock::unlockRead() {
   TRI_ASSERT((_state.load() & READER_MASK) != 0);
   auto state = _state.fetch_sub(READER_INC, std::memory_order_release) - READER_INC;
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+      _readUnlocks++;
+#endif
   if (state != 0 && (state & ~QUEUED_WRITER_MASK) == 0) {
     // we were the last reader and there are other writers waiting
     // -> wake up one of them
