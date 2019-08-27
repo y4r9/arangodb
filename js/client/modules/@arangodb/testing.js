@@ -213,7 +213,7 @@ const optionsDefaults = {
   'testFailureText': 'testfailures.txt',
   'testCase': undefined,
   'disableMonitor': false,
-  'disableClusterMonitor': true,
+  'disableClusterMonitor': false,
   'sleepBeforeStart' : 0,
 };
 
