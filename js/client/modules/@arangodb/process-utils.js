@@ -537,6 +537,7 @@ function runProcdump (options, instanceInfo, rootDir, pid, instantDump = false) 
       procdumpArgs.push('-e');
     }
     procdumpArgs.push('-ma');
+    procdumpArgs.push('-mk');
     procdumpArgs.push(pid);
     procdumpArgs.push(dumpFile);
   }
