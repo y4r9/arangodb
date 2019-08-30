@@ -262,8 +262,7 @@ void Manager::registerAQLTrx(TransactionState* state) {
 
     buck._managed.emplace(std::piecewise_construct,
                           std::forward_as_tuple(state->id()),
-                          std::forward_as_tuple(MetaType::StandaloneAQL, state,
-                                                (defaultTTL + TRI_microtime())));
+                          std::forward_as_tuple(MetaType::StandaloneAQL, state));
   }
 }
 
