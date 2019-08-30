@@ -400,6 +400,10 @@ class AgencyCommResult {
     }
     return Result{errorCode(), errorMessage()};
   }
+  
+  void toVelocyPack(VPackBuilder& builder) const;
+
+  VPackBuilder toVelocyPack() const;
 
  public:
   std::string _location;
@@ -725,5 +729,9 @@ class AgencyComm {
   bool shouldInitializeStructure();
 };
 }  // namespace arangodb
+
+namespace std {
+ostream& operator<<(ostream& o, arangodb::AgencyCommResult const& a);
+}
 
 #endif

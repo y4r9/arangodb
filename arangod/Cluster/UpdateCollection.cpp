@@ -62,22 +62,10 @@ UpdateCollection::UpdateCollection(MaintenanceFeature& feature, ActionDescriptio
   }
   TRI_ASSERT(desc.has(DATABASE));
 
-  if (!desc.has(THE_LEADER)) {
-    error << "leader must be specified. ";
-  }
-  TRI_ASSERT(desc.has(THE_LEADER));
-
-  if (!desc.has(LOCAL_LEADER)) {
-    error << "local leader must be specified. ";
-  }
-  TRI_ASSERT(desc.has(LOCAL_LEADER));
-
   if (!desc.has(FOLLOWERS_TO_DROP)) {
     error << "followersToDrop must be specified. ";
   }
   TRI_ASSERT(desc.has(FOLLOWERS_TO_DROP));
-
-  TRI_ASSERT(desc.has(OLD_CURRENT_COUNTER));
 
   if (!error.str().empty()) {
     LOG_TOPIC("a6e4c", ERR, Logger::MAINTENANCE)
@@ -206,18 +194,14 @@ void handleLeadership(LogicalCollection& collection, std::string const& localLea
   }
 }
 
-UpdateCollection::~UpdateCollection(){};
+UpdateCollection::~UpdateCollection() {}
 
 bool UpdateCollection::first() {
   auto const& database = _description.get(DATABASE);
   auto const& collection = _description.get(COLLECTION);
   auto const& shard = _description.get(SHARD);
-  auto const& plannedLeader = _description.get(THE_LEADER);
-  auto const& localLeader = _description.get(LOCAL_LEADER);
   auto const& followersToDrop = _description.get(FOLLOWERS_TO_DROP);
   auto const& props = properties();
-  auto const& oldCounterString = _description.get(OLD_CURRENT_COUNTER);
-  uint64_t oldCounter = basics::StringUtils::uint64(oldCounterString);
 
   try {
     DatabaseGuard guard(database);
@@ -228,12 +212,20 @@ bool UpdateCollection::first() {
           LOG_TOPIC("60543", DEBUG, Logger::MAINTENANCE)
               << "Updating local collection " + shard;
 
-          // We adjust local leadership, note that the planned
-          // resignation case is not handled here, since then
-          // ourselves does not appear in shards[shard] but only
-          // "_" + ourselves.
-          handleLeadership(*coll, localLeader, plannedLeader, followersToDrop,
-                           vocbase.name(), oldCounter, feature());
+          // If someone (the Supervision most likely) has thrown
+          // out a follower from the plan, then the leader
+          // will not notice until it fails to replicate an operation
+          // to the old follower. This here is to drop such a follower
+          // from the local list of followers. Will be reported
+          // to Current in due course.
+          if (!followersToDrop.empty()) {
+            auto& followers = coll->followers();
+            std::vector<std::string> ftd =
+                arangodb::basics::StringUtils::split(followersToDrop, ',');
+            for (auto const& s : ftd) {
+              followers->remove(s);
+            }
+          }
           _result = Collections::updateProperties(*coll, props, false);  // always a full-update
 
           if (!_result.ok()) {

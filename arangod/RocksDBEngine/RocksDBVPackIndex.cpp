@@ -704,8 +704,11 @@ Result RocksDBVPackIndex::insert(transaction::Methods& trx, RocksDBMethods* mthd
     rocksdb::PinnableSlice existing(leased.get());
     for (RocksDBKey& key : elements) {
       s = mthds->GetForUpdate(_cf, key.string(), &existing);
-      if (s.ok() || s.IsBusy()) {  // detected conflicting index entry
+      if (s.ok()) {  // detected conflicting index entry
         res.reset(TRI_ERROR_ARANGO_UNIQUE_CONSTRAINT_VIOLATED);
+        break;
+      } else if (!s.IsNotFound()) {
+        res.reset(rocksutils::convertStatus(s));
         break;
       }
       s = mthds->Put(_cf, key, value.string(), /*assume_tracked*/true);
@@ -865,6 +868,12 @@ Result RocksDBVPackIndex::remove(transaction::Methods& trx, RocksDBMethods* mthd
                                  LocalDocumentId const& documentId,
                                  velocypack::Slice const& doc,
                                  Index::OperationMode mode) {
+  TRI_IF_FAILURE("BreakHashIndexRemove") {
+    if (type() == arangodb::Index::IndexType::TRI_IDX_TYPE_HASH_INDEX) {
+      // intentionally  break index removal
+      return Result(TRI_ERROR_INTERNAL, "BreakHashIndexRemove failure point triggered");
+    }
+  }
   Result res;
   rocksdb::Status s;
   SmallVector<RocksDBKey>::allocator_type::arena_type elementsArena;

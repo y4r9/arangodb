@@ -35,6 +35,7 @@
 #include "Basics/hashes.h"
 #include "Cluster/ClusterCollectionCreationInfo.h"
 #include "Cluster/ClusterHelpers.h"
+#include "Cluster/RebootTracker.h"
 #include "Cluster/ServerState.h"
 #include "Logger/Logger.h"
 #include "Random/RandomGenerator.h"
@@ -114,6 +115,7 @@ static inline arangodb::AgencyOperation CreateCollectionSuccess(
 #endif
 
 using namespace arangodb;
+using namespace arangodb::cluster;
 
 static std::unique_ptr<ClusterInfo> _instance;
 
@@ -192,6 +194,7 @@ ClusterInfo* ClusterInfo::instance() { return _instance.get(); }
 ClusterInfo::ClusterInfo(AgencyCallbackRegistry* agencyCallbackRegistry)
     : _agency(),
       _agencyCallbackRegistry(agencyCallbackRegistry),
+      _rebootTracker(SchedulerFeature::SCHEDULER),
       _planVersion(0),
       _currentVersion(0),
       _planLoader(std::thread::id()),
@@ -963,6 +966,13 @@ void ClusterInfo::loadPlan() {
 static std::string const prefixCurrent = "Current";
 
 void ClusterInfo::loadCurrent() {
+
+  // We need to update ServersKnown to notice rebootId changes for all servers.
+  // To keep things simple and separate, we call loadServers here instead of
+  // trying to integrate the servers upgrade code into loadCurrent, even if that
+  // means small bits of the plan are read twice.
+  loadServers();
+
   ++_currentProt.wantedVersion;  // Indicate that after *NOW* somebody has to
                                  // reread from the agency!
 
@@ -1272,6 +1282,15 @@ std::shared_ptr<CollectionInfoCurrent> ClusterInfo::getCollectionCurrent(
   }
 
   return std::make_shared<CollectionInfoCurrent>(0);
+}
+
+
+RebootTracker& ClusterInfo::rebootTracker() noexcept {
+  return _rebootTracker;
+}
+
+RebootTracker const& ClusterInfo::rebootTracker() const noexcept {
+  return _rebootTracker;
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -3227,7 +3246,8 @@ Result ClusterInfo::dropIndexCoordinator(  // drop index
 /// Usually one does not have to call this directly.
 ////////////////////////////////////////////////////////////////////////////////
 
-static std::string const prefixServers = "Current/ServersRegistered";
+static std::string const prefixServersRegistered = "Current/ServersRegistered";
+static std::string const prefixServersKnown = "Current/ServersKnown";
 static std::string const mapUniqueToShortId = "Target/MapUniqueToShortID";
 
 void ClusterInfo::loadServers() {
@@ -3242,8 +3262,9 @@ void ClusterInfo::loadServers() {
   }
 
   AgencyCommResult result = _agency.sendTransactionWithFailover(AgencyReadTransaction(
-      std::vector<std::string>({AgencyCommManager::path(prefixServers),
-                                AgencyCommManager::path(mapUniqueToShortId)})));
+      std::vector<std::string>({AgencyCommManager::path(prefixServersRegistered),
+                                AgencyCommManager::path(mapUniqueToShortId),
+                                AgencyCommManager::path(prefixServersKnown)})));
 
   if (result.successful()) {
     velocypack::Slice serversRegistered = result.slice()[0].get(std::vector<std::string>(
@@ -3252,11 +3273,16 @@ void ClusterInfo::loadServers() {
     velocypack::Slice serversAliases = result.slice()[0].get(std::vector<std::string>(
         {AgencyCommManager::path(), "Target", "MapUniqueToShortID"}));
 
+    velocypack::Slice serversKnownSlice = result.slice()[0].get(std::vector<std::string>(
+        {AgencyCommManager::path(), "Current", "ServersKnown"}));
+
     if (serversRegistered.isObject()) {
       decltype(_servers) newServers;
       decltype(_serverAliases) newAliases;
       decltype(_serverAdvertisedEndpoints) newAdvertisedEndpoints;
       decltype(_serverTimestamps) newTimestamps;
+
+      std::unordered_set<ServerID> serverIds;
 
       for (auto const& res : VPackObjectIterator(serversRegistered)) {
         velocypack::Slice slice = res.value;
@@ -3285,8 +3311,11 @@ void ClusterInfo::loadServers() {
           newServers.emplace(std::make_pair(serverId, server));
           newAdvertisedEndpoints.emplace(std::make_pair(serverId, advertised));
           newTimestamps.emplace(std::make_pair(serverId, serverTimestamp));
+          serverIds.emplace(serverId);
         }
       }
+
+      decltype(_serversKnown) newServersKnown(serversKnownSlice, serverIds);
 
       // Now set the new value:
       {
@@ -3295,15 +3324,19 @@ void ClusterInfo::loadServers() {
         _serverAliases.swap(newAliases);
         _serverAdvertisedEndpoints.swap(newAdvertisedEndpoints);
         _serverTimestamps.swap(newTimestamps);
+        _serversKnown = std::move(newServersKnown);
         _serversProt.doneVersion = storedVersion;
         _serversProt.isValid = true;
       }
+      // RebootTracker has its own mutex, and doesn't strictly need to be in sync
+      // with the other members.
+      rebootTracker().updateServerState(_serversKnown.rebootIds());
       return;
     }
   }
 
   LOG_TOPIC("449e0", DEBUG, Logger::CLUSTER)
-      << "Error while loading " << prefixServers
+      << "Error while loading " << prefixServersRegistered
       << " httpCode: " << result.httpCode() << " errorCode: " << result.errorCode()
       << " errorMessage: " << result.errorMessage() << " body: " << result.body();
 }
@@ -4257,6 +4290,53 @@ arangodb::Result ClusterInfo::agencyHotBackupUnlock(
     TRI_ERROR_HOT_BACKUP_INTERNAL,
     "timeout waiting for maintenance mode to be deactivated in agency");
 
+}
+
+ClusterInfo::ServersKnown::ServersKnown(VPackSlice const serversKnownSlice,
+                                        std::unordered_set<ServerID> const& serverIds)
+    : _serversKnown() {
+
+  TRI_ASSERT(serversKnownSlice.isNone() || serversKnownSlice.isObject());
+  if (serversKnownSlice.isObject()) {
+    for (auto const it : VPackObjectIterator(serversKnownSlice)) {
+      VPackSlice const knownServerSlice = it.value;
+      TRI_ASSERT(knownServerSlice.isObject());
+      if (knownServerSlice.isObject()) {
+        VPackSlice const rebootIdSlice = knownServerSlice.get("rebootId");
+        TRI_ASSERT(rebootIdSlice.isInteger());
+        if (rebootIdSlice.isInteger()) {
+          std::string serverId = it.key.copyString();
+          auto const rebootId = RebootId{rebootIdSlice.getNumericValue<uint64_t>()};
+          _serversKnown.emplace(std::move(serverId), rebootId);
+        }
+      }
+    }
+  }
+
+  // For backwards compatibility / rolling upgrades, add servers that aren't in
+  // ServersKnown but in ServersRegistered with a reboot ID of 0 as a fallback.
+  // We should be able to remove this in 3.6.
+  for (auto const& serverId : serverIds) {
+    auto const rv = _serversKnown.emplace(serverId, RebootId{0});
+    LOG_TOPIC_IF("0acbd", INFO, Logger::CLUSTER, rv.second)
+        << "Server "
+        << serverId << " is in Current/ServersRegistered, but not in "
+                       "Current/ServersKnown. This is expected to happen "
+                       "during a rolling upgrade.";
+  }
+}
+
+std::unordered_map<ServerID, ClusterInfo::ServersKnown::KnownServer> const&
+ClusterInfo::ServersKnown::serversKnown() const noexcept {
+  return _serversKnown;
+}
+
+std::unordered_map<ServerID, RebootId> ClusterInfo::ServersKnown::rebootIds() const noexcept {
+  std::unordered_map<ServerID, RebootId> rebootIds;
+  for (auto const& it : _serversKnown) {
+    rebootIds.emplace(it.first, it.second.rebootId());
+  }
+  return rebootIds;
 }
 
 // -----------------------------------------------------------------------------
