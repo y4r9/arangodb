@@ -60,73 +60,12 @@ namespace tests {
 namespace graph {
 
 struct GraphTestSetup {
-  StorageEngineMock engine;
-  arangodb::application_features::ApplicationServer server;
-  std::unique_ptr<TRI_vocbase_t> system;
-  std::vector<std::pair<arangodb::application_features::ApplicationFeature*, bool>> features;
+  mocks::MockAqlServer server;
 
-  GraphTestSetup() : engine(server), server(nullptr, nullptr) {
-    arangodb::EngineSelectorFeature::ENGINE = &engine;
-    arangodb::transaction::Methods::clearDataSourceRegistrationCallbacks();
-    arangodb::ClusterEngine::Mocking = true;
-    arangodb::RandomGenerator::initialize(arangodb::RandomGenerator::RandomType::MERSENNE);
-
-    // suppress log messages since tests check error conditions
-    arangodb::LogTopic::setLogLevel(arangodb::Logger::FIXME.name(), arangodb::LogLevel::ERR);  // suppress WARNING DefaultCustomTypeHandler called
-
-    // setup required application features
-    features.emplace_back(new arangodb::DatabasePathFeature(server), false);
-    features.emplace_back(new arangodb::DatabaseFeature(server), false);
-    features.emplace_back(new arangodb::QueryRegistryFeature(server), false);  // must be first
-    arangodb::application_features::ApplicationServer::server->addFeature(
-        features.back().first);  // need QueryRegistryFeature feature to be added now in order to create the system database
-    system = std::make_unique<TRI_vocbase_t>(TRI_vocbase_type_e::TRI_VOCBASE_TYPE_NORMAL,
-                                             0, TRI_VOC_SYSTEM_DATABASE);
-    features.emplace_back(new arangodb::SystemDatabaseFeature(server, system.get()),
-                          false);  // required for IResearchAnalyzerFeature
-    features.emplace_back(new arangodb::TraverserEngineRegistryFeature(server), false);  // must be before AqlFeature
-    features.emplace_back(new arangodb::AqlFeature(server), true);
-    features.emplace_back(new arangodb::aql::OptimizerRulesFeature(server), true);
-    features.emplace_back(new arangodb::aql::AqlFunctionFeature(server), true);  // required for IResearchAnalyzerFeature
-
-    for (auto& f : features) {
-      arangodb::application_features::ApplicationServer::server->addFeature(f.first);
-    }
-
-    for (auto& f : features) {
-      f.first->prepare();
-    }
-
-    for (auto& f : features) {
-      if (f.second) {
-        f.first->start();
-      }
-    }
-
-    auto* dbPathFeature =
-        arangodb::application_features::ApplicationServer::getFeature<arangodb::DatabasePathFeature>(
-            "DatabasePath");
-    arangodb::tests::setDatabasePath(*dbPathFeature);  // ensure test data is stored in a unique directory
+  GraphTestSetup() {
   }
 
   ~GraphTestSetup() {
-    system.reset();  // destroy before reseting the 'ENGINE'
-    arangodb::AqlFeature(server).stop();  // unset singleton instance
-    arangodb::LogTopic::setLogLevel(arangodb::Logger::FIXME.name(),
-                                    arangodb::LogLevel::DEFAULT);
-    arangodb::application_features::ApplicationServer::server = nullptr;
-    arangodb::EngineSelectorFeature::ENGINE = nullptr;
-
-    // destroy application features
-    for (auto& f : features) {
-      if (f.second) {
-        f.first->stop();
-      }
-    }
-
-    for (auto& f : features) {
-      f.first->unprepare();
-    }
   }
 };  // Setup
 
