@@ -67,6 +67,7 @@ class MockServer {
  protected:
   // Implementation knows the place when all features are included
   void startFeatures();
+  void addFeature(arangodb::application_features::ApplicationFeature*, bool);
 
  private:
   // Will be called by destructor

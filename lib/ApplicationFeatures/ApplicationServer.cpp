@@ -175,6 +175,24 @@ void ApplicationServer::disableFeatures(std::vector<std::string> const& names, b
 // destructor
 void ApplicationServer::addFeature(ApplicationFeature* feature) {
   TRI_ASSERT(feature->state() == ApplicationFeature::State::UNINITIALIZED);
+
+  // TODO: This should be replaced by a simple TRI_ASSERT, once
+  //       all IResearch tests have been ported to use the server
+  //       mocks.
+  auto exists = _features.find(feature->name());
+  if (exists != _features.end()) {
+    if (exists->second != feature) {
+      LOG_TOPIC("39052", DEBUG, Logger::STARTUP)
+        << "Attempting to add two different features with name "
+        << feature->name() << ". Quitting";
+        TRI_ASSERT(false);
+    } else {
+      LOG_TOPIC("0461f", DEBUG, Logger::STARTUP)
+        << "Attempting to add the same instance of "
+        << feature->name() << " multiple times. Skipping.";
+      return;
+    }
+  }
   _features.emplace(feature->name(), feature);
 }
 
