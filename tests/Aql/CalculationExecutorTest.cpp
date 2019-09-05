@@ -52,6 +52,8 @@
 using namespace arangodb;
 using namespace arangodb::aql;
 
+using namespace arangodb::tests;
+
 namespace {
 AstNode* initializeReference(Ast& ast, Variable& var) {
   ast.scopes()->start(ScopeType::AQL_SCOPE_MAIN);
