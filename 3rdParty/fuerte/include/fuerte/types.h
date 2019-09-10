@@ -49,6 +49,7 @@ StatusCode constexpr StatusUnauthorized = 401;
 StatusCode constexpr StatusForbidden = 403;
 StatusCode constexpr StatusNotFound = 404;
 StatusCode constexpr StatusMethodNotAllowed = 405;
+StatusCode constexpr StatusNotAcceptable = 406;
 StatusCode constexpr StatusConflict = 409;
 StatusCode constexpr StatusPreconditionFailed = 412;
 StatusCode constexpr StatusInternalError = 500;
@@ -107,6 +108,7 @@ enum class RestVerb {
   Options = 6
 };
 std::string to_string(RestVerb type);
+RestVerb from_string(std::string const&);
 
 // -----------------------------------------------------------------------------
 // --SECTION--                                                       MessageType

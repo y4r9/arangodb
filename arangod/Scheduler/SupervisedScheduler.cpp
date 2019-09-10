@@ -356,14 +356,14 @@ void SupervisedScheduler::runWorker() {
   }
 
   while (true) {
-    std::unique_ptr<WorkItem> work = getWork(state);
-    if (work == nullptr) {
-      break;
-    }
-
-    _jobsDequeued++;
-
     try {
+      std::unique_ptr<WorkItem> work = getWork(state);
+      if (work == nullptr) {
+        break;
+      }
+    
+      _jobsDequeued++;
+
       state->_lastJobStarted = clock::now();
       state->_working = true;
       work->_handler();
@@ -430,41 +430,45 @@ void SupervisedScheduler::runSupervisor() {
     lastJobsSubmitted = jobsSubmitted;
 
     waitMe(__LINE__);
-    if (doStartOneThread && _numWorkers < _maxNumWorker) {
-      jobsStallingTick = 0;
-      startOneThread();
-    waitMe(__LINE__);
-    } else if (doStopOneThread && _numWorkers > _numIdleWorker) {
-      stopOneThread();
-    waitMe(__LINE__);
-    }
+    try {
+      if (doStartOneThread && _numWorkers < _maxNumWorker) {
+        jobsStallingTick = 0;
+        startOneThread();
+        waitMe(__LINE__);
+      } else if (doStopOneThread && _numWorkers > _numIdleWorker) {
+        stopOneThread();
+        waitMe(__LINE__);
+      }
 
-    cleanupAbandonedThreads();
-    waitMe(__LINE__);
-    sortoutLongRunningThreads();
+      cleanupAbandonedThreads();
+      waitMe(__LINE__);
+      sortoutLongRunningThreads();
 
-    waitMe(__LINE__);
-    std::unique_lock<std::mutex> guard(_mutexSupervisor);
-    waitMe(__LINE__);
+      waitMe(__LINE__);
+      std::unique_lock<std::mutex> guard(_mutexSupervisor);
+      waitMe(__LINE__);
 
-    if (_stopping) {
-      break;
+      if (_stopping) {
+        break;
+      }
+      if (true) {
+        waitMe(__LINE__);
+        auto info = TRI_ProcessInfoSelf();
+        waitMe(__LINE__);
+        LOG_TOPIC("66677", DEBUG, arangodb::Logger::THREADS)
+          << " numberOfThreads: " << info._numberThreads
+          << " JobsDone - " << jobsDone
+          << " JobsSubmitted - " << jobsSubmitted
+          << " JobsDequeued - " << jobsDequeued;
+        waitMe(__LINE__);
+      }
+      watchDogNow = TRI_microtime();
+      _conditionSupervisor.wait_for(guard, std::chrono::milliseconds(100));
+      watchDogNow = TRI_microtime();
+      waitMe(__LINE__);
+    } catch (std::exception const& ex) {
+      LOG_TOPIC("3318c", WARN, Logger::THREADS) << "scheduler supervisor thread caught exception: " << ex.what();
     }
-    if (true) {
-    waitMe(__LINE__);
-      auto info = TRI_ProcessInfoSelf();
-    waitMe(__LINE__);
-      LOG_TOPIC("66677", DEBUG, arangodb::Logger::THREADS)
-        << " numberOfThreads: " << info._numberThreads
-        << " JobsDone - " << jobsDone
-        << " JobsSubmitted - " << jobsSubmitted
-        << " JobsDequeued - " << jobsDequeued;
-    waitMe(__LINE__);
-    }
-  watchDogNow = TRI_microtime();
-    _conditionSupervisor.wait_for(guard, std::chrono::milliseconds(100));
-  watchDogNow = TRI_microtime();
-    waitMe(__LINE__);
   }
 }
 

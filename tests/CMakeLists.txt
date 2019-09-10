@@ -100,9 +100,9 @@ set(ARANGODB_TESTS_SOURCES
   Cache/TransactionalStore.cpp
   Cache/TransactionManager.cpp
   Cache/TransactionsWithBackingStore.cpp
+  Cluster/AgencyPathsTest.cpp
   Cluster/ClusterCommTest.cpp
   Cluster/ClusterHelpersTest.cpp
-  Cluster/ClusterInfo-test.cpp
   Cluster/ClusterRepairsTest.cpp
   Cluster/RebootTrackerTest.cpp
   Futures/Future-test.cpp
@@ -177,6 +177,9 @@ set(ARANGODB_TESTS_SOURCES
   ${RCFILE}
   Mocks/StorageEngineMock.cpp
   Mocks/Servers.cpp
+  Network/ConnectionPoolTest.cpp
+  Network/MethodsTest.cpp
+  Network/UtilsTest.cpp
   Pregel/typedbuffer.cpp
   Replication/ReplicationClientsProgressTrackerTest.cpp
   RestHandler/RestAnalyzerHandler-test.cpp
@@ -231,11 +234,14 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL GNU)
 endif()
 
 target_link_libraries(arangodbtests
+  arango_mmfiles
+  arango_rocksdb
+  arango_cluster_engine
   arangoserver
-  rocksdb
   fuerte
-  gtest
+  rocksdb
   snappy
+  gtest
 )
 
 target_include_directories(arangodbtests PRIVATE

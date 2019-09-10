@@ -364,10 +364,6 @@ bool parseOptions(aql::Query& query, LogicalView const& view, aql::AstNode const
 bool hasDependencies(aql::ExecutionPlan const& plan, aql::AstNode const& node,
                      aql::Variable const& ref,
                      arangodb::HashSet<aql::Variable const*>& vars) {
-  if (!node.isDeterministic()) {
-    return false;
-  }
-
   vars.clear();
   aql::Ast::getReferencedVariables(&node, vars);
   vars.erase(&ref);  // remove "our" variable
@@ -393,6 +389,7 @@ bool hasDependencies(aql::ExecutionPlan const& plan, aql::AstNode const& node,
       case aql::ExecutionNode::TRAVERSAL:
       case aql::ExecutionNode::INDEX:
       case aql::ExecutionNode::SHORTEST_PATH:
+      case aql::ExecutionNode::K_SHORTEST_PATHS:
       case aql::ExecutionNode::ENUMERATE_IRESEARCH_VIEW:
         // we're in the loop with dependent context
         return true;
@@ -421,6 +418,7 @@ bool isInInnerLoopOrSubquery(aql::ExecutionNode const& node) {
       case aql::ExecutionNode::TRAVERSAL:
       case aql::ExecutionNode::ENUMERATE_LIST:
       case aql::ExecutionNode::SHORTEST_PATH:
+      case aql::ExecutionNode::K_SHORTEST_PATHS:
       case aql::ExecutionNode::ENUMERATE_IRESEARCH_VIEW:
         // we're in a loop
         return true;

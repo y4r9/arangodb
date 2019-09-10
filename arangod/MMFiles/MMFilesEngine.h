@@ -80,9 +80,6 @@ class MMFilesEngine final : public StorageEngine {
   // flush wal wait for collector
   void stop() override;
 
-  // minimum timeout for the synchronous replication
-  double minimumSyncReplicationTimeout() const override { return 0.5; }
-
   bool supportsDfdb() const override { return true; }
 
   bool useRawDocumentPointers() override { return true; }
@@ -464,6 +461,9 @@ class MMFilesEngine final : public StorageEngine {
   int beginShutdownCompactor(TRI_vocbase_t* vocbase);
   // stop and delete the compactor thread for the database
   int stopCompactor(TRI_vocbase_t* vocbase);
+
+  // stop and delete the compactor and cleanup threads for all databases
+  void stopAllThreads();
 
   /// @brief writes a drop-database marker into the log
   int writeDropMarker(TRI_voc_tick_t id, std::string const& name);

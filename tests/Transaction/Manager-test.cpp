@@ -104,7 +104,7 @@ TEST_F(TransactionManagerTest, parsing_errors) {
 }
 
 TEST_F(TransactionManagerTest, collection_not_found) {
-  arangodb::ExecContextScope execContextScope(arangodb::ExecContext::superuser());
+  arangodb::ExecContextSuperuserScope exeScope;
 
   auto json = arangodb::velocypack::Parser::fromJson(
       "{ \"collections\":{\"read\": [\"33\"]}}");
@@ -261,7 +261,7 @@ TEST_F(TransactionManagerTest, simple_transaction_and_commit_while_in_use) {
     OperationOptions opts;
     auto opRes = trx.insert(coll->name(), doc->slice(), opts);
     ASSERT_TRUE(opRes.ok());
-    ASSERT_TRUE(mgr->commitManagedTrx(tid).is(TRI_ERROR_TRANSACTION_DISALLOWED_OPERATION));
+    ASSERT_EQ(TRI_ERROR_LOCKED, mgr->commitManagedTrx(tid).errorNumber());
     ASSERT_TRUE(trx.finish(opRes.result).ok());
   }
   ASSERT_TRUE((mgr->getManagedTrxStatus(tid) == transaction::Status::RUNNING));

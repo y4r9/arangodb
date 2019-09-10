@@ -374,9 +374,7 @@ TEST_F(IResearchViewTest, test_defaults) {
       ExecContext(): arangodb::ExecContext(arangodb::ExecContext::Type::Default, "", "",
                                            arangodb::auth::Level::NONE, arangodb::auth::Level::NONE) {}
     } execContext;
-    auto* origExecContext = ExecContext::CURRENT;
-    auto resetExecContext = irs::make_finally([origExecContext]()->void{ ExecContext::CURRENT = origExecContext; });
-    ExecContext::CURRENT = &execContext;
+    arangodb::ExecContextScope scope(&execContext);
     auto* authFeature = arangodb::AuthenticationFeature::instance();
     auto* userManager = authFeature->userManager();
     arangodb::auth::UserMap userMap; // empty map, no user -> no permissions
@@ -1081,7 +1079,7 @@ TEST_F(IResearchViewTest, test_drop_database) {
   StorageEngineMock::before = [&beforeCount]()->void { ++beforeCount; };
 
   TRI_vocbase_t* vocbase; // will be owned by DatabaseFeature
-  ASSERT_TRUE((TRI_ERROR_NO_ERROR == databaseFeature->createDatabase(0, "testDatabase" TOSTRING(__LINE__), vocbase)));
+  ASSERT_TRUE(databaseFeature->createDatabase(0, "testDatabase" TOSTRING(__LINE__), vocbase).ok());
   ASSERT_TRUE((nullptr != vocbase));
 
   beforeCount = 0; // reset before call to StorageEngine::createView(...)
@@ -4912,9 +4910,7 @@ TEST_F(IResearchViewTest, test_update_overwrite) {
       ExecContext(): arangodb::ExecContext(arangodb::ExecContext::Type::Default, "", "",
                                            arangodb::auth::Level::NONE, arangodb::auth::Level::NONE) {}
     } execContext;
-    auto* origExecContext = ExecContext::CURRENT;
-    auto resetExecContext = irs::make_finally([origExecContext]()->void{ ExecContext::CURRENT = origExecContext; });
-    ExecContext::CURRENT = &execContext;
+    arangodb::ExecContextScope scope(&execContext);
     auto* authFeature = arangodb::AuthenticationFeature::instance();
     auto* userManager = authFeature->userManager();
     arangodb::auth::UserMap userMap; // empty map, no user -> no permissions
@@ -6814,9 +6810,7 @@ TEST_F(IResearchViewTest, test_update_partial) {
       ExecContext(): arangodb::ExecContext(arangodb::ExecContext::Type::Default, "", "",
                                            arangodb::auth::Level::NONE, arangodb::auth::Level::NONE) {}
     } execContext;
-    auto* origExecContext = ExecContext::CURRENT;
-    auto resetExecContext = irs::make_finally([origExecContext]()->void{ ExecContext::CURRENT = origExecContext; });
-    ExecContext::CURRENT = &execContext;
+    arangodb::ExecContextScope scope(&execContext);
     auto* authFeature = arangodb::AuthenticationFeature::instance();
     auto* userManager = authFeature->userManager();
     arangodb::auth::UserMap userMap; // empty map, no user -> no permissions
