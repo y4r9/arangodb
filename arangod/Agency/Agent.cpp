@@ -157,12 +157,13 @@ priv_rpc_ret_t Agent::requestVote(term_t termOfPeer, std::string const& id,
 
   
   if (timeoutMult != -1 && timeoutMult != _config.timeoutMult()) {
-    double  delta = TRI_microtime() - arangodb::SupervisedScheduler::watchDogNow;
-    int *foo = nullptr;
+    double watchDogValue = arangodb::SupervisedScheduler::watchDogNow;
+    double  delta = TRI_microtime() - watchDogValue;
+    double *foo = nullptr;
     if (delta > 10.0) {
       LOG_TOPIC("66666", INFO, arangodb::Logger::FIXME) <<
-        "time to die.";
-      *foo = 1;
+        "time to die; last reporter scheduler line: " << arangodb::SupervisedScheduler::currentLine;
+      *foo = watchDogValue;
     }
     adjustTimeoutMult(timeoutMult);
     LOG_TOPIC("81f2a", WARN, Logger::AGENCY) << "Voter: setting timeout multiplier to "

@@ -311,6 +311,7 @@ void SupervisedScheduler::shutdown() {
 }
 
 std::atomic<double> arangodb::SupervisedScheduler::watchDogNow;
+std::atomic<int> arangodb::SupervisedScheduler::currentLine;
 
 void SupervisedScheduler::runWorker() {
   uint64_t id;
@@ -381,6 +382,7 @@ void SupervisedScheduler::runWorker() {
 }
 
 void SupervisedScheduler::runSupervisor() {
+  currentLine = __LINE__;
   watchDogNow = TRI_microtime();
   while (_numWorkers < _numIdleWorker) {
     startOneThread();
@@ -391,6 +393,7 @@ void SupervisedScheduler::runSupervisor() {
   
   auto tStart = TRI_microtime();
   auto waitMe = [&tStart](int where) {
+                  currentLine = where;
                   auto tExit = TRI_microtime();
                   if (tExit - tStart > 0.25) {
                     LOG_TOPIC("66666", INFO, arangodb::Logger::FIXME) <<
