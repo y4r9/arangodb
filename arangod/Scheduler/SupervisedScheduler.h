@@ -39,6 +39,9 @@ class SupervisedSchedulerManagerThread;
 
 class SupervisedScheduler final : public Scheduler {
  public:
+ #ifdef _WIN32
+  static HANDLE managerThread;
+ #endif
   static std::atomic<double> watchDogNow;
   static std::atomic<int> currentLine;
   SupervisedScheduler(uint64_t minThreads, uint64_t maxThreads, uint64_t maxQueueSize,

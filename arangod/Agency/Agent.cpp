@@ -150,6 +150,8 @@ size_t Agent::size() const { return _config.size(); }
 /// My endpoint
 std::string Agent::endpoint() const { return _config.endpoint(); }
 
+int arangodb::consensus::Agent::lastObservedLine = 0;
+
 /// Handle voting
 priv_rpc_ret_t Agent::requestVote(term_t termOfPeer, std::string const& id,
                                   index_t lastLogIndex, index_t lastLogTerm,
@@ -157,12 +159,19 @@ priv_rpc_ret_t Agent::requestVote(term_t termOfPeer, std::string const& id,
 
   
   if (timeoutMult != -1 && timeoutMult != _config.timeoutMult()) {
+    int observedLine = arangodb::SupervisedScheduler::currentLine;
     double watchDogValue = arangodb::SupervisedScheduler::watchDogNow;
     double  delta = TRI_microtime() - watchDogValue;
     double *foo = nullptr;
     if (delta > 10.0) {
+#ifdef _WIN32
+      // Suspend the manager thread to prevent it from continuing to run while
+      // we wait for the crash dump to be created.
+      SuspendThread(arangodb::SupervisedScheduler::managerThread);
+#endif
+      lastObservedLine = observedLine;
       LOG_TOPIC("66666", INFO, arangodb::Logger::FIXME) <<
-        "time to die; last reporter scheduler line: " << arangodb::SupervisedScheduler::currentLine;
+        "time to die; last observed scheduler line: " << observedLine;
       *foo = watchDogValue;
     }
     adjustTimeoutMult(timeoutMult);
