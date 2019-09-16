@@ -76,18 +76,18 @@ rest::RequestType llhttpToRequestType(llhttp_t* p) {
 
 template <SocketType T>
 int HttpCommTask<T>::on_message_began(llhttp_t* p) {
-  HttpCommTask<T>* self = static_cast<HttpCommTask<T>*>(p->data);
-  self->_lastHeaderField.clear();
-  self->_lastHeaderValue.clear();
-  self->_origin.clear();
-  self->_request = std::make_unique<HttpRequest>(self->_connectionInfo, /*header*/ nullptr,
-                                                 0, self->_allowMethodOverride);
-  self->_lastHeaderWasValue = false;
-  self->_shouldKeepAlive = false;
-  self->_messageDone = false;
+  HttpCommTask<T>* me = static_cast<HttpCommTask<T>*>(p->data);
+  me->_lastHeaderField.clear();
+  me->_lastHeaderValue.clear();
+  me->_origin.clear();
+  me->_request = std::make_unique<HttpRequest>(me->_connectionInfo, /*header*/ nullptr,
+                                                 0, me->_allowMethodOverride);
+  me->_lastHeaderWasValue = false;
+  me->_shouldKeepAlive = false;
+  me->_messageDone = false;
   
   // acquire a new statistics entry for the request
-  RequestStatistics* stat = self->acquireStatistics(1UL);
+  RequestStatistics* stat = me->acquireStatistics(1UL);
   RequestStatistics::SET_READ_START(stat, TRI_microtime());
   
   return HPE_OK;
@@ -95,17 +95,17 @@ int HttpCommTask<T>::on_message_began(llhttp_t* p) {
 
 template <SocketType T>
 int HttpCommTask<T>::on_url(llhttp_t* p, const char* at, size_t len) {
-  HttpCommTask<T>* self = static_cast<HttpCommTask<T>*>(p->data);
-  self->_request->parseUrl(at, len);
-  self->_request->setRequestType(llhttpToRequestType(p));
-  if (self->_request->requestType() == RequestType::ILLEGAL) {
-    self->addSimpleResponse(rest::ResponseCode::METHOD_NOT_ALLOWED,
+  HttpCommTask<T>* me = static_cast<HttpCommTask<T>*>(p->data);
+  me->_request->parseUrl(at, len);
+  me->_request->setRequestType(llhttpToRequestType(p));
+  if (me->_request->requestType() == RequestType::ILLEGAL) {
+    me->addSimpleResponse(rest::ResponseCode::METHOD_NOT_ALLOWED,
                             rest::ContentType::UNSET, 1, VPackBuffer<uint8_t>());
     return HPE_USER;
   }
   
-  RequestStatistics* stat = self->statistics(1UL);
-  RequestStatistics::SET_REQUEST_TYPE(stat, self->_request->requestType());
+  RequestStatistics* stat = me->statistics(1UL);
+  RequestStatistics::SET_REQUEST_TYPE(stat, me->_request->requestType());
   
   return HPE_OK;
 }
@@ -118,73 +118,74 @@ int HttpCommTask<T>::on_status(llhttp_t* p, const char* at, size_t len) {
 
 template <SocketType T>
 int HttpCommTask<T>::on_header_field(llhttp_t* p, const char* at, size_t len) {
-  HttpCommTask<T>* self = static_cast<HttpCommTask<T>*>(p->data);
-  if (self->_lastHeaderWasValue) {
-    StringUtils::tolowerInPlace(&self->_lastHeaderField);
-    self->_request->setHeaderV2(std::move(self->_lastHeaderField),
-                                std::move(self->_lastHeaderValue));
-    self->_lastHeaderField.assign(at, len);
+  HttpCommTask<T>* me = static_cast<HttpCommTask<T>*>(p->data);
+  if (me->_lastHeaderWasValue) {
+    StringUtils::tolowerInPlace(&me->_lastHeaderField);
+    me->_request->setHeaderV2(std::move(me->_lastHeaderField),
+                                std::move(me->_lastHeaderValue));
+    me->_lastHeaderField.assign(at, len);
   } else {
-    self->_lastHeaderField.append(at, len);
+    me->_lastHeaderField.append(at, len);
   }
-  self->_lastHeaderWasValue = false;
+  me->_lastHeaderWasValue = false;
   return HPE_OK;
 }
 
 template <SocketType T>
 int HttpCommTask<T>::on_header_value(llhttp_t* p, const char* at, size_t len) {
-  HttpCommTask<T>* self = static_cast<HttpCommTask<T>*>(p->data);
-  if (self->_lastHeaderWasValue) {
-    self->_lastHeaderValue.append(at, len);
+  HttpCommTask<T>* me = static_cast<HttpCommTask<T>*>(p->data);
+  if (me->_lastHeaderWasValue) {
+    me->_lastHeaderValue.append(at, len);
   } else {
-    self->_lastHeaderValue.assign(at, len);
+    me->_lastHeaderValue.assign(at, len);
   }
-  self->_lastHeaderWasValue = true;
+  me->_lastHeaderWasValue = true;
   return HPE_OK;
 }
 
 template <SocketType T>
 int HttpCommTask<T>::on_header_complete(llhttp_t* p) {
-  HttpCommTask<T>* self = static_cast<HttpCommTask<T>*>(p->data);
-  if (!self->_lastHeaderField.empty()) {
-    StringUtils::tolowerInPlace(&self->_lastHeaderField);
-    self->_request->setHeaderV2(std::move(self->_lastHeaderField),
-                                std::move(self->_lastHeaderValue));
+  HttpCommTask<T>* me = static_cast<HttpCommTask<T>*>(p->data);
+  if (!me->_lastHeaderField.empty()) {
+    StringUtils::tolowerInPlace(&me->_lastHeaderField);
+    me->_request->setHeaderV2(std::move(me->_lastHeaderField),
+                              std::move(me->_lastHeaderValue));
   }
 
   if ((p->http_major != 1 && p->http_minor != 0) &&
       (p->http_major != 1 && p->http_minor != 1)) {
-    self->addSimpleResponse(rest::ResponseCode::HTTP_VERSION_NOT_SUPPORTED,
-                            rest::ContentType::UNSET, 1, VPackBuffer<uint8_t>());
+    me->addSimpleResponse(rest::ResponseCode::HTTP_VERSION_NOT_SUPPORTED,
+                          rest::ContentType::UNSET, 1, VPackBuffer<uint8_t>());
     return HPE_USER;
   }
   if (p->content_length > GeneralCommTask<T>::MaximalBodySize) {
-    self->addSimpleResponse(rest::ResponseCode::REQUEST_ENTITY_TOO_LARGE,
-                            rest::ContentType::UNSET, 1, VPackBuffer<uint8_t>());
+    me->addSimpleResponse(rest::ResponseCode::REQUEST_ENTITY_TOO_LARGE,
+                          rest::ContentType::UNSET, 1, VPackBuffer<uint8_t>());
     return HPE_USER;
   }
   if (p->content_length > 0) {
     // lets not reserve more than 64MB at once
     uint64_t maxReserve = std::min<uint64_t>(2 << 26, p->content_length);
-    self->_request->body().reserve(maxReserve + 1);
+    me->_request->body().reserve(maxReserve + 1);
   }
-  self->_shouldKeepAlive = llhttp_should_keep_alive(p);
+  me->_shouldKeepAlive = llhttp_should_keep_alive(p);
 
   bool found;
-  std::string const& expect = self->_request->header(StaticStrings::Expect, found);
+  std::string const& expect = me->_request->header(StaticStrings::Expect, found);
   if (found && StringUtils::trim(expect) == "100-continue") {
     LOG_TOPIC("2b604", TRACE, arangodb::Logger::REQUESTS)
         << "received a 100-continue request";
     char const* response = "HTTP/1.1 100 Continue\r\n\r\n";
     auto buff = asio_ns::buffer(response, strlen(response));
-    asio_ns::async_write(self->_protocol->socket, buff,
-                         [self](asio_ns::error_code const& ec, std::size_t transferred) {
-                           llhttp_resume(&self->_parser);
-                           self->asyncReadSome();
+    auto self = me->shared_from_this();
+    asio_ns::async_write(me->_protocol->socket, buff,
+                         [self, me](asio_ns::error_code const& ec, std::size_t transferred) {
+                           llhttp_resume(&me->_parser);
+                           me->asyncReadSome();
                          });
     return HPE_PAUSED;
   }
-  if (self->_request->requestType() == RequestType::HEAD) {
+  if (me->_request->requestType() == RequestType::HEAD) {
     // Assume that request/response has no body, proceed parsing next message
     return 1; // 1 is defined by parser
   }
@@ -193,19 +194,19 @@ int HttpCommTask<T>::on_header_complete(llhttp_t* p) {
 
 template <SocketType T>
 int HttpCommTask<T>::on_body(llhttp_t* p, const char* at, size_t len) {
-  HttpCommTask<T>* self = static_cast<HttpCommTask<T>*>(p->data);
-  self->_request->body().append(at, len);
+  HttpCommTask<T>* me = static_cast<HttpCommTask<T>*>(p->data);
+  me->_request->body().append(at, len);
   return HPE_OK;
 }
 
 template <SocketType T>
 int HttpCommTask<T>::on_message_complete(llhttp_t* p) {
-  HttpCommTask<T>* self = static_cast<HttpCommTask<T>*>(p->data);
+  HttpCommTask<T>* me = static_cast<HttpCommTask<T>*>(p->data);
   
-  RequestStatistics* stat = self->statistics(1UL);
+  RequestStatistics* stat = me->statistics(1UL);
   RequestStatistics::SET_READ_END(stat);
-  RequestStatistics::ADD_RECEIVED_BYTES(stat, self->_request->body().size());
-  self->_messageDone = true;
+  RequestStatistics::ADD_RECEIVED_BYTES(stat, me->_request->body().size());
+  me->_messageDone = true;
   
   return HPE_PAUSED;
 }
@@ -242,8 +243,8 @@ void HttpCommTask<T>::start() {
   this->_protocol->setNonBlocking(true);
   asio_ns::post(this->_protocol->context.io_context,
                 [self = this->shared_from_this()] {
-    auto* thisPtr = static_cast<HttpCommTask<T>*>(self.get());
-    thisPtr->checkVSTPrefix();
+    auto* me = static_cast<HttpCommTask<T>*>(self.get());
+    me->checkVSTPrefix();
   });
 }
 
@@ -262,7 +263,7 @@ void HttpCommTask<T>::addSimpleResponse(rest::ResponseCode code,
   } catch (...) {
     LOG_TOPIC("fc831", WARN, Logger::REQUESTS)
         << "addSimpleResponse received an exception, closing connection";
-    this->close();
+    this->close(asio_ns::error_code());
   }
 }
 
@@ -318,7 +319,7 @@ bool HttpCommTask<T>::readCallback(asio_ns::error_code ec) {
       LOG_TOPIC("595fe", TRACE, Logger::REQUESTS)
       << "HTTP parse failure: '" << llhttp_get_error_reason(&_parser) << "'";
     }
-    this->close();
+    this->close(asio_ns::error_code());
   }
 
   return err == HPE_OK && !ec;
@@ -333,36 +334,36 @@ template <SocketType T>
 void HttpCommTask<T>::checkVSTPrefix() {
   auto cb = [self = this->shared_from_this()]
   (asio_ns::error_code const& ec, size_t nread) {
-    auto* thisPtr = static_cast<HttpCommTask<T>*>(self.get());
+    auto* me = static_cast<HttpCommTask<T>*>(self.get());
     if (ec || nread < 11) {
-      thisPtr->close();
+      me->close(ec);
       return;
     }
-    thisPtr->_protocol->buffer.commit(nread);
+    me->_protocol->buffer.commit(nread);
     
-    auto bg = asio_ns::buffers_begin(thisPtr->_protocol->buffer.data());
+    auto bg = asio_ns::buffers_begin(me->_protocol->buffer.data());
     if (std::equal(::vst10, ::vst10 + 11, bg, bg + 11)) {
       
-      thisPtr->_protocol->buffer.consume(11); // remove VST/1.0 prefix
+      me->_protocol->buffer.consume(11); // remove VST/1.0 prefix
       auto commTask =
-      std::make_unique<VstCommTask<T>>(thisPtr->_server, thisPtr->_connectionInfo,
-                                       std::move(thisPtr->_protocol),
+      std::make_unique<VstCommTask<T>>(me->_server, me->_connectionInfo,
+                                       std::move(me->_protocol),
                                        fuerte::vst::VST1_0);
-      thisPtr->_server.registerTask(std::move(commTask));
+      me->_server.registerTask(std::move(commTask));
       return; // vst 1.0
       
     } else if (std::equal(::vst11, ::vst11 + 11, bg, bg + 11)) {
       
-      thisPtr->_protocol->buffer.consume(11); // remove VST/1.1 prefix
+      me->_protocol->buffer.consume(11); // remove VST/1.1 prefix
       auto commTask =
-      std::make_unique<VstCommTask<T>>(thisPtr->_server, thisPtr->_connectionInfo,
-                                       std::move(thisPtr->_protocol),
+      std::make_unique<VstCommTask<T>>(me->_server, me->_connectionInfo,
+                                       std::move(me->_protocol),
                                        fuerte::vst::VST1_1);
-      thisPtr->_server.registerTask(std::move(commTask));
+      me->_server.registerTask(std::move(commTask));
       return; // vst 1.1
     }
     
-    thisPtr->asyncReadSome(); // continue reading
+    me->asyncReadSome(); // continue reading
   };
   auto buffs = this->_protocol->buffer.prepare(GeneralCommTask<T>::ReadBlockSize);
   asio_ns::async_read(this->_protocol->socket, buffs,
@@ -735,7 +736,7 @@ void HttpCommTask<T>::sendResponse(std::unique_ptr<GeneralResponse> baseRes,
       }
       LOG_TOPIC("5c1e0", INFO, Logger::REQUESTS)
       << "keep alive timeout, closing stream!";
-      s->close();
+      static_cast<HttpCommTask<T>*>(s.get())->close(ec);
     });
     
     header->append(TRI_CHAR_LENGTH_PAIR("Connection: Keep-Alive\r\n"));
@@ -797,8 +798,23 @@ void HttpCommTask<T>::sendResponse(std::unique_ptr<GeneralResponse> baseRes,
   std::array<asio_ns::const_buffer, 2> buffers;
   buffers[0] = asio_ns::buffer(header->data(), header->size());
   if (HTTP_HEAD != _parser.method) {
-    buffers[1] = asio_ns::buffer(body->data(), body->size());
+    buffers[1] = asio_ns::buffer(body->begin(), body->size());
     TRI_ASSERT(len == body->size());
+  }
+  
+  if (AsioSocket<T>::supportsMixedIO()) {
+    asio_ns::error_code ec;
+    bool done = this->doSyncWrite(buffers, ec);
+    if (ADB_UNLIKELY(ec)) {
+      this->close(ec);
+      return;
+    }
+    
+    if (done) {
+      llhttp_resume(&_parser);
+      this->asyncReadSome();
+      return;
+    }
   }
   
   // FIXME measure performance w/o sync write
@@ -806,19 +822,14 @@ void HttpCommTask<T>::sendResponse(std::unique_ptr<GeneralResponse> baseRes,
              h = std::move(header),
              b = std::move(body)](asio_ns::error_code ec,
                                   size_t nwrite) {
-    auto* thisPtr = static_cast<HttpCommTask<T>*>(self.get());
+    auto* me = static_cast<HttpCommTask<T>*>(self.get());
     
-    llhttp_errno_t err = llhttp_get_errno(&thisPtr->_parser);
-    if (ec || !thisPtr->_shouldKeepAlive || err != HPE_PAUSED) {
-      if (ec) {
-        LOG_TOPIC("2b6b4", DEBUG, arangodb::Logger::REQUESTS)
-        << "asio write error: '" << ec.message() << "'";
-      }
-      thisPtr->close();
+    llhttp_errno_t err = llhttp_get_errno(&me->_parser);
+    if (ec || !me->_shouldKeepAlive || err != HPE_PAUSED) {
+      me->close(ec);
     } else {  // ec == HPE_PAUSED
-
-      llhttp_resume(&thisPtr->_parser);
-      thisPtr->asyncReadSome();
+      llhttp_resume(&me->_parser);
+      me->asyncReadSome();
     }
   };
   asio_ns::async_write(this->_protocol->socket, buffers, std::move(cb));

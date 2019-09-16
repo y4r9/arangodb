@@ -1540,11 +1540,6 @@ futures::Future<OperationResult> truncateCollectionOnCoordinator(transaction::Me
   Result res;
   // Set a few variables needed for our work:
   ClusterInfo* ci = ClusterInfo::instance();
-  auto cc = ClusterComm::instance();
-  if (cc == nullptr) {
-    // nullptr happens only during controlled shutdown
-    return futures::makeFuture(OperationResult(res.reset(TRI_ERROR_SHUTTING_DOWN)));
-  }
 
   std::string const& dbname = trx.vocbase().name();
   // First determine the collection ID from the name:

@@ -42,13 +42,52 @@ class GeneralCommTask : public CommTask {
   virtual ~GeneralCommTask();
 
   void start() override;
-  void close() override final;
+  
+protected:
 
- protected:
+  void close(asio_ns::error_code const& ec);
+
   /// read from socket
   void asyncReadSome();
   /// called to process data in _readBuffer, return false to stop
   virtual bool readCallback(asio_ns::error_code ec) = 0;
+  
+  template<typename BufferSequence>
+  bool doSyncWrite(BufferSequence& buffers, asio_ns::error_code& ec) {
+    size_t written = 0;
+    const size_t total = asio_ns::buffer_size(buffers);
+    
+    do {
+      size_t nwrite = this->_protocol->socket.write_some(buffers, ec);
+      written += nwrite;
+      if (total == written) {
+        return true;
+      }
+      
+      auto it = asio_ns::buffer_sequence_begin(buffers);
+      auto end = asio_ns::buffer_sequence_begin(buffers);
+
+      while (it != end) {
+        asio_ns::const_buffer b = *it;
+        if (nwrite <= b.size()) {
+          *it = asio_ns::buffer(static_cast<const char*>(b.data()) + nwrite,
+                                b.size() - nwrite);
+          break;
+        } else {
+          *it = asio_ns::buffer(b.data(), 0);
+        }
+        nwrite -= b.size();
+        it++;
+      }
+      
+    } while(!ec && written < total);
+    
+    if (ec == asio_ns::error::would_block ||
+        ec == asio_ns::error::try_again) {
+      ec.clear();
+    }
+    return total == written;
+  }
 
   /// default max chunksize is 30kb in arangodb (each read fits)
   static constexpr size_t ReadBlockSize = 1024 * 32;

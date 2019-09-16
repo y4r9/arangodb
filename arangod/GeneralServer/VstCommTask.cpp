@@ -84,7 +84,7 @@ void VstCommTask<T>::addSimpleResponse(rest::ResponseCode code,
     }
     sendResponse(std::move(resp), this->stealStatistics(messageId));
   } catch (...) {
-    this->close();
+    this->close(asio_ns::error_code());
   }
 }
 
@@ -96,7 +96,7 @@ bool VstCommTask<T>::readCallback(asio_ns::error_code ec) {
       LOG_TOPIC("495fe", INFO, Logger::REQUESTS)
       << "Error while reading from socket: '" << ec.message() << "'";
     }
-    this->close();
+    this->close(ec);
     return false;
   }
   
@@ -120,7 +120,7 @@ bool VstCommTask<T>::readCallback(asio_ns::error_code ec) {
     if (vst::parser::ChunkState::Incomplete == state) {
       break;
     } else if (vst::parser::ChunkState::Invalid == state) { // actually should never happen
-      this->close();
+      this->close(asio_ns::error_code());
       return false; // stop read loop
     }
     
@@ -131,7 +131,7 @@ bool VstCommTask<T>::readCallback(asio_ns::error_code ec) {
     
     // Process chunk
     if (!processChunk(chunk)) {
-      this->close();
+      this->close(asio_ns::error_code());
       return false; // stop read loop
     }
   }
@@ -346,20 +346,32 @@ void VstCommTask<T>::doWrite() {
     TRI_ASSERT(tmp != nullptr);
     std::unique_ptr<ResponseItem> item(tmp);
     
-    auto& buffers = item->buffers;
-    auto cb = [self = CommTask::shared_from_this(),
-               item = std::move(item)](asio_ns::error_code ec,
-                                       size_t transferred) {
-      auto* thisPtr = static_cast<VstCommTask<T>*>(self.get());
-      if (ec) {
-        LOG_TOPIC("5c6b4", INFO, arangodb::Logger::REQUESTS)
-        << "asio write error: '" << ec.message() << "'";
-        thisPtr->close();
-      } else {
-        thisPtr->doWrite(); // write next one
+    std::vector<asio_ns::const_buffer>& buffers = item->buffers;
+    
+    if (AsioSocket<T>::supportsMixedIO()) {
+      asio_ns::error_code ec;
+      bool done = this->doSyncWrite(buffers, ec);
+      if (ADB_UNLIKELY(ec)) {
+        this->close(ec);
+        return;
       }
-    };
-    asio_ns::async_write(this->_protocol->socket, buffers, std::move(cb));
+      
+      if (done) { // message was send, next one
+        continue;
+      }
+    }
+    
+    asio_ns::async_write(this->_protocol->socket, buffers,
+                         [self = CommTask::shared_from_this(),
+                          item = std::move(item)](asio_ns::error_code ec,
+                                                  size_t nwrite) {
+      auto* me = static_cast<VstCommTask<T>*>(self.get());
+      if (ADB_UNLIKELY(ec)) {
+        me->close(ec);
+      } else {
+        me->doWrite(); // write next one
+      }
+    });
     
     break; // done
   }

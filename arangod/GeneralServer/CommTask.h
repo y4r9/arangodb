@@ -86,7 +86,6 @@ class CommTask : public std::enable_shared_from_this<CommTask> {
   virtual ~CommTask();
 
   virtual void start() = 0;
-  virtual void close() = 0;
   
 protected:
   

@@ -53,13 +53,18 @@ void GeneralCommTask<T>::start() {
 }
 
 template <SocketType T>
-void GeneralCommTask<T>::close() {
+void GeneralCommTask<T>::close(asio_ns::error_code const& err) {
+  if (err) {
+    LOG_TOPIC("2b6b3", ERR, arangodb::Logger::REQUESTS)
+    << "asio error: '" << err.message() << "'";
+  }
+  
   if (_protocol) {
     _protocol->timer.cancel();
     asio_ns::error_code ec;
     _protocol->shutdown(ec);
     if (ec) {
-      LOG_TOPIC("2c6b4", DEBUG, arangodb::Logger::REQUESTS)
+      LOG_TOPIC("2c6b4", ERR, arangodb::Logger::REQUESTS)
           << "error shutting down asio socket: '" << ec.message() << "'";
     }
   }
@@ -70,7 +75,7 @@ template <SocketType T>
 void GeneralCommTask<T>::asyncReadSome() try {
   asio_ns::error_code ec;
   // first try a sync read for performance
-  if (_protocol->supportsMixedIO()) {
+  if (AsioSocket<T>::supportsMixedIO()) {
     std::size_t available = _protocol->available(ec);
 
     while (!ec && available > 8) {
@@ -109,13 +114,15 @@ void GeneralCommTask<T>::asyncReadSome() try {
         } catch (...) {
           LOG_TOPIC("2c6b6", ERR, arangodb::Logger::REQUESTS)
               << "unhandled protocol exception, closing connection";
-          thisPtr->close();
+          asio_ns::error_code ignore;
+          thisPtr->close(ignore);
         }
       });
 } catch (...) {
   LOG_TOPIC("2c6b5", ERR, arangodb::Logger::REQUESTS)
       << "unhandled protocol exception, closing connection";
-  close();
+  asio_ns::error_code ignore;
+  close(ignore);
 }
 
 template class arangodb::rest::GeneralCommTask<SocketType::Tcp>;
