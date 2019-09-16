@@ -146,7 +146,12 @@ class SupervisedSchedulerManagerThread final : public SupervisedSchedulerThread 
   explicit SupervisedSchedulerManagerThread(SupervisedScheduler& scheduler)
       : Thread("SchedMan"), SupervisedSchedulerThread(scheduler) {}
   ~SupervisedSchedulerManagerThread() { shutdown(); }
-  void run() override { _scheduler.runSupervisor(); };
+  void run() override {
+#ifdef _WIN32
+    _scheduler.managerThread = this->_thread;
+#endif
+    _scheduler.runSupervisor();
+  };
 };
 
 class SupervisedSchedulerWorkerThread final : public SupervisedSchedulerThread {
@@ -310,6 +315,9 @@ void SupervisedScheduler::shutdown() {
   }
 }
 
+#ifdef _WIN32
+HANDLE arangodb::SupervisedScheduler::managerThread;
+#endif
 std::atomic<double> arangodb::SupervisedScheduler::watchDogNow;
 std::atomic<int> arangodb::SupervisedScheduler::currentLine;
 

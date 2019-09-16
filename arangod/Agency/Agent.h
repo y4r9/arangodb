@@ -45,6 +45,7 @@ namespace consensus {
 
 class Agent final : public arangodb::Thread, public AgentInterface {
  public:
+  static int lastObservedLine;
   /// @brief Construct with program options
   explicit Agent(config_t const&);
 

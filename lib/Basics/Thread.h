@@ -163,6 +163,7 @@ class Thread {
   std::string const _name;
 
   // internal thread information
+protected:
   thread_t _thread;
   uint64_t _threadNumber;
 
