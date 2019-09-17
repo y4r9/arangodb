@@ -799,12 +799,13 @@ void HttpCommTask<T>::sendResponse(std::unique_ptr<GeneralResponse> baseRes,
   SmallVector<asio_ns::const_buffer>::allocator_type::arena_type a;
   SmallVector<asio_ns::const_buffer> buffers{a};
   
-  buffers[0] = asio_ns::buffer(header->data(), header->size());
+  buffers.emplace_back(header->data(), header->size());
   if (HTTP_HEAD != _parser.method) {
-    buffers[1] = asio_ns::buffer(body->begin(), body->size());
+    buffers.emplace_back(body->begin(), body->size());
     TRI_ASSERT(len == body->size());
   }
   
+#if 0
   if (AsioSocket<T>::supportsMixedIO()) {
     asio_ns::error_code ec;
     bool done = this->doSyncWrite(buffers, ec);
@@ -819,6 +820,7 @@ void HttpCommTask<T>::sendResponse(std::unique_ptr<GeneralResponse> baseRes,
       return;
     }
   }
+#endif
   
   // FIXME measure performance w/o sync write
   auto cb = [self = CommTask::shared_from_this(),

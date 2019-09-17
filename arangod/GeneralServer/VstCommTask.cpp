@@ -348,6 +348,7 @@ void VstCommTask<T>::doWrite() {
     
     std::vector<asio_ns::const_buffer>& buffers = item->buffers;
     
+#if 0
     if (AsioSocket<T>::supportsMixedIO()) {
       asio_ns::error_code ec;
       bool done = this->doSyncWrite(buffers, ec);
@@ -360,6 +361,7 @@ void VstCommTask<T>::doWrite() {
         continue;
       }
     }
+#endif
     
     asio_ns::async_write(this->_protocol->socket, buffers,
                          [self = CommTask::shared_from_this(),

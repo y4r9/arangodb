@@ -71,6 +71,7 @@ protected:
         if (nwrite <= b.size()) {
           buffers[0] = asio_ns::buffer(static_cast<const char*>(b.data()) + nwrite,
                                        b.size() - nwrite);
+          nwrite = 0;
           break;
         } else {
           nwrite -= b.size();
@@ -85,6 +86,7 @@ protected:
         ec == asio_ns::error::try_again) {
       ec.clear();
     }
+    TRI_ASSERT(written <= total);
     return total == written;
   }
 

@@ -62,7 +62,6 @@ class VstCommTask final : public GeneralCommTask<T> {
 
   bool readCallback(asio_ns::error_code ec) override;
   
-
  private:
   
   // Process the given incoming chunk.
