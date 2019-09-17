@@ -52,8 +52,9 @@ protected:
   /// called to process data in _readBuffer, return false to stop
   virtual bool readCallback(asio_ns::error_code ec) = 0;
   
-  template<typename BufferSequence>
-  bool doSyncWrite(BufferSequence& buffers, asio_ns::error_code& ec) {
+  template <typename AllocT>
+  bool doSyncWrite(std::vector<asio_ns::const_buffer, AllocT>& buffers,
+                   asio_ns::error_code& ec) {
     size_t written = 0;
     const size_t total = asio_ns::buffer_size(buffers);
     
@@ -61,24 +62,22 @@ protected:
       size_t nwrite = this->_protocol->socket.write_some(buffers, ec);
       written += nwrite;
       if (total == written) {
+        ec.clear();
         return true;
       }
       
-      auto it = asio_ns::buffer_sequence_begin(buffers);
-      auto end = asio_ns::buffer_sequence_begin(buffers);
-
-      while (it != end) {
-        asio_ns::const_buffer b = *it;
+      while (nwrite > 0) {
+        asio_ns::const_buffer b = buffers.front();
         if (nwrite <= b.size()) {
-          *it = asio_ns::buffer(static_cast<const char*>(b.data()) + nwrite,
-                                b.size() - nwrite);
+          buffers[0] = asio_ns::buffer(static_cast<const char*>(b.data()) + nwrite,
+                                       b.size() - nwrite);
           break;
         } else {
-          *it = asio_ns::buffer(b.data(), 0);
+          nwrite -= b.size();
+          buffers.erase(buffers.begin());
         }
-        nwrite -= b.size();
-        it++;
       }
+      TRI_ASSERT(nwrite == 0);
       
     } while(!ec && written < total);
     

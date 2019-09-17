@@ -24,6 +24,7 @@
 #include "HttpCommTask.h"
 
 #include "Basics/EncodingUtils.h"
+#include "Basics/SmallVector.h"
 #include "Basics/asio_ns.h"
 #include "Cluster/ServerState.h"
 #include "GeneralServer/AuthenticationFeature.h"
@@ -795,7 +796,9 @@ void HttpCommTask<T>::sendResponse(std::unique_ptr<GeneralResponse> baseRes,
   << "\",\"" << GeneralRequest::translateMethod(::llhttpToRequestType(&_parser)) << "\",\""
   << static_cast<int>(response.responseCode()) << "\"," << Logger::FIXED(totalTime, 6);
   
-  std::array<asio_ns::const_buffer, 2> buffers;
+  SmallVector<asio_ns::const_buffer>::allocator_type::arena_type a;
+  SmallVector<asio_ns::const_buffer> buffers{a};
+  
   buffers[0] = asio_ns::buffer(header->data(), header->size());
   if (HTTP_HEAD != _parser.method) {
     buffers[1] = asio_ns::buffer(body->begin(), body->size());
