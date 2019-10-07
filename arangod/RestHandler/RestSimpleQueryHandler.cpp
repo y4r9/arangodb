@@ -310,6 +310,11 @@ RestStatus RestSimpleQueryHandler::byExample() {
   }
 
   data.add("count", VPackSlice::trueSlice());
+  data.add(VPackValue("options"));
+  {
+    VPackObjectBuilder guard(&data);
+    data.add("profile", VPackValue(3));
+  }
   data.close();
 
   return registerQueryOrCursor(data.slice());
