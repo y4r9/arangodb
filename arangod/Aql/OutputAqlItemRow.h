@@ -111,7 +111,7 @@ class OutputAqlItemRow {
   void advanceRow();
 
   // returns true if row was produced
-  bool produced() const { return allValuesWritten() && _inputRowCopied; }
+  bool produced() const { return _inputRowCopied && allValuesWritten(); }
 
   /**
    * @brief Steal the AqlItemBlock held by the OutputAqlItemRow. The returned
