@@ -78,18 +78,18 @@ using namespace arangodb::aql;
  * constexpr bool someClassHasSomeMethod = hasSomeMethod<SomeClass>::value;
  */
 
-#define CREATE_HAS_MEMBER_CHECK(methodName, checkName)     \
-  template <typename T>                                    \
-  class checkName {                                        \
-    template <typename C>                                  \
-    static std::true_type test(decltype(&C::methodName));  \
-    template <typename C>                                  \
+#define CREATE_HAS_MEMBER_CHECK(methodName, checkName)               \
+  template <typename T>                                              \
+  class checkName {                                                  \
+    template <typename C>                                            \
+    static std::true_type test(decltype(&C::methodName));            \
+    template <typename C>                                            \
     static std::true_type test(decltype(&C::template methodName<>)); \
-    template <typename>                                    \
-    static std::false_type test(...);                      \
-                                                           \
-   public:                                                 \
-    static constexpr bool value = decltype(test<T>(0))::value;    \
+    template <typename>                                              \
+    static std::false_type test(...);                                \
+                                                                     \
+   public:                                                           \
+    static constexpr bool value = decltype(test<T>(0))::value;       \
   }
 
 CREATE_HAS_MEMBER_CHECK(initializeCursor, hasInitializeCursor);
@@ -108,7 +108,8 @@ ExecutionBlockImpl<Executor>::ExecutionBlockImpl(ExecutionEngine* engine,
       _infos(std::move(infos)),
       _executor(_rowFetcher, _infos),
       _outputItemRow(),
-      _query(*engine->getQuery()) {
+      _query(*engine->getQuery()),
+      _state{FETCH_DATA} {
   // already insert ourselves into the statistics results
   if (_profile >= PROFILE_LEVEL_BLOCKS) {
     _engine->_stats.nodes.emplace(node->id(), ExecutionStats::Node());
@@ -143,6 +144,11 @@ std::pair<ExecutionState, SharedAqlItemBlockPtr> ExecutionBlockImpl<Executor>::g
     THROW_ARANGO_EXCEPTION(TRI_ERROR_QUERY_KILLED);
   }
 
+  if (_state == DONE) {
+    // We are done, so we stay done
+    return {ExecutionState::DONE, nullptr};
+  }
+
   if (!_outputItemRow) {
     ExecutionState state;
     SharedAqlItemBlockPtr newBlock;
@@ -171,6 +177,60 @@ std::pair<ExecutionState, SharedAqlItemBlockPtr> ExecutionBlockImpl<Executor>::g
   // The loop has to be entered at least once!
   TRI_ASSERT(!_outputItemRow->isFull());
   while (!_outputItemRow->isFull()) {
+    // Assert that write-head is always pointing to a free row
+    TRI_ASSERT(!_outputItemRow->produced());
+    switch (_state) {
+      case FETCH_DATA: {
+        std::tie(state, executorStats) = _executor.produceRows(*_outputItemRow);
+        // Count global but executor-specific statistics, like number of
+        // filtered rows.
+        _engine->_stats += executorStats;
+        if (_outputItemRow->produced()) {
+          _outputItemRow->advanceRow();
+        }
+
+        if (state == ExecutionState::WAITING) {
+          return {state, nullptr};
+        }
+
+        if (state == ExecutionState::DONE) {
+          _state = FETCH_SHADOWROWS;
+        }
+        break;
+      }
+      case FETCH_SHADOWROWS: {
+        ShadowAqlItemRow shadowRow{CreateInvalidShadowRowHint{}};
+        // TODO: Add lazy evaluation in case of LIMIT "lying" on done
+        std::tie(state, shadowRow) = _rowFetcher.fetchShadowRow();
+
+        if (state == ExecutionState::WAITING) {
+          return {state, nullptr};
+        }
+
+        if (state == ExecutionState::DONE) {
+          _state = DONE;
+        }
+        if (shadowRow.isInitialized()) {
+          _outputItemRow->copyRow(shadowRow);
+          TRI_ASSERT(_outputItemRow->produced());
+          _outputItemRow->advanceRow();
+        } else {
+          if (_state != DONE) {
+            _state = FETCH_DATA;
+          }
+        }
+
+        break;
+      }
+      case DONE: {
+        auto outputBlock = _outputItemRow->stealBlock();
+        // This is not strictly necessary here, as we shouldn't be called
+        // again after DONE.
+        _outputItemRow.reset();
+        return {state, std::move(outputBlock)};
+        break;
+      }
+    }
     std::tie(state, executorStats) = _executor.produceRows(*_outputItemRow);
     // Count global but executor-specific statistics, like number of filtered
     // rows.
@@ -535,8 +595,8 @@ std::pair<ExecutionState, Result> ExecutionBlockImpl<SubqueryExecutor<false>>::s
 }
 
 template <>
-std::pair<ExecutionState, Result>
-ExecutionBlockImpl<IdExecutor<BlockPassthrough::Enable, SingleRowFetcher<BlockPassthrough::Enable>>>::shutdown(int errorCode) {
+std::pair<ExecutionState, Result> ExecutionBlockImpl<
+    IdExecutor<BlockPassthrough::Enable, SingleRowFetcher<BlockPassthrough::Enable>>>::shutdown(int errorCode) {
   if (this->infos().isResponsibleForInitializeCursor()) {
     return ExecutionBlock::shutdown(errorCode);
   }
@@ -729,8 +789,10 @@ template class ::arangodb::aql::ExecutionBlockImpl<IResearchViewExecutor<true>>;
 template class ::arangodb::aql::ExecutionBlockImpl<IResearchViewMergeExecutor<false>>;
 template class ::arangodb::aql::ExecutionBlockImpl<IResearchViewMergeExecutor<true>>;
 template class ::arangodb::aql::ExecutionBlockImpl<IdExecutor<BlockPassthrough::Enable, ConstFetcher>>;
-template class ::arangodb::aql::ExecutionBlockImpl<IdExecutor<BlockPassthrough::Enable, SingleRowFetcher<BlockPassthrough::Enable>>>;
-template class ::arangodb::aql::ExecutionBlockImpl<IdExecutor<BlockPassthrough::Disable, SingleRowFetcher<BlockPassthrough::Disable>>>;
+template class ::arangodb::aql::ExecutionBlockImpl<
+    IdExecutor<BlockPassthrough::Enable, SingleRowFetcher<BlockPassthrough::Enable>>>;
+template class ::arangodb::aql::ExecutionBlockImpl<
+    IdExecutor<BlockPassthrough::Disable, SingleRowFetcher<BlockPassthrough::Disable>>>;
 template class ::arangodb::aql::ExecutionBlockImpl<IndexExecutor>;
 template class ::arangodb::aql::ExecutionBlockImpl<LimitExecutor>;
 template class ::arangodb::aql::ExecutionBlockImpl<ModificationExecutor<Insert, SingleBlockFetcher<BlockPassthrough::Disable>>>;

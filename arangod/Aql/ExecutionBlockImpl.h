@@ -98,8 +98,12 @@ class ExecutionBlockImpl final : public ExecutionBlock {
       typename aql::DependencyProxy<Executor::Properties::allowsBlockPassthrough>;
 
   static_assert(
-    Executor::Properties::allowsBlockPassthrough == BlockPassthrough::Disable || Executor::Properties::preservesOrder,
+      Executor::Properties::allowsBlockPassthrough == BlockPassthrough::Disable ||
+          Executor::Properties::preservesOrder,
       "allowsBlockPassthrough must imply preservesOrder, but does not!");
+
+ private:
+  enum InternalState { FETCH_DATA, FETCH_SHADOWROWS, DONE };
 
  public:
   /**
@@ -230,6 +234,8 @@ class ExecutionBlockImpl final : public ExecutionBlock {
   std::unique_ptr<OutputAqlItemRow> _outputItemRow;
 
   Query const& _query;
+
+  InternalState _state;
 };
 
 }  // namespace aql
