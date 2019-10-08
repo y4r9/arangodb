@@ -29,6 +29,9 @@
 #include "Basics/Exceptions.h"
 #include "Basics/voc-errors.h"
 
+// TODO revist on merge with proper implementation
+#include "Aql/ShadowAqlItemRow.h"
+
 #include <memory>
 
 namespace arangodb {
@@ -187,14 +190,13 @@ class MultiDependencySingleRowFetcher {
         depInfo._rowIndex++;
         rowState = ExecutionState::HASMORE;
       }
-
     }
 
     return {rowState, row};
   }
 
-  std::pair<ExecutionState, size_t> skipRowsForDependency(
-      size_t const dependency, size_t const atMost) {
+  std::pair<ExecutionState, size_t> skipRowsForDependency(size_t const dependency,
+                                                          size_t const atMost) {
     TRI_ASSERT(dependency < _dependencyInfos.size());
     auto& depInfo = _dependencyInfos[dependency];
 
@@ -216,6 +218,12 @@ class MultiDependencySingleRowFetcher {
     // We should not be called after we're done.
     TRI_ASSERT(false);
     return {ExecutionState::DONE, 0};
+  }
+
+  // on purpose not implemented, done in different PR
+  // NOLINTNEXTLINE google-default-arguments
+  std::pair<ExecutionState, ShadowAqlItemRow> fetchShadowRow(size_t atMost = 1) const {
+    THROW_ARANGO_EXCEPTION(TRI_ERROR_NOT_IMPLEMENTED);
   }
 
  private:

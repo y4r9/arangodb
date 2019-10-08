@@ -24,7 +24,8 @@
 #define ARANGOD_AQL_CONST_FETCHER_H
 
 #include "Aql/ExecutionState.h"
-#include "Aql/InputAqlItemRow.h"
+#include "Aql/SharedAqlItemBlockPtr.h"
+#include "Aql/types.h"
 
 #include <memory>
 
@@ -34,6 +35,9 @@ namespace aql {
 class AqlItemBlock;
 template <BlockPassthrough>
 class DependencyProxy;
+
+class InputAqlItemRow;
+class ShadowAqlItemRow;
 
 /**
  * @brief Interface for all AqlExecutors that do only need one
@@ -86,6 +90,10 @@ class ConstFetcher {
     TRI_ASSERT(false);
     THROW_ARANGO_EXCEPTION(TRI_ERROR_NOT_IMPLEMENTED);
   }
+
+  // At most does not matter for this fetcher. It will return DONE anyways
+  // NOLINTNEXTLINE google-default-arguments
+  std::pair<ExecutionState, ShadowAqlItemRow> fetchShadowRow(size_t atMost = 1) const;
 
  private:
   /**
