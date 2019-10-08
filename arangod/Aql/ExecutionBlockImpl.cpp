@@ -109,7 +109,7 @@ ExecutionBlockImpl<Executor>::ExecutionBlockImpl(ExecutionEngine* engine,
       _executor(_rowFetcher, _infos),
       _outputItemRow(),
       _query(*engine->getQuery()),
-      _state{FETCH_DATA} {
+      _state{InternalState::FETCH_DATA} {
   // already insert ourselves into the statistics results
   if (_profile >= PROFILE_LEVEL_BLOCKS) {
     _engine->_stats.nodes.emplace(node->id(), ExecutionStats::Node());
@@ -144,7 +144,7 @@ std::pair<ExecutionState, SharedAqlItemBlockPtr> ExecutionBlockImpl<Executor>::g
     THROW_ARANGO_EXCEPTION(TRI_ERROR_QUERY_KILLED);
   }
 
-  if (_state == DONE) {
+  if (_state == InternalState::DONE) {
     // We are done, so we stay done
     return {ExecutionState::DONE, nullptr};
   }
@@ -180,7 +180,8 @@ std::pair<ExecutionState, SharedAqlItemBlockPtr> ExecutionBlockImpl<Executor>::g
     // Assert that write-head is always pointing to a free row
     TRI_ASSERT(!_outputItemRow->produced());
     switch (_state) {
-      case FETCH_DATA: {
+      case InternalState::FETCH_DATA: {
+        LOG_DEVEL << typeid(_executor).name() << ": fetching data";
         std::tie(state, executorStats) = _executor.produceRows(*_outputItemRow);
         // Count global but executor-specific statistics, like number of
         // filtered rows.
@@ -198,7 +199,8 @@ std::pair<ExecutionState, SharedAqlItemBlockPtr> ExecutionBlockImpl<Executor>::g
         }
         break;
       }
-      case FETCH_SHADOWROWS: {
+      case InternalState::FETCH_SHADOWROWS: {
+        LOG_DEVEL << typeid(_executor).name() << ": fetching shadow rows";
         ShadowAqlItemRow shadowRow{CreateInvalidShadowRowHint{}};
         // TODO: Add lazy evaluation in case of LIMIT "lying" on done
         std::tie(state, shadowRow) = _rowFetcher.fetchShadowRow();
@@ -208,51 +210,35 @@ std::pair<ExecutionState, SharedAqlItemBlockPtr> ExecutionBlockImpl<Executor>::g
         }
 
         if (state == ExecutionState::DONE) {
-          _state = DONE;
+          _state = InternalState::DONE;
         }
         if (shadowRow.isInitialized()) {
+          LOG_DEVEL << typeid(_executor).name() << ": copy shadow rows";
           _outputItemRow->copyRow(shadowRow);
           TRI_ASSERT(_outputItemRow->produced());
           _outputItemRow->advanceRow();
         } else {
-          if (_state != DONE) {
+          if (_state != InternalState::DONE) {
             _state = FETCH_DATA;
           }
         }
 
         break;
       }
-      case DONE: {
+      case InternalState::DONE: {
+        TRI_ASSERT(state == ExecutionState::DONE);
+        LOG_DEVEL << typeid(_executor).name() << ": DONE";
         auto outputBlock = _outputItemRow->stealBlock();
         // This is not strictly necessary here, as we shouldn't be called
         // again after DONE.
         _outputItemRow.reset();
-        return {state, std::move(outputBlock)};
+        return {ExecutionState::DONE, std::move(outputBlock)};
         break;
       }
     }
-    std::tie(state, executorStats) = _executor.produceRows(*_outputItemRow);
-    // Count global but executor-specific statistics, like number of filtered
-    // rows.
-    _engine->_stats += executorStats;
-    if (_outputItemRow->produced()) {
-      _outputItemRow->advanceRow();
-    }
-
-    if (state == ExecutionState::WAITING) {
-      return {state, nullptr};
-    }
-
-    if (state == ExecutionState::DONE) {
-      auto outputBlock = _outputItemRow->stealBlock();
-      // This is not strictly necessary here, as we shouldn't be called again
-      // after DONE.
-      _outputItemRow.reset();
-      return {state, std::move(outputBlock)};
-    }
   }
 
-  TRI_ASSERT(state == ExecutionState::HASMORE);
+  TRI_ASSERT(_state != InternalState::DONE);
   // When we're passing blocks through we have no control over the size of the
   // output block.
   // Plus, the ConstrainedSortExecutor will report an expectedNumberOfRows
@@ -261,14 +247,23 @@ std::pair<ExecutionState, SharedAqlItemBlockPtr> ExecutionBlockImpl<Executor>::g
   // fullCount must continue to count after the sorted output.
   if /* constexpr */ (Executor::Properties::allowsBlockPassthrough == BlockPassthrough::Disable &&
                       !std::is_same<Executor, ConstrainedSortExecutor>::value) {
-    TRI_ASSERT(_outputItemRow->numRowsWritten() == atMost);
+    LOG_DEVEL_IF(_outputItemRow->numRowsWritten() != atMost)
+        << typeid(_executor).name() << ": " << _outputItemRow->numRowsWritten()
+        << " vs expected: " << atMost << "full: " << _outputItemRow->isFull()
+        << " violates former assertion.";
+    // TODO!
+    // We cannot keep this assertion anymore without some more code changes.
+    // The above might exit on every finished subquery now.
+    // This will be adjusted later on
+
+    // TRI_ASSERT(_outputItemRow->numRowsWritten() == atMost);
   }
 
   auto outputBlock = _outputItemRow->stealBlock();
   // we guarantee that we do return a valid pointer in the HASMORE case.
   TRI_ASSERT(outputBlock != nullptr);
   _outputItemRow.reset();
-  return {state, std::move(outputBlock)};
+  return {ExecutionState::HASMORE, std::move(outputBlock)};
 }
 
 template <class Executor>
