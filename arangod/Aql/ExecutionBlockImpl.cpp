@@ -168,7 +168,6 @@ std::pair<ExecutionState, SharedAqlItemBlockPtr> ExecutionBlockImpl<Executor>::g
     TRI_ASSERT(newBlock->size() > 0);
     TRI_ASSERT(newBlock->size() <= atMost);
     _outputItemRow = createOutputRow(newBlock);
-    LOG_DEVEL << typeid(_executor).name() << "outreg on block: " << newBlock->getNrRegs();
   }
 
   ExecutionState state = ExecutionState::HASMORE;
@@ -178,14 +177,11 @@ std::pair<ExecutionState, SharedAqlItemBlockPtr> ExecutionBlockImpl<Executor>::g
 
   // The loop has to be entered at least once!
   TRI_ASSERT(!_outputItemRow->isFull());
-  while (!_outputItemRow->isFull()) {
+  while (!_outputItemRow->isFull() && _state != InternalState::DONE) {
     // Assert that write-head is always pointing to a free row
     TRI_ASSERT(!_outputItemRow->produced());
     switch (_state) {
       case InternalState::FETCH_DATA: {
-        LOG_DEVEL << typeid(_executor).name() << ": fetching data";
-        LOG_DEVEL << typeid(_executor).name()
-                  << "outreg before produce: " << _outputItemRow->getNrRegisters();
         std::tie(state, executorStats) = _executor.produceRows(*_outputItemRow);
         // Count global but executor-specific statistics, like number of
         // filtered rows.
@@ -204,7 +200,6 @@ std::pair<ExecutionState, SharedAqlItemBlockPtr> ExecutionBlockImpl<Executor>::g
         break;
       }
       case InternalState::FETCH_SHADOWROWS: {
-        LOG_DEVEL << typeid(_executor).name() << ": fetching shadow rows";
         ShadowAqlItemRow shadowRow{CreateInvalidShadowRowHint{}};
         // TODO: Add lazy evaluation in case of LIMIT "lying" on done
         std::tie(state, shadowRow) = _rowFetcher.fetchShadowRow();
@@ -217,7 +212,6 @@ std::pair<ExecutionState, SharedAqlItemBlockPtr> ExecutionBlockImpl<Executor>::g
           _state = InternalState::DONE;
         }
         if (shadowRow.isInitialized()) {
-          LOG_DEVEL << typeid(_executor).name() << ": copy shadow rows";
           _outputItemRow->copyRow(shadowRow);
           TRI_ASSERT(_outputItemRow->produced());
           _outputItemRow->advanceRow();
@@ -231,19 +225,11 @@ std::pair<ExecutionState, SharedAqlItemBlockPtr> ExecutionBlockImpl<Executor>::g
         break;
       }
       case InternalState::DONE: {
-        TRI_ASSERT(state == ExecutionState::DONE);
-        LOG_DEVEL << typeid(_executor).name() << ": DONE";
-        auto outputBlock = _outputItemRow->stealBlock();
-        // This is not strictly necessary here, as we shouldn't be called
-        // again after DONE.
-        _outputItemRow.reset();
-        return {ExecutionState::DONE, std::move(outputBlock)};
-        break;
+        TRI_ASSERT(false);  // Invalid state
       }
     }
   }
 
-  TRI_ASSERT(_state != InternalState::DONE);
   // When we're passing blocks through we have no control over the size of the
   // output block.
   // Plus, the ConstrainedSortExecutor will report an expectedNumberOfRows
@@ -266,9 +252,11 @@ std::pair<ExecutionState, SharedAqlItemBlockPtr> ExecutionBlockImpl<Executor>::g
 
   auto outputBlock = _outputItemRow->stealBlock();
   // we guarantee that we do return a valid pointer in the HASMORE case.
-  TRI_ASSERT(outputBlock != nullptr);
+  // But we might return a nullptr in DONE case
+  TRI_ASSERT(outputBlock != nullptr || _state == InternalState::DONE);
   _outputItemRow.reset();
-  return {ExecutionState::HASMORE, std::move(outputBlock)};
+  return {(_state == InternalState::DONE ? ExecutionState::DONE : ExecutionState::HASMORE),
+          std::move(outputBlock)};
 }
 
 template <class Executor>
@@ -785,7 +773,6 @@ SharedAqlItemBlockPtr ExecutionBlockImpl<Executor>::requestBlock(size_t nrItems,
 /// @brief reset all internal states after processing a shadow row.
 template <class Executor>
 void ExecutionBlockImpl<Executor>::resetAfterShadowRow() {
-  LOG_DEVEL << "Reset after shadowRow";
   // cppcheck-suppress unreadVariable
   constexpr bool customInit = hasInitializeCursor<decltype(_executor)>::value;
   InitializeCursor<customInit>::init(_executor, _rowFetcher, _infos);
