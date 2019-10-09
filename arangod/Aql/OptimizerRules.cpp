@@ -7290,14 +7290,25 @@ void arangodb::aql::spliceSubqueriesRule(Optimizer* opt, std::unique_ptr<Executi
       TRI_ASSERT(x != nullptr);
       x->replaceDependency(singleton, start);
     }
+    ExecutionNode* subqueryRoot = sq->getSubquery();
+    Variable const* inVariable = nullptr;
+
+    if (subqueryRoot->getType() == ExecutionNode::RETURN) {
+      // The SubqueryEndExecutor can read the input from the return Node.
+      ReturnNode* subqueryReturn = ExecutionNode::castTo<ReturnNode*>(subqueryRoot);
+      inVariable = subqueryReturn->inVariable();
+      // Every return can only have a single dependency
+      TRI_ASSERT(subqueryReturn->getDependencies().size() == 1);
+      subqueryRoot = subqueryReturn->getFirstDependency();
+    }
 
     // insert a SubqueryEndNode after the SubqueryNode sq
     SubqueryEndNode* end =
-        new SubqueryEndNode(plan.get(), plan->nextId(), sq->outVariable());
+        new SubqueryEndNode(plan.get(), plan->nextId(), inVariable, sq->outVariable());
     plan->registerNode(end);
     plan->insertAfter(sq, end);
 
-    end->replaceDependency(sq, sq->getSubquery());
+    end->replaceDependency(sq, subqueryRoot);
   }
 
   opt->addPlan(std::move(plan), rule, modified);

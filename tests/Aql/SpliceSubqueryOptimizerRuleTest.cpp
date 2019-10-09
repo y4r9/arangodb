@@ -197,18 +197,24 @@ class SpliceSubqueryNodeOptimizerRuleTest : public ::testing::Test {
 
     // First test original Query (rule-disabled)
     {
+      LOG_DEVEL << "Disabled rule";
       auto queryResult =
           arangodb::tests::executeQuery(server.getSystemDatabase(), query,
                                         bindParameters, disableRuleOptions());
       compareQueryResultToSlice(queryResult, false, expected);
+      LOG_DEVEL << "...";
+      LOG_DEVEL << "...";
     }
 
     // Second test optimized Query (rule-enabled)
     {
+      LOG_DEVEL << "Enabled rule";
       auto queryResult =
           arangodb::tests::executeQuery(server.getSystemDatabase(), query,
                                         bindParameters, enableRuleOptions());
       compareQueryResultToSlice(queryResult, true, expected);
+      LOG_DEVEL << "...";
+      LOG_DEVEL << "...";
     }
   }
 
@@ -225,7 +231,7 @@ TEST_F(SpliceSubqueryNodeOptimizerRuleTest, splice_subquery_no_subquery_plan) {
   verifyQueryResult(query, expected->slice());
 }
 
-TEST_F(SpliceSubqueryNodeOptimizerRuleTest, DISABLED_splice_subquery_single_input) {
+TEST_F(SpliceSubqueryNodeOptimizerRuleTest, splice_subquery_single_input) {
   auto query = R"aql(FOR d IN 1..1
                       LET first =
                         (RETURN 1)

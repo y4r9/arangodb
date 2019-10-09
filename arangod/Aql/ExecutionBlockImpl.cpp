@@ -167,6 +167,7 @@ std::pair<ExecutionState, SharedAqlItemBlockPtr> ExecutionBlockImpl<Executor>::g
     TRI_ASSERT(newBlock->size() > 0);
     TRI_ASSERT(newBlock->size() <= atMost);
     _outputItemRow = createOutputRow(newBlock);
+    LOG_DEVEL << typeid(_executor).name() << "outreg on block: " << newBlock->getNrRegs();
   }
 
   ExecutionState state = ExecutionState::HASMORE;
@@ -182,6 +183,8 @@ std::pair<ExecutionState, SharedAqlItemBlockPtr> ExecutionBlockImpl<Executor>::g
     switch (_state) {
       case InternalState::FETCH_DATA: {
         LOG_DEVEL << typeid(_executor).name() << ": fetching data";
+        LOG_DEVEL << typeid(_executor).name()
+                  << "outreg before produce: " << _outputItemRow->getNrRegisters();
         std::tie(state, executorStats) = _executor.produceRows(*_outputItemRow);
         // Count global but executor-specific statistics, like number of
         // filtered rows.
@@ -220,6 +223,7 @@ std::pair<ExecutionState, SharedAqlItemBlockPtr> ExecutionBlockImpl<Executor>::g
         } else {
           if (_state != InternalState::DONE) {
             _state = FETCH_DATA;
+            resetAfterShadowRow();
           }
         }
 
@@ -767,6 +771,15 @@ template <class Executor>
 SharedAqlItemBlockPtr ExecutionBlockImpl<Executor>::requestBlock(size_t nrItems,
                                                                  RegisterId nrRegs) {
   return _engine->itemBlockManager().requestBlock(nrItems, nrRegs);
+}
+
+/// @brief reset all internal states after processing a shadow row.
+template <class Executor>
+void ExecutionBlockImpl<Executor>::resetAfterShadowRow() {
+  LOG_DEVEL << "Reset after shadowRow";
+  // cppcheck-suppress unreadVariable
+  constexpr bool customInit = hasInitializeCursor<decltype(_executor)>::value;
+  InitializeCursor<customInit>::init(_executor, _rowFetcher, _infos);
 }
 
 template class ::arangodb::aql::ExecutionBlockImpl<CalculationExecutor<CalculationType::Condition>>;

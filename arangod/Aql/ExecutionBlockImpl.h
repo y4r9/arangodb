@@ -209,6 +209,11 @@ class ExecutionBlockImpl final : public ExecutionBlock {
   /// @brief request an AqlItemBlock from the memory manager
   SharedAqlItemBlockPtr requestBlock(size_t nrItems, RegisterCount nrRegs);
 
+  /// @brief reset all internal states after processing a shadow row.
+  ///        This indicates that a new subquery is started and all executors
+  ///        that have returned DONE before need to fetch the next input rows
+  void resetAfterShadowRow();
+
  private:
   /**
    * @brief Used to allow the row Fetcher to access selected methods of this
