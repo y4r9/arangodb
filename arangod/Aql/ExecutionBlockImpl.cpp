@@ -46,6 +46,7 @@
 #include "Aql/InputAqlItemRow.h"
 #include "Aql/KShortestPathsExecutor.h"
 #include "Aql/LimitExecutor.h"
+#include "Aql/MaterializeExecutor.h"
 #include "Aql/ModificationExecutor.h"
 #include "Aql/ModificationExecutorTraits.h"
 #include "Aql/MultiDependencySingleRowFetcher.h"
@@ -63,7 +64,6 @@
 #include "Aql/SubqueryExecutor.h"
 #include "Aql/SubqueryStartExecutor.h"
 #include "Aql/TraversalExecutor.h"
-#include "Aql/MaterializeExecutor.h"
 
 #include <type_traits>
 
@@ -360,23 +360,24 @@ static SkipVariants constexpr skipType() {
   static_assert(!useFetcher || hasSkipRows<typename Executor::Fetcher>::value,
                 "Fetcher is chosen for skipping, but has not skipRows method!");
 
-  static_assert(useExecutor ==
-                    (std::is_same<Executor, IndexExecutor>::value ||
-                     std::is_same<Executor, IResearchViewExecutor<false, true>>::value ||
-                     std::is_same<Executor, IResearchViewExecutor<true, true>>::value ||
-                     std::is_same<Executor, IResearchViewMergeExecutor<false, true>>::value ||
-                     std::is_same<Executor, IResearchViewMergeExecutor<true, true>>::value ||
-                     std::is_same<Executor, IResearchViewExecutor<false, false>>::value ||
-                     std::is_same<Executor, IResearchViewExecutor<true, false>>::value ||
-                     std::is_same<Executor, IResearchViewMergeExecutor<false, false>>::value ||
-                     std::is_same<Executor, IResearchViewMergeExecutor<true, false>>::value ||
-                     std::is_same<Executor, EnumerateCollectionExecutor>::value ||
-                     std::is_same<Executor, LimitExecutor>::value ||
-                     std::is_same<Executor, IdExecutor<BlockPassthrough::Disable, SingleRowFetcher<BlockPassthrough::Disable>>>::value ||
-                     std::is_same<Executor, ConstrainedSortExecutor>::value ||
-                     std::is_same<Executor, SortingGatherExecutor>::value ||
-                     std::is_same<Executor, MaterializeExecutor>::value),
-                "Unexpected executor for SkipVariants::EXECUTOR");
+  static_assert(
+      useExecutor ==
+          (std::is_same<Executor, IndexExecutor>::value ||
+           std::is_same<Executor, IResearchViewExecutor<false, true>>::value ||
+           std::is_same<Executor, IResearchViewExecutor<true, true>>::value ||
+           std::is_same<Executor, IResearchViewMergeExecutor<false, true>>::value ||
+           std::is_same<Executor, IResearchViewMergeExecutor<true, true>>::value ||
+           std::is_same<Executor, IResearchViewExecutor<false, false>>::value ||
+           std::is_same<Executor, IResearchViewExecutor<true, false>>::value ||
+           std::is_same<Executor, IResearchViewMergeExecutor<false, false>>::value ||
+           std::is_same<Executor, IResearchViewMergeExecutor<true, false>>::value ||
+           std::is_same<Executor, EnumerateCollectionExecutor>::value ||
+           std::is_same<Executor, LimitExecutor>::value ||
+           std::is_same<Executor, IdExecutor<BlockPassthrough::Disable, SingleRowFetcher<BlockPassthrough::Disable>>>::value ||
+           std::is_same<Executor, ConstrainedSortExecutor>::value ||
+           std::is_same<Executor, SortingGatherExecutor>::value ||
+           std::is_same<Executor, MaterializeExecutor>::value),
+      "Unexpected executor for SkipVariants::EXECUTOR");
 
   // The LimitExecutor will not work correctly with SkipVariants::FETCHER!
   static_assert(
@@ -451,6 +452,7 @@ struct InitializeCursor<true> {
 
 template <class Executor>
 std::pair<ExecutionState, Result> ExecutionBlockImpl<Executor>::initializeCursor(InputAqlItemRow const& input) {
+  _state = InternalState::FETCH_DATA;
   // reinitialize the DependencyProxy
   _dependencyProxy.reset();
 
@@ -497,6 +499,7 @@ namespace aql {
 template <>
 std::pair<ExecutionState, Result> ExecutionBlockImpl<IdExecutor<BlockPassthrough::Enable, ConstFetcher>>::initializeCursor(
     InputAqlItemRow const& input) {
+  _state = InternalState::FETCH_DATA;
   // reinitialize the DependencyProxy
   _dependencyProxy.reset();
 
