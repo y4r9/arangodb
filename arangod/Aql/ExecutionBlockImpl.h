@@ -155,6 +155,9 @@ class ExecutionBlockImpl final : public ExecutionBlock {
    * @param atMost Upper bound of AqlItemRows to be skipped.
    *               Target is to get as close to this upper bound
    *               as possible.
+   * @param subqueryDepth We skip atMost many rows only on the given
+   * subqueryDepth A depth of 0 means this Executor is part of the subquery we
+   * skip in A higher depth means we skip in an out subquery.
    *
    * @return A pair with the following properties:
    *         ExecutionState:
@@ -166,7 +169,7 @@ class ExecutionBlockImpl final : public ExecutionBlock {
    *                   skipped. On WAITING this is always 0. On any other state
    *                   this is between 0 and atMost.
    */
-  std::pair<ExecutionState, size_t> skipSome(size_t atMost) override;
+  std::pair<ExecutionState, size_t> skipSome(size_t atMost, size_t subqueryDepth) override;
 
   std::pair<ExecutionState, Result> initializeCursor(InputAqlItemRow const& input) override;
 

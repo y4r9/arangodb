@@ -88,7 +88,7 @@ class ExecutionEngine {
   std::pair<ExecutionState, SharedAqlItemBlockPtr> getSome(size_t atMost);
 
   /// @brief skipSome
-  std::pair<ExecutionState, size_t> skipSome(size_t atMost);
+  std::pair<ExecutionState, size_t> skipSome(size_t atMost, size_t subqueryDepth);
 
   /// @brief whether or not initializeCursor was called
   bool initializeCursorCalled() const;

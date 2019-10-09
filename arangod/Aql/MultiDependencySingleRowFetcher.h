@@ -196,7 +196,8 @@ class MultiDependencySingleRowFetcher {
   }
 
   std::pair<ExecutionState, size_t> skipRowsForDependency(size_t const dependency,
-                                                          size_t const atMost) {
+                                                          size_t const atMost,
+                                                          size_t subqueryDepth) {
     TRI_ASSERT(dependency < _dependencyInfos.size());
     auto& depInfo = _dependencyInfos[dependency];
 
@@ -212,7 +213,7 @@ class MultiDependencySingleRowFetcher {
 
     TRI_ASSERT(!indexIsValid(depInfo));
     if (!isDone(depInfo)) {
-      return skipSomeForDependency(dependency, atMost);
+      return skipSomeForDependency(dependency, atMost, subqueryDepth);
     }
 
     // We should not be called after we're done.
@@ -241,7 +242,8 @@ class MultiDependencySingleRowFetcher {
   std::pair<ExecutionState, SharedAqlItemBlockPtr> fetchBlockForDependency(size_t dependency,
                                                                            size_t atMost);
 
-  std::pair<ExecutionState, size_t> skipSomeForDependency(size_t dependency, size_t atMost);
+  std::pair<ExecutionState, size_t> skipSomeForDependency(size_t dependency, size_t atMost,
+                                                          size_t subqueryDepth);
 
   /**
    * @brief Delegates to ExecutionBlock::getNrInputRegisters()

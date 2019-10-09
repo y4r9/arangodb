@@ -60,7 +60,9 @@ std::pair<ExecutionState, InputAqlItemRow> ConstFetcher::fetchRow(size_t) {
   return {rowState, InputAqlItemRow{_currentBlock, _rowIndex++}};
 }
 
-std::pair<ExecutionState, size_t> ConstFetcher::skipRows(size_t) {
+std::pair<ExecutionState, size_t> ConstFetcher::skipRows(size_t, size_t subqueryDepth) {
+  // We do not have any ConstFetchers besides the root node, so we can only get here on outer most subquery.
+  TRI_ASSERT(subqueryDepth == 0);
   // This fetcher never waits because it can return only its
   // injected block and does not have the ability to pull.
   if (!indexIsValid()) {

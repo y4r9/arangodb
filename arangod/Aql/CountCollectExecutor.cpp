@@ -71,7 +71,7 @@ std::pair<ExecutionState, NoStats> CountCollectExecutor::produceRows(OutputAqlIt
 
   while (_state != ExecutionState::DONE) {
     size_t skipped;
-    std::tie(_state, skipped) = _fetcher.skipRows(ExecutionBlock::SkipAllSize());
+    std::tie(_state, skipped) = _fetcher.skipRows(ExecutionBlock::SkipAllSize(), 0);
 
     if (_state == ExecutionState::WAITING) {
       TRI_ASSERT(skipped == 0);

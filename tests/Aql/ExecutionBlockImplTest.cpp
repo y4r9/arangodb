@@ -158,16 +158,16 @@ TEST_F(ExecutionBlockImplTest,
   size_t atMost = 1;
   size_t skipped = 0;
 
-  std::tie(state, skipped) = testee.skipSome(atMost);
+  std::tie(state, skipped) = testee.skipSome(atMost, 0);
   ASSERT_EQ(state, ExecutionState::WAITING);
   ASSERT_EQ(skipped, 0);
 
-  std::tie(state, skipped) = testee.skipSome(atMost);
+  std::tie(state, skipped) = testee.skipSome(atMost, 0);
   ASSERT_EQ(state, ExecutionState::DONE);
   ASSERT_EQ(skipped, 1);
 
   // done should stay done!
-  std::tie(state, skipped) = testee.skipSome(atMost);
+  std::tie(state, skipped) = testee.skipSome(atMost, 0);
   ASSERT_EQ(state, ExecutionState::DONE);
   ASSERT_EQ(skipped, 0);
 }
@@ -320,47 +320,47 @@ TEST_F(ExecutionBlockImplTest,
   size_t atMost = 1;
   size_t skipped = 0;
 
-  std::tie(state, skipped) = testee.skipSome(atMost);
+  std::tie(state, skipped) = testee.skipSome(atMost, 0);
   ASSERT_EQ(state, ExecutionState::WAITING);
   ASSERT_EQ(skipped, 0);
 
-  std::tie(state, skipped) = testee.skipSome(atMost);
+  std::tie(state, skipped) = testee.skipSome(atMost, 0);
   ASSERT_EQ(state, ExecutionState::HASMORE);
   ASSERT_EQ(skipped, 1);
 
-  std::tie(state, skipped) = testee.skipSome(atMost);
+  std::tie(state, skipped) = testee.skipSome(atMost, 0);
   ASSERT_EQ(state, ExecutionState::WAITING);
   ASSERT_EQ(skipped, 0);
 
-  std::tie(state, skipped) = testee.skipSome(atMost);
+  std::tie(state, skipped) = testee.skipSome(atMost, 0);
   ASSERT_EQ(state, ExecutionState::HASMORE);
   ASSERT_EQ(skipped, 1);
 
-  std::tie(state, skipped) = testee.skipSome(atMost);
+  std::tie(state, skipped) = testee.skipSome(atMost, 0);
   ASSERT_EQ(state, ExecutionState::WAITING);
   ASSERT_EQ(skipped, 0);
 
-  std::tie(state, skipped) = testee.skipSome(atMost);
+  std::tie(state, skipped) = testee.skipSome(atMost, 0);
   ASSERT_EQ(state, ExecutionState::HASMORE);
   ASSERT_EQ(skipped, 1);
 
-  std::tie(state, skipped) = testee.skipSome(atMost);
+  std::tie(state, skipped) = testee.skipSome(atMost, 0);
   ASSERT_EQ(state, ExecutionState::WAITING);
   ASSERT_EQ(skipped, 0);
 
-  std::tie(state, skipped) = testee.skipSome(atMost);
+  std::tie(state, skipped) = testee.skipSome(atMost, 0);
   ASSERT_EQ(state, ExecutionState::HASMORE);
   ASSERT_EQ(skipped, 1);
 
-  std::tie(state, skipped) = testee.skipSome(atMost);
+  std::tie(state, skipped) = testee.skipSome(atMost, 0);
   ASSERT_EQ(state, ExecutionState::WAITING);
   ASSERT_EQ(skipped, 0);
 
-  std::tie(state, skipped) = testee.skipSome(atMost);
+  std::tie(state, skipped) = testee.skipSome(atMost, 0);
   ASSERT_EQ(state, ExecutionState::DONE);
   ASSERT_EQ(skipped, 1);
 
-  std::tie(state, skipped) = testee.skipSome(atMost);
+  std::tie(state, skipped) = testee.skipSome(atMost, 0);
   ASSERT_EQ(state, ExecutionState::DONE);
   ASSERT_EQ(skipped, 0);
 }

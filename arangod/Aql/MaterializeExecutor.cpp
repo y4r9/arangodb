@@ -22,47 +22,50 @@
 
 #include "MaterializeExecutor.h"
 
+#include "Aql/SingleRowFetcher.h"
+#include "Aql/Stats.h"
 #include "StorageEngine/EngineSelectorFeature.h"
 #include "StorageEngine/StorageEngine.h"
 #include "VocBase/LogicalCollection.h"
-#include "Aql/SingleRowFetcher.h"
-#include "Aql/Stats.h"
 
 using namespace arangodb;
 using namespace arangodb::aql;
 
-arangodb::IndexIterator::DocumentCallback MaterializeExecutor::ReadContext::copyDocumentCallback(ReadContext & ctx) {
+arangodb::IndexIterator::DocumentCallback MaterializeExecutor::ReadContext::copyDocumentCallback(
+    ReadContext& ctx) {
   auto* engine = EngineSelectorFeature::ENGINE;
   TRI_ASSERT(engine);
   typedef std::function<arangodb::IndexIterator::DocumentCallback(ReadContext&)> CallbackFactory;
   static CallbackFactory const callbackFactories[]{
-    [](ReadContext& ctx) {
-    // capture only one reference to potentially avoid heap allocation
-    return [&ctx](LocalDocumentId /*id*/, VPackSlice doc) {
-      TRI_ASSERT(ctx._outputRow);
-      TRI_ASSERT(ctx._inputRow);
-      TRI_ASSERT(ctx._inputRow->isInitialized());
-      TRI_ASSERT(ctx._infos);
-      arangodb::aql::AqlValue a{ arangodb::aql::AqlValueHintCopy(doc.begin()) };
-      bool mustDestroy = true;
-      arangodb::aql::AqlValueGuard guard{ a, mustDestroy };
-      ctx._outputRow->moveValueInto(ctx._infos->outputMaterializedDocumentRegId(), *ctx._inputRow, guard);
-    };
-  },
+      [](ReadContext& ctx) {
+        // capture only one reference to potentially avoid heap allocation
+        return [&ctx](LocalDocumentId /*id*/, VPackSlice doc) {
+          TRI_ASSERT(ctx._outputRow);
+          TRI_ASSERT(ctx._inputRow);
+          TRI_ASSERT(ctx._inputRow->isInitialized());
+          TRI_ASSERT(ctx._infos);
+          arangodb::aql::AqlValue a{arangodb::aql::AqlValueHintCopy(doc.begin())};
+          bool mustDestroy = true;
+          arangodb::aql::AqlValueGuard guard{a, mustDestroy};
+          ctx._outputRow->moveValueInto(ctx._infos->outputMaterializedDocumentRegId(),
+                                        *ctx._inputRow, guard);
+        };
+      },
 
-    [](ReadContext& ctx) {
-    // capture only one reference to potentially avoid heap allocation
-    return [&ctx](LocalDocumentId /*id*/, VPackSlice doc) {
-      TRI_ASSERT(ctx._outputRow);
-      TRI_ASSERT(ctx._inputRow);
-      TRI_ASSERT(ctx._inputRow->isInitialized());
-      TRI_ASSERT(ctx._infos);
-      arangodb::aql::AqlValue a{ arangodb::aql::AqlValueHintDocumentNoCopy(doc.begin()) };
-      bool mustDestroy = true;
-      arangodb::aql::AqlValueGuard guard{ a, mustDestroy };
-      ctx._outputRow->moveValueInto(ctx._infos->outputMaterializedDocumentRegId(), *ctx._inputRow, guard);
-    };
-  } };
+      [](ReadContext& ctx) {
+        // capture only one reference to potentially avoid heap allocation
+        return [&ctx](LocalDocumentId /*id*/, VPackSlice doc) {
+          TRI_ASSERT(ctx._outputRow);
+          TRI_ASSERT(ctx._inputRow);
+          TRI_ASSERT(ctx._inputRow->isInitialized());
+          TRI_ASSERT(ctx._infos);
+          arangodb::aql::AqlValue a{arangodb::aql::AqlValueHintDocumentNoCopy(doc.begin())};
+          bool mustDestroy = true;
+          arangodb::aql::AqlValueGuard guard{a, mustDestroy};
+          ctx._outputRow->moveValueInto(ctx._infos->outputMaterializedDocumentRegId(),
+                                        *ctx._inputRow, guard);
+        };
+      }};
 
   return callbackFactories[size_t(engine->useRawDocumentPointers())](ctx);
 }
@@ -72,18 +75,19 @@ arangodb::aql::MaterializerExecutorInfos::MaterializerExecutorInfos(
     // cppcheck-suppress passedByValue
     std::unordered_set<RegisterId> registersToClear,
     // cppcheck-suppress passedByValue
-    std::unordered_set<RegisterId> registersToKeep,
-    RegisterId inNmColPtr, RegisterId inNmDocId, RegisterId outDocRegId, transaction::Methods* trx )
-  : ExecutorInfos(
-      make_shared_unordered_set(std::initializer_list<RegisterId>({inNmColPtr, inNmDocId})),
-      make_shared_unordered_set(std::initializer_list<RegisterId>({outDocRegId})),
-      nrInputRegisters, nrOutputRegisters,
-      std::move(registersToClear), std::move(registersToKeep)),
-      _inNonMaterializedColRegId(inNmColPtr), _inNonMaterializedDocRegId(inNmDocId),
-      _outMaterializedDocumentRegId(outDocRegId), _trx(trx) {
-}
+    std::unordered_set<RegisterId> registersToKeep, RegisterId inNmColPtr,
+    RegisterId inNmDocId, RegisterId outDocRegId, transaction::Methods* trx)
+    : ExecutorInfos(make_shared_unordered_set(
+                        std::initializer_list<RegisterId>({inNmColPtr, inNmDocId})),
+                    make_shared_unordered_set(std::initializer_list<RegisterId>({outDocRegId})),
+                    nrInputRegisters, nrOutputRegisters,
+                    std::move(registersToClear), std::move(registersToKeep)),
+      _inNonMaterializedColRegId(inNmColPtr),
+      _inNonMaterializedDocRegId(inNmDocId),
+      _outMaterializedDocumentRegId(outDocRegId),
+      _trx(trx) {}
 
-std::pair<ExecutionState, NoStats> arangodb::aql::MaterializeExecutor::produceRows(OutputAqlItemRow & output) {
+std::pair<ExecutionState, NoStats> arangodb::aql::MaterializeExecutor::produceRows(OutputAqlItemRow& output) {
   InputAqlItemRow input{CreateInvalidInputRowHint{}};
   ExecutionState state;
   bool written = false;
@@ -95,22 +99,20 @@ std::pair<ExecutionState, NoStats> arangodb::aql::MaterializeExecutor::produceRo
   do {
     std::tie(state, input) = _fetcher.fetchRow();
     if (state == ExecutionState::WAITING) {
-      return { state, NoStats{} };
+      return {state, NoStats{}};
     }
 
     if (!input) {
       TRI_ASSERT(state == ExecutionState::DONE);
       return {state, NoStats{}};
     }
-    auto collection =
-      reinterpret_cast<arangodb::LogicalCollection const*>(
+    auto collection = reinterpret_cast<arangodb::LogicalCollection const*>(
         input.getValue(colRegId).slice().getUInt());
     TRI_ASSERT(collection != nullptr);
     _readDocumentContext._inputRow = &input;
     _readDocumentContext._outputRow = &output;
-    written = collection->readDocumentWithCallback(trx,
-      LocalDocumentId(input.getValue(docRegId).slice().getUInt()),
-      callback);
+    written = collection->readDocumentWithCallback(
+        trx, LocalDocumentId(input.getValue(docRegId).slice().getUInt()), callback);
   } while (!written && state != ExecutionState::DONE);
   return {state, NoStats{}};
 }
@@ -118,6 +120,6 @@ std::pair<ExecutionState, NoStats> arangodb::aql::MaterializeExecutor::produceRo
 std::tuple<ExecutionState, NoStats, size_t> arangodb::aql::MaterializeExecutor::skipRows(size_t toSkipRequested) {
   ExecutionState state;
   size_t skipped;
-  std::tie(state, skipped) = _fetcher.skipRows(toSkipRequested);
+  std::tie(state, skipped) = _fetcher.skipRows(toSkipRequested, 0);
   return std::make_tuple(state, NoStats{}, skipped);
 }

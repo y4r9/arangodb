@@ -142,8 +142,6 @@ std::pair<ExecutionState, SharedAqlItemBlockPtr> ExecutionBlockImpl<RemoteExecut
   auto res = sendAsyncRequest(fuerte::RestVerb::Put, "/_api/aql/getSome/",
                               std::move(buffer));
 
-
-
   if (!res.ok()) {
     THROW_ARANGO_EXCEPTION(res);
   }
@@ -151,13 +149,15 @@ std::pair<ExecutionState, SharedAqlItemBlockPtr> ExecutionBlockImpl<RemoteExecut
   return {ExecutionState::WAITING, nullptr};
 }
 
-std::pair<ExecutionState, size_t> ExecutionBlockImpl<RemoteExecutor>::skipSome(size_t atMost) {
+std::pair<ExecutionState, size_t> ExecutionBlockImpl<RemoteExecutor>::skipSome(size_t atMost,
+                                                                               size_t subqueryDepth) {
   traceSkipSomeBegin(atMost);
-  auto result = skipSomeWithoutTrace(atMost);
+  auto result = skipSomeWithoutTrace(atMost, subqueryDepth);
   return traceSkipSomeEnd(result.first, result.second);
 }
 
-std::pair<ExecutionState, size_t> ExecutionBlockImpl<RemoteExecutor>::skipSomeWithoutTrace(size_t atMost) {
+std::pair<ExecutionState, size_t> ExecutionBlockImpl<RemoteExecutor>::skipSomeWithoutTrace(
+    size_t atMost, size_t subqueryDepth) {
   if (_lastError.fail()) {
     TRI_ASSERT(_lastResponse == nullptr);
     Result res = _lastError;
@@ -387,7 +387,7 @@ Result handleErrorResponse(network::EndpointSpec const& spec, fuerte::Error err,
         .append(spec.serverId)
         .append("': ");
   }
-  
+
   int res = TRI_ERROR_INTERNAL;
   if (err != fuerte::Error::NoError) {
     res = network::fuerteToArangoErrorCode(err);
@@ -413,17 +413,18 @@ Result handleErrorResponse(network::EndpointSpec const& spec, fuerte::Error err,
 Result ExecutionBlockImpl<RemoteExecutor>::sendAsyncRequest(fuerte::RestVerb type,
                                                             std::string const& urlPart,
                                                             VPackBuffer<uint8_t> body) {
-  NetworkFeature const& nf = _engine->getQuery()->vocbase().server().getFeature<NetworkFeature>();
+  NetworkFeature const& nf =
+      _engine->getQuery()->vocbase().server().getFeature<NetworkFeature>();
   network::ConnectionPool* pool = nf.pool();
   if (!pool) {
     // nullptr only happens on controlled shutdown
     return {TRI_ERROR_SHUTTING_DOWN};
   }
 
-  std::string url = std::string("/_db/") +
-                    arangodb::basics::StringUtils::urlEncode(
-                        _engine->getQuery()->vocbase().name()) +
-                    urlPart + _queryId;
+  std::string url =
+      std::string("/_db/") +
+      arangodb::basics::StringUtils::urlEncode(_engine->getQuery()->vocbase().name()) +
+      urlPart + _queryId;
 
   arangodb::network::EndpointSpec spec;
   int res = network::resolveDestination(nf, _server, spec);
@@ -465,18 +466,18 @@ Result ExecutionBlockImpl<RemoteExecutor>::sendAsyncRequest(fuerte::RestVerb typ
   return {TRI_ERROR_NO_ERROR};
 }
 
-void ExecutionBlockImpl<RemoteExecutor>::traceGetSomeRequest(
-    VPackSlice slice, size_t const atMost) {
+void ExecutionBlockImpl<RemoteExecutor>::traceGetSomeRequest(VPackSlice slice,
+                                                             size_t const atMost) {
   traceRequest("getSome", slice, atMost);
 }
 
-void ExecutionBlockImpl<RemoteExecutor>::traceSkipSomeRequest(
-    VPackSlice slice, size_t const atMost) {
+void ExecutionBlockImpl<RemoteExecutor>::traceSkipSomeRequest(VPackSlice slice,
+                                                              size_t const atMost) {
   traceRequest("skipSome", slice, atMost);
 }
 
-void ExecutionBlockImpl<RemoteExecutor>::traceRequest(
-    const char* rpc, VPackSlice slice, size_t atMost) {
+void ExecutionBlockImpl<RemoteExecutor>::traceRequest(const char* rpc, VPackSlice slice,
+                                                      size_t atMost) {
   if (_profile >= PROFILE_LEVEL_TRACE_1) {
     auto const queryId = this->_engine->getQuery()->id();
     auto const remoteQueryId = _queryId;

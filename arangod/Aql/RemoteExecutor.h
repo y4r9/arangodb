@@ -24,8 +24,8 @@
 #define ARANGOD_AQL_REMOTE_EXECUTOR_H
 
 #include "Aql/ClusterNodes.h"
-#include "Aql/ExecutorInfos.h"
 #include "Aql/ExecutionBlockImpl.h"
+#include "Aql/ExecutorInfos.h"
 
 #include <mutex>
 
@@ -56,7 +56,7 @@ class ExecutionBlockImpl<RemoteExecutor> : public ExecutionBlock {
 
   std::pair<ExecutionState, SharedAqlItemBlockPtr> getSome(size_t atMost) override;
 
-  std::pair<ExecutionState, size_t> skipSome(size_t atMost) override;
+  std::pair<ExecutionState, size_t> skipSome(size_t atMost, size_t subqueryDepth) override;
 
   std::pair<ExecutionState, Result> initializeCursor(InputAqlItemRow const& input) override;
 
@@ -73,7 +73,7 @@ class ExecutionBlockImpl<RemoteExecutor> : public ExecutionBlock {
  private:
   std::pair<ExecutionState, SharedAqlItemBlockPtr> getSomeWithoutTrace(size_t atMost);
 
-  std::pair<ExecutionState, size_t> skipSomeWithoutTrace(size_t atMost);
+  std::pair<ExecutionState, size_t> skipSomeWithoutTrace(size_t atMost, size_t subqueryDepth);
 
   ExecutorInfos const& infos() const { return _infos; }
 
@@ -109,13 +109,13 @@ class ExecutionBlockImpl<RemoteExecutor> : public ExecutionBlock {
 
   /// @brief the last remote response Result object, may contain an error.
   arangodb::Result _lastError;
-  
+
   std::mutex _communicationMutex;
-  
+
   unsigned _lastTicket;  /// used to check for canceled requests
-  
+
   bool _hasTriggeredShutdown;
-  
+
 #ifdef ARANGODB_ENABLE_MAINTAINER_MODE
   bool _didSendShutdownRequest = false;
 #endif

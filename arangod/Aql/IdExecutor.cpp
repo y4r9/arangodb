@@ -43,9 +43,8 @@ constexpr BlockPassthrough IdExecutor<usePassThrough, T>::Properties::allowsBloc
 template <BlockPassthrough usePassThrough, class T>
 constexpr bool IdExecutor<usePassThrough, T>::Properties::inputSizeRestrictsOutputSize;
 
-ExecutionBlockImpl<IdExecutor<BlockPassthrough::Enable, void>>::ExecutionBlockImpl(ExecutionEngine* engine,
-                                                         ExecutionNode const* node,
-                                                         RegisterId outputRegister, bool doCount)
+ExecutionBlockImpl<IdExecutor<BlockPassthrough::Enable, void>>::ExecutionBlockImpl(
+    ExecutionEngine* engine, ExecutionNode const* node, RegisterId outputRegister, bool doCount)
     : ExecutionBlock(engine, node),
       _currentDependency(0),
       _outputRegister(outputRegister),
@@ -56,7 +55,8 @@ ExecutionBlockImpl<IdExecutor<BlockPassthrough::Enable, void>>::ExecutionBlockIm
   }
 }
 
-std::pair<ExecutionState, size_t> ExecutionBlockImpl<IdExecutor<BlockPassthrough::Enable, void>>::skipSome(size_t atMost) {
+std::pair<ExecutionState, size_t> ExecutionBlockImpl<IdExecutor<BlockPassthrough::Enable, void>>::skipSome(
+    size_t atMost, size_t subqueryDepth) {
   traceSkipSomeBegin(atMost);
   if (isDone()) {
     return traceSkipSomeEnd(ExecutionState::DONE, 0);
@@ -64,7 +64,7 @@ std::pair<ExecutionState, size_t> ExecutionBlockImpl<IdExecutor<BlockPassthrough
 
   ExecutionState state;
   size_t skipped;
-  std::tie(state, skipped) = currentDependency().skipSome(atMost);
+  std::tie(state, skipped) = currentDependency().skipSome(atMost, subqueryDepth);
 
   if (state == ExecutionState::DONE) {
     nextDependency();
@@ -73,7 +73,8 @@ std::pair<ExecutionState, size_t> ExecutionBlockImpl<IdExecutor<BlockPassthrough
   return traceSkipSomeEnd(state, skipped);
 }
 
-std::pair<ExecutionState, SharedAqlItemBlockPtr> ExecutionBlockImpl<IdExecutor<BlockPassthrough::Enable, void>>::getSome(size_t atMost) {
+std::pair<ExecutionState, SharedAqlItemBlockPtr>
+ExecutionBlockImpl<IdExecutor<BlockPassthrough::Enable, void>>::getSome(size_t atMost) {
   traceGetSomeBegin(atMost);
   if (isDone()) {
     return traceGetSomeEnd(ExecutionState::DONE, nullptr);
@@ -99,7 +100,8 @@ bool aql::ExecutionBlockImpl<IdExecutor<BlockPassthrough::Enable, void>>::isDone
   return _currentDependency >= _dependencies.size();
 }
 
-RegisterId ExecutionBlockImpl<IdExecutor<BlockPassthrough::Enable, void>>::getOutputRegisterId() const noexcept {
+RegisterId ExecutionBlockImpl<IdExecutor<BlockPassthrough::Enable, void>>::getOutputRegisterId() const
+    noexcept {
   return _outputRegister;
 }
 
@@ -190,7 +192,7 @@ template <BlockPassthrough allowPass, typename>
 std::tuple<ExecutionState, NoStats, size_t> IdExecutor<usePassThrough, UsedFetcher>::skipRows(size_t atMost) {
   ExecutionState state;
   size_t skipped;
-  std::tie(state, skipped) = _fetcher.skipRows(atMost);
+  std::tie(state, skipped) = _fetcher.skipRows(atMost, 0);
   return {state, NoStats{}, skipped};
 }
 
@@ -209,10 +211,13 @@ template class ::arangodb::aql::IdExecutor<BlockPassthrough::Enable, SingleRowFe
 template class ::arangodb::aql::IdExecutor<BlockPassthrough::Disable, SingleRowFetcher<BlockPassthrough::Disable>>;
 
 template std::tuple<ExecutionState, typename IdExecutor<BlockPassthrough::Enable, ConstFetcher>::Stats, SharedAqlItemBlockPtr>
-IdExecutor<BlockPassthrough::Enable, ConstFetcher>::fetchBlockForPassthrough<BlockPassthrough::Enable, void>(size_t atMost);
+IdExecutor<BlockPassthrough::Enable, ConstFetcher>::fetchBlockForPassthrough<BlockPassthrough::Enable, void>(
+    size_t atMost);
 
 template std::tuple<ExecutionState, typename IdExecutor<BlockPassthrough::Enable, SingleRowFetcher<BlockPassthrough::Enable>>::Stats, SharedAqlItemBlockPtr>
-IdExecutor<BlockPassthrough::Enable, SingleRowFetcher<BlockPassthrough::Enable>>::fetchBlockForPassthrough<BlockPassthrough::Enable, void>(size_t atMost);
+IdExecutor<BlockPassthrough::Enable, SingleRowFetcher<BlockPassthrough::Enable>>::fetchBlockForPassthrough<
+    BlockPassthrough::Enable, void>(size_t atMost);
 
 template std::tuple<ExecutionState, NoStats, size_t>
-IdExecutor<BlockPassthrough::Disable, SingleRowFetcher<BlockPassthrough::Disable>>::skipRows<BlockPassthrough::Disable, void>(size_t atMost);
+IdExecutor<BlockPassthrough::Disable, SingleRowFetcher<BlockPassthrough::Disable>>::skipRows<
+    BlockPassthrough::Disable, void>(size_t atMost);

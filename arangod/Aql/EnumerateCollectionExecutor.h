@@ -62,8 +62,7 @@ class EnumerateCollectionExecutorInfos : public ExecutorInfos {
       RegisterId nrOutputRegisters, std::unordered_set<RegisterId> registersToClear,
       std::unordered_set<RegisterId> registersToKeep, ExecutionEngine* engine,
       Collection const* collection, Variable const* outVariable, bool produceResult,
-      Expression* filter,
-      std::vector<std::string> const& projections,
+      Expression* filter, std::vector<std::string> const& projections,
       std::vector<size_t> const& coveringIndexAttributePositions,
       bool useRawDocumentPointers, bool random);
 

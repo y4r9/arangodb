@@ -92,7 +92,7 @@ class SingleRowFetcher {
   TEST_VIRTUAL std::pair<ExecutionState, ShadowAqlItemRow> fetchShadowRow(
       size_t atMost = ExecutionBlock::DefaultBatchSize());
 
-  TEST_VIRTUAL std::pair<ExecutionState, size_t> skipRows(size_t atMost);
+  TEST_VIRTUAL std::pair<ExecutionState, size_t> skipRows(size_t atMost, size_t subqueryDepth);
 
   // TODO enable_if<blockPassthrough>
   // std::enable_if<blockPassthrough == BlockPassthrough::Enable>

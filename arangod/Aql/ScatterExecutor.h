@@ -56,7 +56,7 @@ class ExecutionBlockImpl<ScatterExecutor> : public BlocksWithClients {
                                                                    std::string const& shardId) override;
 
   /// @brief skipSomeForShard
-  std::pair<ExecutionState, size_t> skipSomeForShard(size_t atMost,
+  std::pair<ExecutionState, size_t> skipSomeForShard(size_t atMost, size_t subqueryDepth,
                                                      std::string const& shardId) override;
 
  private:
@@ -65,7 +65,7 @@ class ExecutionBlockImpl<ScatterExecutor> : public BlocksWithClients {
       size_t atMost, std::string const& shardId);
 
   /// @brief skipSomeForShard
-  std::pair<ExecutionState, size_t> skipSomeForShardWithoutTrace(size_t atMost,
+  std::pair<ExecutionState, size_t> skipSomeForShardWithoutTrace(size_t atMost, size_t subqueryDepth,
                                                                  std::string const& shardId);
 
   std::pair<ExecutionState, arangodb::Result> getOrSkipSomeForShard(

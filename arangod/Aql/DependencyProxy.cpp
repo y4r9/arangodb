@@ -145,7 +145,7 @@ DependencyProxy<blockPassthrough>::fetchBlockForDependency(size_t dependency, si
 
 template <BlockPassthrough blockPassthrough>
 std::pair<ExecutionState, size_t> DependencyProxy<blockPassthrough>::skipSomeForDependency(
-    size_t const dependency, size_t const atMost) {
+    size_t const dependency, size_t const atMost, size_t subqueryDepth) {
   TRI_ASSERT(blockPassthrough == BlockPassthrough::Disable);
 
   TRI_ASSERT(_blockPassThroughQueue.empty());
@@ -161,7 +161,7 @@ std::pair<ExecutionState, size_t> DependencyProxy<blockPassthrough>::skipSomeFor
   while (state == ExecutionState::HASMORE && _skipped < atMost) {
     size_t skippedNow;
     TRI_ASSERT(_skipped <= atMost);
-    std::tie(state, skippedNow) = upstream.skipSome(atMost - _skipped);
+    std::tie(state, skippedNow) = upstream.skipSome(atMost - _skipped, subqueryDepth);
     if (state == ExecutionState::WAITING) {
       TRI_ASSERT(skippedNow == 0);
       return {state, 0};
@@ -179,7 +179,8 @@ std::pair<ExecutionState, size_t> DependencyProxy<blockPassthrough>::skipSomeFor
 }
 
 template <BlockPassthrough blockPassthrough>
-std::pair<ExecutionState, size_t> DependencyProxy<blockPassthrough>::skipSome(size_t const toSkip) {
+std::pair<ExecutionState, size_t> DependencyProxy<blockPassthrough>::skipSome(
+    size_t const toSkip, size_t subqueryDepth) {
   TRI_ASSERT(_blockPassThroughQueue.empty());
   TRI_ASSERT(_blockQueue.empty());
 
@@ -193,11 +194,12 @@ std::pair<ExecutionState, size_t> DependencyProxy<blockPassthrough>::skipSome(si
     // if we need to loop here
     TRI_ASSERT(_skipped <= toSkip);
     if (_distributeId.empty()) {
-      std::tie(state, skippedNow) = upstreamBlock().skipSome(toSkip - _skipped);
+      std::tie(state, skippedNow) =
+          upstreamBlock().skipSome(toSkip - _skipped, subqueryDepth);
     } else {
       auto upstreamWithClient = dynamic_cast<BlocksWithClients*>(&upstreamBlock());
       std::tie(state, skippedNow) =
-          upstreamWithClient->skipSomeForShard(toSkip - _skipped, _distributeId);
+          upstreamWithClient->skipSomeForShard(toSkip - _skipped, subqueryDepth, _distributeId);
     }
 
     TRI_ASSERT(skippedNow <= toSkip - _skipped);

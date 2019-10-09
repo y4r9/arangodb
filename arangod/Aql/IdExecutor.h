@@ -89,7 +89,7 @@ class ExecutionBlockImpl<IdExecutor<BlockPassthrough::Enable, void>> : public Ex
 
   std::pair<ExecutionState, SharedAqlItemBlockPtr> getSome(size_t atMost) override;
 
-  std::pair<ExecutionState, size_t> skipSome(size_t atMost) override;
+  std::pair<ExecutionState, size_t> skipSome(size_t atMost, size_t subqueryDepth) override;
 
   RegisterId getOutputRegisterId() const noexcept;
 

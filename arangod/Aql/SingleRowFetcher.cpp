@@ -74,11 +74,12 @@ SingleRowFetcher<passBlocksThrough>::fetchBlockForPassthrough(size_t atMost) {
 }
 
 template <BlockPassthrough passBlocksThrough>
-std::pair<ExecutionState, size_t> SingleRowFetcher<passBlocksThrough>::skipRows(size_t atMost) {
+std::pair<ExecutionState, size_t> SingleRowFetcher<passBlocksThrough>::skipRows(
+    size_t atMost, size_t subqueryDepth) {
   TRI_ASSERT(!_currentRow.isInitialized() || _currentRow.isLastRowInBlock());
   TRI_ASSERT(!indexIsValid());
 
-  auto res = _dependencyProxy->skipSome(atMost);
+  auto res = _dependencyProxy->skipSome(atMost, subqueryDepth);
   _upstreamState = res.first;
 
   TRI_ASSERT(res.second <= atMost);

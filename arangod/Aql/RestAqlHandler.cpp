@@ -681,9 +681,12 @@ RestStatus RestAqlHandler::handleUseQuery(std::string const& operation, Query* q
         auto atMost =
             VelocyPackHelper::getNumericValue<size_t>(querySlice, "atMost",
                                                       ExecutionBlock::DefaultBatchSize());
+        size_t subqueryDepth =
+            VelocyPackHelper::getNumericValue<size_t>(querySlice,
+                                                      "subqueryDepth", 0);
         size_t skipped;
         if (shardId.empty()) {
-          auto tmpRes = query->engine()->skipSome(atMost);
+          auto tmpRes = query->engine()->skipSome(atMost, subqueryDepth);
           if (tmpRes.first == ExecutionState::WAITING) {
             return RestStatus::WAITING;
           }
@@ -697,7 +700,7 @@ RestStatus RestAqlHandler::handleUseQuery(std::string const& operation, Query* q
           TRI_ASSERT(block->getPlanNode()->getType() == ExecutionNode::SCATTER ||
                      block->getPlanNode()->getType() == ExecutionNode::DISTRIBUTE);
 
-          auto tmpRes = block->skipSomeForShard(atMost, shardId);
+          auto tmpRes = block->skipSomeForShard(atMost, subqueryDepth, shardId);
           if (tmpRes.first == ExecutionState::WAITING) {
             return RestStatus::WAITING;
           }

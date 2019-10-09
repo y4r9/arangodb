@@ -72,14 +72,14 @@ class BlocksWithClients : public ExecutionBlock {
   std::pair<ExecutionState, SharedAqlItemBlockPtr> getSome(size_t atMost) final;
 
   /// @brief skipSome: shouldn't be used, use skipSomeForShard
-  std::pair<ExecutionState, size_t> skipSome(size_t atMost) final;
+  std::pair<ExecutionState, size_t> skipSome(size_t atMost, size_t subqueryDepth) final;
 
   /// @brief getSomeForShard
   virtual std::pair<ExecutionState, SharedAqlItemBlockPtr> getSomeForShard(
       size_t atMost, std::string const& shardId) = 0;
 
   /// @brief skipSomeForShard
-  virtual std::pair<ExecutionState, size_t> skipSomeForShard(size_t atMost,
+  virtual std::pair<ExecutionState, size_t> skipSomeForShard(size_t atMost, size_t subqueryDepth,
                                                              std::string const& shardId) = 0;
 
  protected:

@@ -133,7 +133,7 @@ std::pair<ExecutionState, SharedAqlItemBlockPtr> BlocksWithClients::getSome(size
   THROW_ARANGO_EXCEPTION(TRI_ERROR_NOT_IMPLEMENTED);
 }
 
-std::pair<ExecutionState, size_t> BlocksWithClients::skipSome(size_t) {
+std::pair<ExecutionState, size_t> BlocksWithClients::skipSome(size_t, size_t) {
   TRI_ASSERT(false);
   THROW_ARANGO_EXCEPTION(TRI_ERROR_NOT_IMPLEMENTED);
 }

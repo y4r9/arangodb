@@ -230,26 +230,6 @@ std::pair<ExecutionState, SharedAqlItemBlockPtr> ExecutionBlockImpl<Executor>::g
     }
   }
 
-  // When we're passing blocks through we have no control over the size of the
-  // output block.
-  // Plus, the ConstrainedSortExecutor will report an expectedNumberOfRows
-  // according to its heap size, thus resulting in a smaller allocated output
-  // block. However, it won't report DONE after, because a LIMIT block with
-  // fullCount must continue to count after the sorted output.
-  if /* constexpr */ (Executor::Properties::allowsBlockPassthrough == BlockPassthrough::Disable &&
-                      !std::is_same<Executor, ConstrainedSortExecutor>::value) {
-    LOG_DEVEL_IF(_outputItemRow->numRowsWritten() != atMost)
-        << typeid(_executor).name() << ": " << _outputItemRow->numRowsWritten()
-        << " vs expected: " << atMost << "full: " << _outputItemRow->isFull()
-        << " violates former assertion.";
-    // TODO!
-    // We cannot keep this assertion anymore without some more code changes.
-    // The above might exit on every finished subquery now.
-    // This will be adjusted later on
-
-    // TRI_ASSERT(_outputItemRow->numRowsWritten() == atMost);
-  }
-
   auto outputBlock = _outputItemRow->stealBlock();
   // we guarantee that we do return a valid pointer in the HASMORE case.
   // But we might return a nullptr in DONE case
@@ -302,8 +282,9 @@ template <>
 struct ExecuteSkipVariant<SkipVariants::FETCHER> {
   template <class Executor>
   static std::tuple<ExecutionState, typename Executor::Stats, size_t> executeSkip(
-      Executor& executor, typename Executor::Fetcher& fetcher, size_t toSkip) {
-    auto res = fetcher.skipRows(toSkip);
+      Executor& executor, typename Executor::Fetcher& fetcher, size_t toSkip,
+      size_t subqueryDepth) {
+    auto res = fetcher.skipRows(toSkip, subqueryDepth);
     return std::make_tuple(res.first, typename Executor::Stats{}, res.second);  // tuple, cannot use initializer list due to build failure
   }
 };
@@ -312,7 +293,8 @@ template <>
 struct ExecuteSkipVariant<SkipVariants::EXECUTOR> {
   template <class Executor>
   static std::tuple<ExecutionState, typename Executor::Stats, size_t> executeSkip(
-      Executor& executor, typename Executor::Fetcher& fetcher, size_t toSkip) {
+      Executor& executor, typename Executor::Fetcher& fetcher, size_t toSkip,
+      size_t subqueryDepth) {
     return executor.skipRows(toSkip);
   }
 };
@@ -321,7 +303,8 @@ template <>
 struct ExecuteSkipVariant<SkipVariants::GET_SOME> {
   template <class Executor>
   static std::tuple<ExecutionState, typename Executor::Stats, size_t> executeSkip(
-      Executor& executor, typename Executor::Fetcher& fetcher, size_t toSkip) {
+      Executor& executor, typename Executor::Fetcher& fetcher, size_t toSkip,
+      size_t subqueryDepth) {
     // this function should never be executed
     TRI_ASSERT(false);
     // Make MSVC happy:
@@ -385,7 +368,8 @@ static SkipVariants constexpr skipType() {
 }  // namespace arangodb
 
 template <class Executor>
-std::pair<ExecutionState, size_t> ExecutionBlockImpl<Executor>::skipSome(size_t atMost) {
+std::pair<ExecutionState, size_t> ExecutionBlockImpl<Executor>::skipSome(size_t atMost,
+                                                                         size_t subqueryDepth) {
   traceSkipSomeBegin(atMost);
 
   constexpr SkipVariants customSkipType = skipType<Executor>();
@@ -407,7 +391,8 @@ std::pair<ExecutionState, size_t> ExecutionBlockImpl<Executor>::skipSome(size_t 
   typename Executor::Stats stats;
   size_t skipped;
   std::tie(state, stats, skipped) =
-      ExecuteSkipVariant<customSkipType>::executeSkip(_executor, _rowFetcher, atMost);
+      ExecuteSkipVariant<customSkipType>::executeSkip(_executor, _rowFetcher,
+                                                      atMost, subqueryDepth);
   _engine->_stats += stats;
   TRI_ASSERT(skipped <= atMost);
 

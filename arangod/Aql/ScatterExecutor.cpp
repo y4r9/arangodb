@@ -78,14 +78,14 @@ std::pair<ExecutionState, SharedAqlItemBlockPtr> ExecutionBlockImpl<ScatterExecu
 
 /// @brief skipSomeForShard
 std::pair<ExecutionState, size_t> ExecutionBlockImpl<ScatterExecutor>::skipSomeForShard(
-    size_t atMost, std::string const& shardId) {
+    size_t atMost, size_t subqueryDepth, std::string const& shardId) {
   traceSkipSomeBegin(atMost);
-  auto result = skipSomeForShardWithoutTrace(atMost, shardId);
+  auto result = skipSomeForShardWithoutTrace(atMost, subqueryDepth, shardId);
   return traceSkipSomeEnd(result.first, result.second);
 }
 
 std::pair<ExecutionState, size_t> ExecutionBlockImpl<ScatterExecutor>::skipSomeForShardWithoutTrace(
-    size_t atMost, std::string const& shardId) {
+    size_t atMost, size_t subqueryDepth, std::string const& shardId) {
   // NOTE: We do not need to retain these, the getOrSkipSome is required to!
   size_t skipped = 0;
   SharedAqlItemBlockPtr result = nullptr;
@@ -107,7 +107,7 @@ std::pair<ExecutionState, arangodb::Result> ExecutionBlockImpl<ScatterExecutor>:
   TRI_ASSERT(result == nullptr && skipped == 0);
   TRI_ASSERT(atMost > 0);
 
- size_t const clientId = getClientId(shardId);
+  size_t const clientId = getClientId(shardId);
 
   if (!hasMoreForClientId(clientId)) {
     return {ExecutionState::DONE, TRI_ERROR_NO_ERROR};

@@ -55,7 +55,7 @@ std::pair<ExecutionState, SharedAqlItemBlockPtr> MultiDependencySingleRowFetcher
 }
 
 std::pair<ExecutionState, size_t> MultiDependencySingleRowFetcher::skipSomeForDependency(
-    size_t const dependency, size_t const atMost) {
+    size_t const dependency, size_t const atMost, size_t subqueryDepth) {
   TRI_ASSERT(!_dependencyInfos.empty());
   TRI_ASSERT(dependency < _dependencyInfos.size());
   auto& depInfo = _dependencyInfos[dependency];
@@ -65,7 +65,7 @@ std::pair<ExecutionState, size_t> MultiDependencySingleRowFetcher::skipSomeForDe
   // DONE the last time, and I don't currently have time to track them down.
   // Thus the following assert is commented out.
   // TRI_ASSERT(_upstreamState != ExecutionState::DONE);
-  auto res = _dependencyProxy->skipSomeForDependency(dependency, atMost);
+  auto res = _dependencyProxy->skipSomeForDependency(dependency, atMost, subqueryDepth);
   depInfo._upstreamState = res.first;
 
   return res;

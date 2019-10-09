@@ -418,7 +418,8 @@ bool SortingGatherExecutor::maySkip() const noexcept {
   return constrainedSort() && _rowsReturned >= _limit;
 }
 
-std::tuple<ExecutionState, SortingGatherExecutor::Stats, size_t> SortingGatherExecutor::skipRows(size_t const atMost) {
+std::tuple<ExecutionState, SortingGatherExecutor::Stats, size_t> SortingGatherExecutor::skipRows(
+    size_t const atMost) {
   if (!maySkip()) {
     // Until our limit, we must produce rows, because we might be asked later
     // to produce rows, in which case all rows have to have been skipped in
@@ -452,7 +453,7 @@ std::tuple<ExecutionState, SortingGatherExecutor::Stats, size_t> SortingGatherEx
     _dependencyToFetch = 0;
   }
 
-  { // Skip rows we had left in the heap first
+  {  // Skip rows we had left in the heap first
     std::size_t const skip = std::min(atMost, _rowsLeftInHeap);
     _rowsLeftInHeap -= skip;
     _skipped += skip;
@@ -463,7 +464,7 @@ std::tuple<ExecutionState, SortingGatherExecutor::Stats, size_t> SortingGatherEx
     while (state != ExecutionState::DONE && _skipped < atMost) {
       std::size_t skippedNow;
       std::tie(state, skippedNow) =
-          _fetcher.skipRowsForDependency(_dependencyToFetch, atMost - _skipped);
+          _fetcher.skipRowsForDependency(_dependencyToFetch, 0, atMost - _skipped);
       if (state == ExecutionState::WAITING) {
         TRI_ASSERT(skippedNow == 0);
         return {state, NoStats{}, 0};
@@ -500,11 +501,9 @@ std::tuple<ExecutionState, SortingGatherExecutor::Stats, size_t> SortingGatherEx
   InputAqlItemRow row{CreateInvalidInputRowHint{}};
 
   // We may not skip more rows in this method than we can produce!
-  auto const ourAtMost = constrainedSort()
-      ? std::min(atMost, rowsLeftToWrite())
-      : atMost;
+  auto const ourAtMost = constrainedSort() ? std::min(atMost, rowsLeftToWrite()) : atMost;
 
-  while(state == ExecutionState::HASMORE && _skipped < ourAtMost) {
+  while (state == ExecutionState::HASMORE && _skipped < ourAtMost) {
     std::tie(state, row) = produceNextRow(ourAtMost - _skipped);
     // HASMORE => row has to be initialized
     TRI_ASSERT(state != ExecutionState::HASMORE || row.isInitialized());

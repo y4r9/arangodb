@@ -516,14 +516,14 @@ std::pair<ExecutionState, SharedAqlItemBlockPtr> ExecutionEngine::getSome(size_t
   return _root->getSome((std::min)(atMost, ExecutionBlock::DefaultBatchSize()));
 }
 
-std::pair<ExecutionState, size_t> ExecutionEngine::skipSome(size_t atMost) {
+std::pair<ExecutionState, size_t> ExecutionEngine::skipSome(size_t atMost, size_t subqueryDepth) {
   if (!_initializeCursorCalled) {
     auto res = initializeCursor(nullptr, 0);
     if (res.first == ExecutionState::WAITING) {
       return {res.first, 0};
     }
   }
-  return _root->skipSome(atMost);
+  return _root->skipSome(atMost, subqueryDepth);
 }
 
 Result ExecutionEngine::shutdownSync(int errorCode) noexcept {
@@ -622,7 +622,8 @@ ExecutionEngine* ExecutionEngine::instantiateFromPlan(QueryRegistry& queryRegist
 
     bool const returnInheritedResults = !arangodb::ServerState::isDBServer(role);
     if (returnInheritedResults) {
-      auto returnNode = dynamic_cast<ExecutionBlockImpl<IdExecutor<BlockPassthrough::Enable, void>>*>(root);
+      auto returnNode =
+          dynamic_cast<ExecutionBlockImpl<IdExecutor<BlockPassthrough::Enable, void>>*>(root);
       TRI_ASSERT(returnNode != nullptr);
       engine->resultRegister(returnNode->getOutputRegisterId());
     } else {

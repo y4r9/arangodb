@@ -106,11 +106,11 @@ class SpliceSubqueryNodeOptimizerRuleTest : public ::testing::Test {
   QueryRegistry* queryRegistry{QueryRegistryFeature::registry()};
 
   std::string const enableRuleOptions() const {
-    return R"({"optimizer": { "rules": [ "+splice-subqueries" ] } })";
+    return R"({"optimizer": { "rules": [ "+splice-subqueries" ] }, "profile": 3 })";
   }
 
   std::string const disableRuleOptions() const {
-    return R"({"optimizer": { "rules": [ "-splice-subqueries" ] } })";
+    return R"({"optimizer": { "rules": [ "-splice-subqueries" ] }, "profile": 3 })";
   }
 
   void verifySubquerySplicing(std::string const& querystring, size_t expectedNumberOfNodes) {
@@ -300,8 +300,7 @@ TEST_F(SpliceSubqueryNodeOptimizerRuleTest, DISABLED_splice_subquery_with_limit_
   verifyQueryResult(query, expected->slice());
 }
 
-TEST_F(SpliceSubqueryNodeOptimizerRuleTest,
-       DISABLED_splice_subquery_collect_within_empty_nested_subquery) {
+TEST_F(SpliceSubqueryNodeOptimizerRuleTest, splice_subquery_collect_within_empty_nested_subquery) {
   auto query = R"aql(
     FOR k IN 1..2
       LET sub1 = (

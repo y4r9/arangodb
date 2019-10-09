@@ -98,8 +98,8 @@ class ExecutionBlock {
   void traceGetSomeBegin(size_t atMost);
 
   // Trace the end of a getSome call, potentially with result
-  std::pair<ExecutionState, SharedAqlItemBlockPtr> traceGetSomeEnd(
-      ExecutionState state, SharedAqlItemBlockPtr result);
+  std::pair<ExecutionState, SharedAqlItemBlockPtr> traceGetSomeEnd(ExecutionState state,
+                                                                   SharedAqlItemBlockPtr result);
 
   void traceSkipSomeBegin(size_t atMost);
 
@@ -107,12 +107,29 @@ class ExecutionBlock {
 
   std::pair<ExecutionState, size_t> traceSkipSomeEnd(ExecutionState state, size_t skipped);
 
-  /// @brief skipSome, skips some more items, semantic is as follows: not
-  /// more than atMost items may be skipped. The method tries to
-  /// skip a block of at most atMost items, however, it may skip
-  /// less (for example if there are not enough items to come). The number of
-  /// elements skipped is returned.
-  virtual std::pair<ExecutionState, size_t> skipSome(size_t atMost) = 0;
+  /*
+   * @brief Like get some, but lines are skipped and not returned.
+   *        This can use optimizations to not actually create the data.
+   *
+   * @param atMost Upper bound of AqlItemRows to be skipped.
+   *               Target is to get as close to this upper bound
+   *               as possible.
+   * @param subqueryDepth We skip atMost many rows only on the given
+   * subqueryDepth A depth of 0 means this Executor is part of the subquery we
+   * skip in A higher depth means we skip in an out subquery.
+   *
+   * @return A pair with the following properties:
+   *         ExecutionState:
+   *           WAITING => IO going on, immediatly return to caller.
+   *           DONE => No more to expect from Upstream, if you are done with
+   *                   this row return DONE to caller.
+   *           HASMORE => There is potentially more from above, call again if
+   *                   you need more input. size_t: Number of rows effectively
+   *                   skipped. On WAITING this is always 0. On any other state
+   *                   this is between 0 and atMost.
+   *
+   */
+  virtual std::pair<ExecutionState, size_t> skipSome(size_t atMost, size_t subqueryDepth) = 0;
 
   ExecutionState getHasMoreState();
 
