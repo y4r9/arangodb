@@ -455,7 +455,7 @@ std::unique_ptr<arangodb::aql::Query> MockAqlServer::createFakeQuery() const {
   auto queryOptions = std::make_shared<VPackBuilder>();
   queryOptions->openObject();
   queryOptions->close();
-  aql::QueryString fakeQueryString("");
+  aql::QueryString fakeQueryString("RETURN 1");
   auto query =
       std::make_unique<arangodb::aql::Query>(false, getSystemDatabase(),
                                              fakeQueryString, bindParams, queryOptions,
