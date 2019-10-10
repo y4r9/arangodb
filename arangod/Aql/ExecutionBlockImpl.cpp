@@ -394,10 +394,31 @@ static SkipVariants constexpr skipType() {
 }  // namespace arangodb
 
 template <class Executor>
-std::pair<ExecutionState, size_t> ExecutionBlockImpl<Executor>::skipSome(size_t atMost,
-                                                                         size_t subqueryDepth) {
+std::pair<ExecutionState, size_t> ExecutionBlockImpl<Executor>::skipSome(size_t const atMost,
+                                                                         size_t const subqueryDepth) {
   traceSkipSomeBegin(atMost);
+  auto state = ExecutionState::HASMORE;
 
+  while (state == ExecutionState::HASMORE && _skipped < atMost) {
+    auto res = skipSomeOnceWithoutTrace(atMost - _skipped, subqueryDepth);
+    TRI_ASSERT(state != ExecutionState::WAITING || res.second == 0);
+    state = res.first;
+    _skipped += res.second;
+    TRI_ASSERT(_skipped <= atMost);
+  }
+
+  size_t skipped = 0;
+  if (state != ExecutionState::WAITING) {
+    std::swap(skipped, _skipped);
+  }
+
+  TRI_ASSERT(skipped <= atMost);
+  return traceSkipSomeEnd(state, skipped);
+}
+
+template <class Executor>
+std::pair<ExecutionState, size_t> ExecutionBlockImpl<Executor>::skipSomeOnceWithoutTrace(
+    size_t atMost, size_t const subqueryDepth) {
   constexpr SkipVariants customSkipType = skipType<Executor>();
 
   if (customSkipType == SkipVariants::GET_SOME) {
@@ -410,7 +431,7 @@ std::pair<ExecutionState, size_t> ExecutionBlockImpl<Executor>::skipSome(size_t 
     }
     TRI_ASSERT(skipped <= atMost);
 
-    return traceSkipSomeEnd({res.first, skipped});
+    return {res.first, skipped};
   }
 
   ExecutionState state;
@@ -422,7 +443,7 @@ std::pair<ExecutionState, size_t> ExecutionBlockImpl<Executor>::skipSome(size_t 
   _engine->_stats += stats;
   TRI_ASSERT(skipped <= atMost);
 
-  return traceSkipSomeEnd(state, skipped);
+  return {state, skipped};
 }
 
 template <bool customInit>
@@ -458,6 +479,9 @@ std::pair<ExecutionState, Result> ExecutionBlockImpl<Executor>::initializeCursor
   // destroy and re-create the Fetcher
   _rowFetcher.~Fetcher();
   new (&_rowFetcher) Fetcher(_dependencyProxy);
+
+  TRI_ASSERT(_skipped == 0);
+  _skipped = 0;
 
   constexpr bool customInit = hasInitializeCursor<Executor>::value;
   // IndexExecutor and EnumerateCollectionExecutor have initializeCursor
@@ -505,6 +529,9 @@ std::pair<ExecutionState, Result> ExecutionBlockImpl<IdExecutor<BlockPassthrough
   // destroy and re-create the Fetcher
   _rowFetcher.~Fetcher();
   new (&_rowFetcher) Fetcher(_dependencyProxy);
+
+  TRI_ASSERT(_skipped == 0);
+  _skipped = 0;
 
   SharedAqlItemBlockPtr block =
       input.cloneToBlock(_engine->itemBlockManager(), *(infos().registersToKeep()),

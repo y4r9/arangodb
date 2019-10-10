@@ -25,12 +25,14 @@
 
 #include "Aql/SharedAqlItemBlockPtr.h"
 
+#include <cstddef>
+
 namespace arangodb {
 namespace aql {
 
 struct CreateInvalidShadowRowHint {
   // Forbid creating this via `{}`
-  explicit CreateInvalidShadowRowHint() = default;
+  constexpr explicit CreateInvalidShadowRowHint() = default;
 };
 
 /**
@@ -51,20 +53,18 @@ struct CreateInvalidShadowRowHint {
 
 class ShadowAqlItemRow {
  public:
-  explicit ShadowAqlItemRow(CreateInvalidShadowRowHint)
+  constexpr explicit ShadowAqlItemRow(CreateInvalidShadowRowHint)
       : _block(nullptr), _baseIndex(0) {}
 
   explicit ShadowAqlItemRow(
       // cppcheck-suppress passedByValue
-      SharedAqlItemBlockPtr block, size_t baseIndex)
-      : _block(std::move(block)), _baseIndex(baseIndex) {
-    TRI_ASSERT(isInitialized());
-  }
+      SharedAqlItemBlockPtr block, size_t baseIndex);
 
   /// @brief get the number of data registers in the underlying block.
   ///        Not all of these registers are necessarily filled by this
   ///        ShadowRow. There might be empty registers on deeper levels.
-  std::size_t getNrRegisters() const noexcept;
+  RegisterCount getNrRegisters() const noexcept;
+
   /// @brief a ShadowRow is relevant iff it indicates an end of subquery block on the subquery context
   ///        we are in right now. This will only be of importance on nested subqueries.
   ///        Within the inner subquery all shadowrows of this inner are relavant. All shadowRows
@@ -98,6 +98,22 @@ class ShadowAqlItemRow {
   /// @brief get the depthValue of the shadow row as int64_t >= 0
   ///        NOTE: Innermost query will have depth 0. Outermost query wil have highest depth.
   uint64_t getDepth() const;
+
+  // Note that == and != here check whether the rows are *identical*, that is,
+  // the same row in the same block.
+  // TODO Make this a named method
+  bool operator==(ShadowAqlItemRow const& other) const noexcept;
+
+  bool operator!=(ShadowAqlItemRow const& other) const noexcept;
+
+  // This checks whether the rows are equivalent, in the sense that they hold
+  // the same number of registers and their entry-AqlValues compare equal,
+  // plus their shadow-depth is the same.
+  // In maintainer mode, it also asserts that the number of registers of the
+  // blocks are equal, because comparing rows of blocks with different layouts
+  // does not make sense.
+  // Invalid rows are considered equivalent.
+  bool equates(ShadowAqlItemRow const& other) const noexcept;
 
  private:
   AqlItemBlock& block() noexcept;

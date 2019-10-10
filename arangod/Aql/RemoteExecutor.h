@@ -84,6 +84,14 @@ class ExecutionBlockImpl<RemoteExecutor> : public ExecutionBlock {
   arangodb::Result sendAsyncRequest(fuerte::RestVerb type, std::string const& urlPart,
                                     velocypack::Buffer<uint8_t> body);
 
+  // _communicationMutex *must* be locked for this!
+  unsigned generateNewTicket();
+
+  void traceGetSomeRequest(velocypack::Slice slice, size_t atMost);
+  void traceSkipSomeRequest(velocypack::Slice slice, size_t atMost);
+  void traceShutdownRequest(velocypack::Slice slice, int errorCode);
+  void traceRequest(const char* rpc, velocypack::Slice slice, std::string const& args);
+
  private:
   ExecutorInfos _infos;
 
@@ -116,13 +124,7 @@ class ExecutionBlockImpl<RemoteExecutor> : public ExecutionBlock {
 
   bool _hasTriggeredShutdown;
 
-#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
   bool _didSendShutdownRequest = false;
-#endif
-
-  void traceGetSomeRequest(velocypack::Slice slice, size_t atMost);
-  void traceSkipSomeRequest(velocypack::Slice slice, size_t atMost);
-  void traceRequest(const char* rpc, velocypack::Slice slice, size_t atMost);
 };
 
 }  // namespace aql

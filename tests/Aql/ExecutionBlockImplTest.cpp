@@ -37,6 +37,7 @@
 #include "Aql/Query.h"
 #include "Aql/SingleRowFetcher.h"
 #include "Mocks/Servers.h"
+#include "RestServer/QueryRegistryFeature.h"
 #include "Transaction/Methods.h"
 
 using namespace arangodb;

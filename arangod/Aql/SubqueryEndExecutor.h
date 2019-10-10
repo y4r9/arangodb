@@ -58,9 +58,7 @@ class SubqueryEndExecutorInfos : public ExecutorInfos {
 
   transaction::Methods* getTrxPtr() const noexcept { return _trxPtr; }
   inline RegisterId getOutputRegister() const { return _outReg; }
-  inline bool usesInputRegister() const {
-    return _inReg != RegisterPlan::MaxRegisterId;
-  }
+  bool usesInputRegister() const;
   inline RegisterId getInputRegister() const { return _inReg; }
 
  private:

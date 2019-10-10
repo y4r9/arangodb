@@ -18,6 +18,7 @@
 /// Copyright holder is ArangoDB GmbH, Cologne, Germany
 ///
 /// @author Michael Hackstein
+/// @author Tobias Gödderz
 ////////////////////////////////////////////////////////////////////////////////
 
 #include "ShadowAqlItemRow.h"
@@ -25,22 +26,19 @@
 using namespace arangodb;
 using namespace arangodb::aql;
 
-/// @brief get the number of data registers in the underlying block.
-///        Not all of these registers are necessarily filled by this
-///        ShadowRow. There might be empty registers on deeper levels.
-std::size_t ShadowAqlItemRow::getNrRegisters() const noexcept {
+ShadowAqlItemRow::ShadowAqlItemRow(SharedAqlItemBlockPtr block, size_t baseIndex)
+    : _block(std::move(block)), _baseIndex(baseIndex) {
+  TRI_ASSERT(isInitialized());
+  TRI_ASSERT(_baseIndex < _block->size());
+  TRI_ASSERT(_block->isShadowRow(_baseIndex));
+}
+
+RegisterCount ShadowAqlItemRow::getNrRegisters() const noexcept {
   return block().getNrRegs();
 }
 
-/// @brief a ShadowRow is relevant iff it indicates an end of subquery block on the subquery context
-///        we are in right now. This will only be of importance on nested subqueries.
-///        Within the inner subquery all shadowrows of this inner are relavant. All shadowRows
-///        of the outer subquery are NOT relevant
-///        Also note: There is a guarantee that a non-relevant shadowrow, can only be encountered
-///        right after a shadowrow. And only in descending nesting level. (eg 1. inner most, 2. inner, 3. outer most)
 bool ShadowAqlItemRow::isRelevant() const noexcept { return getDepth() == 0; }
 
-/// @brief Test if this shadow row is initialized, eg has a block and has a valid depth.
 bool ShadowAqlItemRow::isInitialized() const {
 #ifdef ARANGODB_ENABLE_MAINTAINER_MODE
   if (_block != nullptr) {
@@ -98,4 +96,34 @@ AqlItemBlock& ShadowAqlItemRow::block() noexcept {
 AqlItemBlock const& ShadowAqlItemRow::block() const noexcept {
   TRI_ASSERT(_block != nullptr);
   return *_block;
+}
+
+bool ShadowAqlItemRow::operator==(ShadowAqlItemRow const& other) const noexcept {
+  return this->_block == other._block && this->_baseIndex == other._baseIndex;
+}
+
+bool ShadowAqlItemRow::operator!=(ShadowAqlItemRow const& other) const noexcept {
+  return !(*this == other);
+}
+
+bool ShadowAqlItemRow::equates(ShadowAqlItemRow const& other) const noexcept {
+  if (!isInitialized() || !other.isInitialized()) {
+    return isInitialized() == other.isInitialized();
+  }
+  TRI_ASSERT(getNrRegisters() == other.getNrRegisters());
+  if (getNrRegisters() != other.getNrRegisters()) {
+    return false;
+  }
+  if (getDepth() != other.getDepth()) {
+    return false;
+  }
+  // NOLINTNEXTLINE(modernize-use-transparent-functors)
+  auto const eq = std::equal_to<AqlValue>{};
+  for (RegisterId i = 0; i < getNrRegisters(); ++i) {
+    if (!eq(getValue(i), other.getValue(i))) {
+      return false;
+    }
+  }
+
+  return true;
 }

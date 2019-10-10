@@ -28,6 +28,7 @@
 #include "Mocks/Death_Test.h"
 
 #include "Aql/OutputAqlItemRow.h"
+#include "Aql/RegisterPlan.h"
 #include "Aql/SubqueryEndExecutor.h"
 
 #include "Logger/LogMacros.h"

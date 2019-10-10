@@ -188,6 +188,11 @@ class ExecutionBlockImpl final : public ExecutionBlock {
   std::pair<ExecutionState, SharedAqlItemBlockPtr> getSomeWithoutTrace(size_t atMost);
 
   /**
+   * @brief Inner skipSome() part, without the tracing calls.
+   */
+  std::pair<ExecutionState, size_t> skipSomeOnceWithoutTrace(size_t atMost, size_t subqueryDepth);
+
+  /**
    * @brief Allocates a new AqlItemBlock and returns it, with the specified
    *        number of rows (nrItems) and columns (nrRegs).
    *        In case the Executor supports pass-through of blocks (i.e. reuse the
@@ -244,6 +249,8 @@ class ExecutionBlockImpl final : public ExecutionBlock {
   Query const& _query;
 
   InternalState _state;
+
+  size_t _skipped{};
 };
 
 }  // namespace aql

@@ -24,6 +24,7 @@
 #include "Aql/SubqueryEndExecutor.h"
 #include "Aql/ExecutionBlock.h"
 #include "Aql/OutputAqlItemRow.h"
+#include "Aql/RegisterPlan.h"
 #include "Aql/SingleRowFetcher.h"
 
 #include <velocypack/Builder.h>
@@ -52,6 +53,10 @@ SubqueryEndExecutorInfos::SubqueryEndExecutorInfos(
 SubqueryEndExecutorInfos::SubqueryEndExecutorInfos(SubqueryEndExecutorInfos&& other) = default;
 
 SubqueryEndExecutorInfos::~SubqueryEndExecutorInfos() = default;
+
+bool SubqueryEndExecutorInfos::usesInputRegister() const {
+  return _inReg != RegisterPlan::MaxRegisterId;
+}
 
 SubqueryEndExecutor::SubqueryEndExecutor(Fetcher& fetcher, SubqueryEndExecutorInfos& infos)
     : _fetcher(fetcher), _infos(infos), _accumulator(nullptr), _state(ACCUMULATE) {

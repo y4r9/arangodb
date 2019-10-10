@@ -21,13 +21,13 @@
 /// @author Markus Pfeiffer
 ////////////////////////////////////////////////////////////////////////////////
 
-#include "Aql/SubqueryEndExecutionNode.h"
+#include "SubqueryEndExecutionNode.h"
+
 #include "Aql/Ast.h"
 #include "Aql/ExecutionBlockImpl.h"
 #include "Aql/ExecutionPlan.h"
-#include "Aql/IdExecutor.h"
-#include "Aql/NodeFinder.h"
 #include "Aql/Query.h"
+#include "Aql/RegisterPlan.h"
 #include "Aql/SubqueryEndExecutor.h"
 #include "Meta/static_assert_size.h"
 
