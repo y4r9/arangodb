@@ -405,6 +405,7 @@ std::pair<ExecutionState, size_t> ExecutionBlockImpl<SubqueryEndExecutor>::skipS
 template <>
 std::pair<ExecutionState, size_t> ExecutionBlockImpl<SubqueryStartExecutor>::skipSome(
     size_t const atMost, size_t const subqueryDepth) {
+  // TODO tracing
   return _executor.skipRowsWithDepth(atMost, subqueryDepth);
 }
 
