@@ -193,6 +193,22 @@ class ExecutionBlockImpl final : public ExecutionBlock {
   std::pair<ExecutionState, size_t> skipSomeOnceWithoutTrace(size_t atMost, size_t subqueryDepth);
 
   /**
+  * @brief Most basic implementation of skipSome on the current subquery level:
+  * Calls getSome and counts the output rows.
+  */
+  std::pair<ExecutionState, size_t> skipSomeWithGetSome(size_t atMost);
+
+  /**
+   * @brief Skip atMost items in the current subquery level (i.e. subqueryDepth == 0)
+   */
+  std::pair<ExecutionState, size_t> skipSomeSubqueryLocal(size_t atMost);
+
+  /**
+   * @brief Skip atMost items in a higher subquery level (i.e. subqueryDepth > 0)
+   */
+  std::pair<ExecutionState, size_t> skipSomeHigherSubquery(size_t atMost, size_t subqueryDepth);
+
+  /**
    * @brief Allocates a new AqlItemBlock and returns it, with the specified
    *        number of rows (nrItems) and columns (nrRegs).
    *        In case the Executor supports pass-through of blocks (i.e. reuse the
