@@ -120,6 +120,8 @@ class TestExecutorHelperSkipInFetcher {
 
   std::tuple<ExecutionState, Stats, SharedAqlItemBlockPtr> fetchBlockForPassthrough(size_t atMost);
 
+  void AssertCallsToFunctions(size_t didSkip, bool didWait);
+
  public:
   Infos& _infos;
 
@@ -152,14 +154,18 @@ class TestExecutorHelperSkipInExecutor {
   std::pair<ExecutionState, Stats> produceRows(OutputAqlItemRow& output);
   std::tuple<ExecutionState, Stats, size_t> skipRows(size_t toSkip);
 
+  void AssertCallsToFunctions(size_t didSkip, bool didWait);
+
  public:
   Infos& _infos;
 
  private:
   Fetcher& _fetcher;
+
+  size_t _skipRowsCalls;
 };
 
-class TestExecutorHelperSkipAsGetSome {
+class TestExecutorHelperSkipAsGetSomeExecutor {
  public:
   struct Properties {
     static const bool preservesOrder = true;
@@ -170,11 +176,11 @@ class TestExecutorHelperSkipAsGetSome {
   using Infos = TestExecutorHelperInfos;
   using Stats = NoStats;
 
-  TestExecutorHelperSkipAsGetSome() = delete;
-  TestExecutorHelperSkipAsGetSome(TestExecutorHelperSkipAsGetSome&&) = default;
-  TestExecutorHelperSkipAsGetSome(TestExecutorHelperSkipAsGetSome const&) = delete;
-  TestExecutorHelperSkipAsGetSome(Fetcher& fetcher, Infos&);
-  ~TestExecutorHelperSkipAsGetSome();
+  TestExecutorHelperSkipAsGetSomeExecutor() = delete;
+  TestExecutorHelperSkipAsGetSomeExecutor(TestExecutorHelperSkipAsGetSomeExecutor&&) = default;
+  TestExecutorHelperSkipAsGetSomeExecutor(TestExecutorHelperSkipAsGetSomeExecutor const&) = delete;
+  TestExecutorHelperSkipAsGetSomeExecutor(Fetcher& fetcher, Infos&);
+  ~TestExecutorHelperSkipAsGetSomeExecutor();
 
   /**
    * @brief produce the next Row of Aql Values.
@@ -183,11 +189,15 @@ class TestExecutorHelperSkipAsGetSome {
    */
   std::pair<ExecutionState, Stats> produceRows(OutputAqlItemRow& output);
 
+  void AssertCallsToFunctions(size_t didSkip, bool didWait);
+
  public:
   Infos& _infos;
 
  private:
   Fetcher& _fetcher;
+
+  size_t _produceRowsCalls;
 };
 
 }  // namespace aql

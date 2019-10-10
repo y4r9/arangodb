@@ -24,6 +24,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include "TestExecutorHelper.h"
+#include "gtest/gtest.h"
 
 #include "Basics/Common.h"
 
@@ -99,18 +100,57 @@ TestExecutorHelperSkipInFetcher::fetchBlockForPassthrough(size_t atMost) {
   return {rv.first, {}, std::move(rv.second)};
 }
 
+void TestExecutorHelperSkipInFetcher::AssertCallsToFunctions(size_t didSkip, bool didWait) {
+  // This is always ok
+  EXPECT_TRUE(true);
+}
+
 TestExecutorHelperSkipInExecutor::TestExecutorHelperSkipInExecutor(Fetcher& fetcher, Infos& infos)
-    : _infos(infos), _fetcher(fetcher){};
+    : _infos(infos), _fetcher(fetcher), _skipRowsCalls{0} {};
 TestExecutorHelperSkipInExecutor::~TestExecutorHelperSkipInExecutor() = default;
 
 std::pair<ExecutionState, NoStats> TestExecutorHelperSkipInExecutor::produceRows(OutputAqlItemRow& output) {
   // This Executor is supposed to test SKIP only
   // If producedRows is called something is wrong
   THROW_ARANGO_EXCEPTION(TRI_ERROR_NOT_IMPLEMENTED);
-  _fetcher.fetchRow();
 }
 
 std::tuple<ExecutionState, NoStats, size_t> TestExecutorHelperSkipInExecutor::skipRows(size_t toSkip) {
-  // TODO: Implement me
-  return {ExecutionState::DONE, {}, 0};
+  _skipRowsCalls++;
+  // actually forward to fetcher
+  auto res = _fetcher.skipRows(toSkip, 0);
+  return {res.first, {}, res.second};
+}
+
+void TestExecutorHelperSkipInExecutor::AssertCallsToFunctions(size_t didSkip, bool didWait) {
+  if (didWait) {
+    EXPECT_EQ(2, _skipRowsCalls);
+  } else {
+    EXPECT_EQ(1, _skipRowsCalls);
+  }
+  _skipRowsCalls = 0;
+}
+
+TestExecutorHelperSkipAsGetSomeExecutor::TestExecutorHelperSkipAsGetSomeExecutor(Fetcher& fetcher,
+                                                                                 Infos& infos)
+    : _infos(infos), _fetcher(fetcher), _produceRowsCalls{0} {};
+TestExecutorHelperSkipAsGetSomeExecutor::~TestExecutorHelperSkipAsGetSomeExecutor() = default;
+
+std::pair<ExecutionState, NoStats> TestExecutorHelperSkipAsGetSomeExecutor::produceRows(OutputAqlItemRow& output) {
+  // This Executor is bascially copying the rows one by one (like IdExecutor)
+  auto res = _fetcher.fetchRow();
+  if (res.second.isInitialized()) {
+    output.copyRow(res.second);
+  }
+  return {res.first, {}};
+}
+
+void TestExecutorHelperSkipAsGetSomeExecutor::AssertCallsToFunctions(size_t didSkip,
+                                                                     bool didWait) {
+  if (didWait) {
+    EXPECT_EQ(didSkip + 1, _produceRowsCalls);
+  } else {
+    EXPECT_EQ(didSkip, _produceRowsCalls);
+  }
+  _produceRowsCalls = 0;
 }

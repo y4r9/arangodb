@@ -425,7 +425,7 @@ TEST_F(ExecutionBlockImplTest,
  *
  */
 
-typedef ::testing::Types<TestExecutorHelperSkipInFetcher> ExecutorTypes;
+typedef ::testing::Types<TestExecutorHelperSkipInFetcher, TestExecutorHelperSkipInExecutor, TestExecutorHelperSkipAsGetSomeExecutor> ExecutorTypes;
 
 template <typename t>
 class ExecutionBlockImplSkipTest : public ::testing::Test {
@@ -463,11 +463,13 @@ TYPED_TEST_P(ExecutionBlockImplSkipTest, skip_on_relevant_level_with_shadow_rows
   std::tie(state, skipped) = testee.skipSome(atMost, 0);
   EXPECT_EQ(state, ExecutionState::HASMORE);
   EXPECT_EQ(skipped, 2);
+  testee.executor().AssertCallsToFunctions(skipped, true);
 
   // done should stay done!
   std::tie(state, skipped) = testee.skipSome(atMost, 0);
   EXPECT_EQ(state, ExecutionState::DONE);
   EXPECT_EQ(skipped, 2);
+  testee.executor().AssertCallsToFunctions(skipped, false);
 }
 
 REGISTER_TYPED_TEST_CASE_P(ExecutionBlockImplSkipTest, skip_on_relevant_level_with_shadow_rows);

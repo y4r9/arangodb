@@ -212,7 +212,17 @@ class ExecutionBlockImpl final : public ExecutionBlock {
 
   Query const& getQuery() const;
 
+#ifdef ARANGODB_USE_GOOGLE_TESTS
+  // We need the Executor to be availabe during Tests
+  // for assertions.
+ public:
+#endif
+
   Executor& executor();
+
+#ifdef ARANGODB_USE_GOOGLE_TESTS
+ private:
+#endif
 
   /// @brief request an AqlItemBlock from the memory manager
   SharedAqlItemBlockPtr requestBlock(size_t nrItems, RegisterCount nrRegs);
