@@ -289,9 +289,8 @@ template <>
 struct ExecuteSkipVariant<SkipVariants::FETCHER> {
   template <class Executor>
   static std::tuple<ExecutionState, typename Executor::Stats, size_t> executeSkip(
-      Executor& executor, typename Executor::Fetcher& fetcher, size_t toSkip,
-      size_t subqueryDepth) {
-    auto res = fetcher.skipRows(toSkip, subqueryDepth);
+      Executor&, typename Executor::Fetcher& fetcher, size_t toSkip) {
+    auto res = fetcher.skipRows(toSkip, 0);
     return std::make_tuple(res.first, typename Executor::Stats{}, res.second);  // tuple, cannot use initializer list due to build failure
   }
 };
@@ -300,8 +299,7 @@ template <>
 struct ExecuteSkipVariant<SkipVariants::EXECUTOR> {
   template <class Executor>
   static std::tuple<ExecutionState, typename Executor::Stats, size_t> executeSkip(
-      Executor& executor, typename Executor::Fetcher& fetcher, size_t toSkip,
-      size_t subqueryDepth) {
+      Executor& executor, typename Executor::Fetcher&, size_t toSkip) {
     return executor.skipRows(toSkip);
   }
 };
@@ -310,8 +308,7 @@ template <>
 struct ExecuteSkipVariant<SkipVariants::GET_SOME> {
   template <class Executor>
   static std::tuple<ExecutionState, typename Executor::Stats, size_t> executeSkip(
-      Executor& executor, typename Executor::Fetcher& fetcher, size_t toSkip,
-      size_t subqueryDepth) {
+      Executor&, typename Executor::Fetcher&, size_t) {
     // this function should never be executed
     TRI_ASSERT(false);
     // Make MSVC happy:
@@ -418,32 +415,102 @@ std::pair<ExecutionState, size_t> ExecutionBlockImpl<Executor>::skipSome(size_t 
 
 template <class Executor>
 std::pair<ExecutionState, size_t> ExecutionBlockImpl<Executor>::skipSomeOnceWithoutTrace(
-    size_t atMost, size_t const subqueryDepth) {
+    size_t const atMost, size_t const subqueryDepth) {
+  if (subqueryDepth == 0) {
+    return skipSomeSubqueryLocal(atMost);
+  } else {
+    return skipSomeHigherSubquery(atMost, subqueryDepth);
+  }
+}
+
+template <class Executor>
+std::pair<ExecutionState, size_t> ExecutionBlockImpl<Executor>::skipSomeWithGetSome(size_t const skipAtMost) {
+  // Skip may use a high `atMost` value, which we must not use for getSome.
+  auto const getAtMost = std::min(skipAtMost, DefaultBatchSize());
+  auto res = getSomeWithoutTrace(getAtMost);
+
+  size_t skipped = 0;
+  if (res.second != nullptr) {
+    skipped = res.second->size();
+  }
+  TRI_ASSERT(skipped <= getAtMost);
+  TRI_ASSERT(skipped <= skipAtMost);
+
+  return {res.first, skipped};
+}
+
+template <class Executor>
+std::pair<ExecutionState, size_t> ExecutionBlockImpl<Executor>::skipSomeSubqueryLocal(size_t atMost) {
   constexpr SkipVariants customSkipType = skipType<Executor>();
 
   if (customSkipType == SkipVariants::GET_SOME) {
-    atMost = std::min(atMost, DefaultBatchSize());
-    auto res = getSomeWithoutTrace(atMost);
-
-    size_t skipped = 0;
-    if (res.second != nullptr) {
-      skipped = res.second->size();
-    }
-    TRI_ASSERT(skipped <= atMost);
-
-    return {res.first, skipped};
+    return skipSomeWithGetSome(atMost);
   }
 
   ExecutionState state;
   typename Executor::Stats stats;
   size_t skipped;
   std::tie(state, stats, skipped) =
-      ExecuteSkipVariant<customSkipType>::executeSkip(_executor, _rowFetcher,
-                                                      atMost, subqueryDepth);
+      ExecuteSkipVariant<customSkipType>::executeSkip(_executor, _rowFetcher, atMost);
   _engine->_stats += stats;
   TRI_ASSERT(skipped <= atMost);
 
   return {state, skipped};
+}
+
+template <class Executor>
+std::pair<ExecutionState, size_t> ExecutionBlockImpl<Executor>::skipSomeHigherSubquery(
+    size_t const atMost, size_t const subqueryDepth) {
+  TRI_ASSERT(subqueryDepth > 0);
+
+  if (!hasSideEffects()) {
+    resetAfterShadowRow();
+    return _rowFetcher.skipRows(atMost, subqueryDepth);
+  } else {
+    switch (_state) {
+      case FETCH_DATA: {
+        auto state = ExecutionState::HASMORE;
+        while (state == ExecutionState::HASMORE) {
+          // We do not care how many items we get on this subquery level
+          std::tie(state, std::ignore) = skipSomeWithGetSome(DefaultBatchSize());
+        }
+        if (state == ExecutionState::WAITING) {
+          return {ExecutionState::WAITING, 0};
+        }
+        TRI_ASSERT(state == ExecutionState::DONE);
+        _state = InternalState::FETCH_SHADOWROWS;
+        // Current level is done, now count shadow rows
+      } // intentionally falls through
+      case FETCH_SHADOWROWS: {
+        ExecutionState state = ExecutionState::HASMORE;
+        ShadowAqlItemRow row{CreateInvalidShadowRowHint{}};
+        while (state == ExecutionState::HASMORE) {
+          std::tie(state, row) = _rowFetcher.fetchShadowRow();
+          if (!row.isInitialized()) {
+            TRI_ASSERT(state != ExecutionState::HASMORE);
+            break;
+          }
+          if (row.getDepth() + 1 < subqueryDepth) {
+            // ignore
+          } else if (row.getDepth() + 1 == subqueryDepth) {
+            // this row is a data row for the skipSome initiator, count it
+            ++_skipped;
+          } else {
+            // stop, we've reached a row that's relevant to the skipSome initiator
+            state = ExecutionState::DONE;
+          }
+        }
+        size_t skipped = 0;
+        if (state != ExecutionState::WAITING) {
+          std::swap(_skipped, skipped);
+        }
+        return {state, skipped};
+      }
+      case DONE: {
+        return {ExecutionState::DONE, 0};
+      }
+    }
+  }
 }
 
 template <bool customInit>
@@ -814,6 +881,20 @@ void ExecutionBlockImpl<Executor>::resetAfterShadowRow() {
   // cppcheck-suppress unreadVariable
   constexpr bool customInit = hasInitializeCursor<decltype(_executor)>::value;
   InitializeCursor<customInit>::init(_executor, _rowFetcher, _infos);
+}
+
+template <class Executor>
+struct HasSideEffects : std::false_type {};
+
+template<class U, class V>
+struct HasSideEffects<ModificationExecutor<U, V>> : std::true_type {};
+
+template<class U>
+struct HasSideEffects<SingleRemoteModificationExecutor<U>> : std::true_type {};
+
+template <class Executor>
+constexpr bool ExecutionBlockImpl<Executor>::hasSideEffects() {
+  return HasSideEffects<Executor>::value;
 }
 
 template class ::arangodb::aql::ExecutionBlockImpl<CalculationExecutor<CalculationType::Condition>>;

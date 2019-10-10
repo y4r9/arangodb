@@ -259,3 +259,11 @@ std::pair<ExecutionState, ShadowAqlItemRow> AllRowsFetcher::fetchShadowRow(size_
 
   return {state, row};
 }
+
+std::pair<ExecutionState, size_t> AllRowsFetcher::skipRows(size_t const atMost, size_t const subqueryDepth) {
+  // Must not be called for the current level
+  TRI_ASSERT(subqueryDepth > 0);
+  // not yet implemented
+  TRI_ASSERT(false);
+  THROW_ARANGO_EXCEPTION(TRI_ERROR_NOT_IMPLEMENTED);
+}
