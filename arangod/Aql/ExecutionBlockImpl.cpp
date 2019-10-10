@@ -70,6 +70,13 @@
 using namespace arangodb;
 using namespace arangodb::aql;
 
+// Forward declare for tests
+namespace arangodb {
+namespace aql {
+class TestExecutorHelperSkipInExecutor;
+}  // namespace aql
+}  // namespace arangodb
+
 /*
  * Creates a metafunction `checkName` that tests whether a class has a method
  * named `methodName`, used like this:
@@ -347,13 +354,32 @@ static SkipVariants constexpr skipType() {
            std::is_same<Executor, IdExecutor<BlockPassthrough::Disable, SingleRowFetcher<BlockPassthrough::Disable>>>::value ||
            std::is_same<Executor, ConstrainedSortExecutor>::value ||
            std::is_same<Executor, SortingGatherExecutor>::value ||
-           std::is_same<Executor, MaterializeExecutor>::value),
+           std::is_same<Executor, MaterializeExecutor>::value ||
+           // Test Executor
+           std::is_same<Executor, TestExecutorHelperSkipInExecutor>::value),
       "Unexpected executor for SkipVariants::EXECUTOR");
 
   // The LimitExecutor will not work correctly with SkipVariants::FETCHER!
   static_assert(
       !std::is_same<Executor, LimitExecutor>::value || useFetcher,
       "LimitExecutor needs to implement skipRows() to work correctly");
+
+  // Only Modification executors are required to fallback to GET_SOME
+  /*
+  static_assert(
+      (!useExecutor && !useFetcher) ==
+          (std::is_same<Executor, ModificationExecutor<Insert, SingleBlockFetcher<BlockPassthrough::Disable>>>::value ||
+           std::is_same<Executor, ModificationExecutor<Insert, AllRowsFetcher>>::value ||
+           std::is_same<Executor, ModificationExecutor<Remove, SingleBlockFetcher<BlockPassthrough::Disable>>>::value ||
+           std::is_same<Executor, ModificationExecutor<Remove, AllRowsFetcher>>::value ||
+           std::is_same<Executor, ModificationExecutor<Replace, SingleBlockFetcher<BlockPassthrough::Disable>>>::value ||
+           std::is_same<Executor, ModificationExecutor<Replace, AllRowsFetcher>>::value ||
+           std::is_same<Executor, ModificationExecutor<Update, SingleBlockFetcher<BlockPassthrough::Disable>>>::value ||
+           std::is_same<Executor, ModificationExecutor<Update, AllRowsFetcher>>::value ||
+           std::is_same<Executor, ModificationExecutor<Upsert, SingleBlockFetcher<BlockPassthrough::Disable>>>::value ||
+           std::is_same<Executor, ModificationExecutor<Upsert, AllRowsFetcher>>::value),
+      "Unexpected executor for SkipVariants::GET_SOME");
+  */
 
   if (useExecutor) {
     return SkipVariants::EXECUTOR;

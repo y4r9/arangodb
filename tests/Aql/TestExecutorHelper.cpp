@@ -27,9 +27,9 @@
 
 #include "Basics/Common.h"
 
-#include "Aql/InputAqlItemRow.h"
 #include "Aql/AqlValue.h"
 #include "Aql/ExecutorInfos.h"
+#include "Aql/InputAqlItemRow.h"
 #include "Aql/SingleRowFetcher.h"
 #include "Logger/LogMacros.h"
 
@@ -38,7 +38,8 @@
 using namespace arangodb;
 using namespace arangodb::aql;
 
-TestExecutorHelper::TestExecutorHelper(Fetcher& fetcher, Infos& infos) : _infos(infos), _fetcher(fetcher){};
+TestExecutorHelper::TestExecutorHelper(Fetcher& fetcher, Infos& infos)
+    : _infos(infos), _fetcher(fetcher){};
 TestExecutorHelper::~TestExecutorHelper() = default;
 
 std::pair<ExecutionState, FilterStats> TestExecutorHelper::produceRows(OutputAqlItemRow& output) {
@@ -68,7 +69,7 @@ std::pair<ExecutionState, FilterStats> TestExecutorHelper::produceRows(OutputAql
 
     output.copyRow(input);
     return {state, stats};
-    //stats.incrFiltered();
+    // stats.incrFiltered();
   }
 }
 
@@ -81,3 +82,35 @@ TestExecutorHelperInfos::TestExecutorHelperInfos(RegisterId inputRegister_,
                     nullptr, nrInputRegisters, nrOutputRegisters,
                     std::move(registersToClear), std::move(registersToKeep)),
       _inputRegister(inputRegister_) {}
+
+TestExecutorHelperSkipInFetcher::TestExecutorHelperSkipInFetcher(Fetcher& fetcher, Infos& infos)
+    : _infos(infos), _fetcher(fetcher){};
+TestExecutorHelperSkipInFetcher::~TestExecutorHelperSkipInFetcher() = default;
+
+std::pair<ExecutionState, NoStats> TestExecutorHelperSkipInFetcher::produceRows(OutputAqlItemRow& output) {
+  // This Executor is supposed to test SKIP only
+  // If producedRows is called something is wrong
+  THROW_ARANGO_EXCEPTION(TRI_ERROR_NOT_IMPLEMENTED);
+}
+
+std::tuple<ExecutionState, NoStats, SharedAqlItemBlockPtr>
+TestExecutorHelperSkipInFetcher::fetchBlockForPassthrough(size_t atMost) {
+  auto rv = _fetcher.fetchBlockForPassthrough(atMost);
+  return {rv.first, {}, std::move(rv.second)};
+}
+
+TestExecutorHelperSkipInExecutor::TestExecutorHelperSkipInExecutor(Fetcher& fetcher, Infos& infos)
+    : _infos(infos), _fetcher(fetcher){};
+TestExecutorHelperSkipInExecutor::~TestExecutorHelperSkipInExecutor() = default;
+
+std::pair<ExecutionState, NoStats> TestExecutorHelperSkipInExecutor::produceRows(OutputAqlItemRow& output) {
+  // This Executor is supposed to test SKIP only
+  // If producedRows is called something is wrong
+  THROW_ARANGO_EXCEPTION(TRI_ERROR_NOT_IMPLEMENTED);
+  _fetcher.fetchRow();
+}
+
+std::tuple<ExecutionState, NoStats, size_t> TestExecutorHelperSkipInExecutor::skipRows(size_t toSkip) {
+  // TODO: Implement me
+  return {ExecutionState::DONE, {}, 0};
+}

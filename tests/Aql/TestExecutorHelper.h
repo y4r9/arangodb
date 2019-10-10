@@ -94,6 +94,102 @@ class TestExecutorHelper {
   bool _returnedDone = false;
 };
 
+class TestExecutorHelperSkipInFetcher {
+ public:
+  struct Properties {
+    static const bool preservesOrder = true;
+    static const BlockPassthrough allowsBlockPassthrough = BlockPassthrough::Enable;
+    static const bool inputSizeRestrictsOutputSize = false;
+  };
+  using Fetcher = SingleRowFetcher<Properties::allowsBlockPassthrough>;
+  using Infos = TestExecutorHelperInfos;
+  using Stats = NoStats;
+
+  TestExecutorHelperSkipInFetcher() = delete;
+  TestExecutorHelperSkipInFetcher(TestExecutorHelperSkipInFetcher&&) = default;
+  TestExecutorHelperSkipInFetcher(TestExecutorHelperSkipInFetcher const&) = delete;
+  TestExecutorHelperSkipInFetcher(Fetcher& fetcher, Infos&);
+  ~TestExecutorHelperSkipInFetcher();
+
+  /**
+   * @brief produce the next Row of Aql Values.
+   *
+   * @return ExecutionState, and if successful exactly one new Row of AqlItems.
+   */
+  std::pair<ExecutionState, Stats> produceRows(OutputAqlItemRow& output);
+
+  std::tuple<ExecutionState, Stats, SharedAqlItemBlockPtr> fetchBlockForPassthrough(size_t atMost);
+
+ public:
+  Infos& _infos;
+
+ private:
+  Fetcher& _fetcher;
+};
+
+class TestExecutorHelperSkipInExecutor {
+ public:
+  struct Properties {
+    static const bool preservesOrder = true;
+    static const BlockPassthrough allowsBlockPassthrough = BlockPassthrough::Disable;
+    static const bool inputSizeRestrictsOutputSize = false;
+  };
+  using Fetcher = SingleRowFetcher<Properties::allowsBlockPassthrough>;
+  using Infos = TestExecutorHelperInfos;
+  using Stats = NoStats;
+
+  TestExecutorHelperSkipInExecutor() = delete;
+  TestExecutorHelperSkipInExecutor(TestExecutorHelperSkipInExecutor&&) = default;
+  TestExecutorHelperSkipInExecutor(TestExecutorHelperSkipInExecutor const&) = delete;
+  TestExecutorHelperSkipInExecutor(Fetcher& fetcher, Infos&);
+  ~TestExecutorHelperSkipInExecutor();
+
+  /**
+   * @brief produce the next Row of Aql Values.
+   *
+   * @return ExecutionState, and if successful exactly one new Row of AqlItems.
+   */
+  std::pair<ExecutionState, Stats> produceRows(OutputAqlItemRow& output);
+  std::tuple<ExecutionState, Stats, size_t> skipRows(size_t toSkip);
+
+ public:
+  Infos& _infos;
+
+ private:
+  Fetcher& _fetcher;
+};
+
+class TestExecutorHelperSkipAsGetSome {
+ public:
+  struct Properties {
+    static const bool preservesOrder = true;
+    static const BlockPassthrough allowsBlockPassthrough = BlockPassthrough::Disable;
+    static const bool inputSizeRestrictsOutputSize = false;
+  };
+  using Fetcher = SingleRowFetcher<Properties::allowsBlockPassthrough>;
+  using Infos = TestExecutorHelperInfos;
+  using Stats = NoStats;
+
+  TestExecutorHelperSkipAsGetSome() = delete;
+  TestExecutorHelperSkipAsGetSome(TestExecutorHelperSkipAsGetSome&&) = default;
+  TestExecutorHelperSkipAsGetSome(TestExecutorHelperSkipAsGetSome const&) = delete;
+  TestExecutorHelperSkipAsGetSome(Fetcher& fetcher, Infos&);
+  ~TestExecutorHelperSkipAsGetSome();
+
+  /**
+   * @brief produce the next Row of Aql Values.
+   *
+   * @return ExecutionState, and if successful exactly one new Row of AqlItems.
+   */
+  std::pair<ExecutionState, Stats> produceRows(OutputAqlItemRow& output);
+
+ public:
+  Infos& _infos;
+
+ private:
+  Fetcher& _fetcher;
+};
+
 }  // namespace aql
 }  // namespace arangodb
 

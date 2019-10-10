@@ -36,6 +36,7 @@
 #include "Aql/ExecutionEngine.h"
 #include "Aql/Query.h"
 #include "Aql/SingleRowFetcher.h"
+#include "Mocks/Servers.h"
 #include "Transaction/Methods.h"
 
 using namespace arangodb;
@@ -142,34 +143,6 @@ TEST_F(ExecutionBlockImplTest,
   std::tie(state, block) = testee.getSome(atMost);
   ASSERT_EQ(block, nullptr);
   ASSERT_EQ(state, ExecutionState::DONE);
-}
-
-TEST_F(ExecutionBlockImplTest,
-       there_is_a_block_in_the_upstream_with_now_rows_inside_the_executor_waits_using_skipsome) {
-  std::deque<SharedAqlItemBlockPtr> blockDeque;
-  SharedAqlItemBlockPtr block = buildBlock<1>(itemBlockManager, {{42}});
-  blockDeque.push_back(std::move(block));
-
-  WaitingExecutionBlockMock dependency{&engine, node, std::move(blockDeque)};
-
-  ExecutionBlockImpl<TestExecutorHelper> testee(&engine, node, std::move(infos));
-  testee.addDependency(&dependency);
-
-  size_t atMost = 1;
-  size_t skipped = 0;
-
-  std::tie(state, skipped) = testee.skipSome(atMost, 0);
-  ASSERT_EQ(state, ExecutionState::WAITING);
-  ASSERT_EQ(skipped, 0);
-
-  std::tie(state, skipped) = testee.skipSome(atMost, 0);
-  ASSERT_EQ(state, ExecutionState::DONE);
-  ASSERT_EQ(skipped, 1);
-
-  // done should stay done!
-  std::tie(state, skipped) = testee.skipSome(atMost, 0);
-  ASSERT_EQ(state, ExecutionState::DONE);
-  ASSERT_EQ(skipped, 0);
 }
 
 TEST_F(ExecutionBlockImplTest,
@@ -295,6 +268,11 @@ TEST_F(ExecutionBlockImplTest,
   ASSERT_EQ(total, 5);
 }
 
+/*
+ * TODO Move these tests to templated skipSome tests
+ *
+ */
+
 TEST_F(ExecutionBlockImplTest,
        there_are_multiple_blocks_in_the_upstream_with_no_rows_inside_the_executor_waits_using_skipsome) {
   // we are checking multiple input blocks
@@ -381,6 +359,119 @@ TEST_F(ExecutionBlockImplTest,
   ASSERT_EQ(state, ExecutionState::DONE);
   ASSERT_EQ(block, nullptr);
 }
+
+TEST_F(ExecutionBlockImplTest,
+       there_is_a_block_in_the_upstream_with_now_rows_inside_the_executor_waits_using_skipsome) {
+  std::deque<SharedAqlItemBlockPtr> blockDeque;
+  SharedAqlItemBlockPtr block = buildBlock<1>(itemBlockManager, {{42}});
+  blockDeque.push_back(std::move(block));
+
+  WaitingExecutionBlockMock dependency{&engine, node, std::move(blockDeque)};
+
+  ExecutionBlockImpl<TestExecutorHelper> testee(&engine, node, std::move(infos));
+  testee.addDependency(&dependency);
+
+  size_t atMost = 1;
+  size_t skipped = 0;
+
+  std::tie(state, skipped) = testee.skipSome(atMost, 0);
+  ASSERT_EQ(state, ExecutionState::WAITING);
+  ASSERT_EQ(skipped, 0);
+
+  std::tie(state, skipped) = testee.skipSome(atMost, 0);
+  ASSERT_EQ(state, ExecutionState::DONE);
+  ASSERT_EQ(skipped, 1);
+
+  // done should stay done!
+  std::tie(state, skipped) = testee.skipSome(atMost, 0);
+  ASSERT_EQ(state, ExecutionState::DONE);
+  ASSERT_EQ(skipped, 0);
+}
+
+TEST_F(ExecutionBlockImplTest,
+       DISABLED_skipsome_in_fetcher_should_never_call_produceRows_on_outer_level) {
+  std::deque<SharedAqlItemBlockPtr> blockDeque;
+  SharedAqlItemBlockPtr block =
+      buildBlock<1>(itemBlockManager, {{1}, {2}, {3}, {4}, {5}, {6}},
+                    {{1, 0}, {2, 1}, {4, 0}, {5, 1}});
+  blockDeque.push_back(std::move(block));
+
+  WaitingExecutionBlockMock dependency{&engine, node, std::move(blockDeque)};
+
+  ExecutionBlockImpl<TestExecutorHelperSkipInFetcher> testee(&engine, node,
+                                                             std::move(infos));
+  testee.addDependency(&dependency);
+
+  size_t atMost = 1;
+  size_t skipped = 0;
+
+  std::tie(state, skipped) = testee.skipSome(atMost, 1);
+  ASSERT_EQ(state, ExecutionState::WAITING);
+  ASSERT_EQ(skipped, 0);
+
+  std::tie(state, skipped) = testee.skipSome(atMost, 1);
+  ASSERT_EQ(state, ExecutionState::DONE);
+  ASSERT_EQ(skipped, 2);
+
+  // done should stay done!
+  std::tie(state, skipped) = testee.skipSome(atMost, 1);
+  ASSERT_EQ(state, ExecutionState::DONE);
+  ASSERT_EQ(skipped, 0);
+}
+
+/*
+ * Section: SkipSome Tests for different Executor variants
+ *
+ */
+
+typedef ::testing::Types<TestExecutorHelperSkipInFetcher> ExecutorTypes;
+
+template <typename t>
+class ExecutionBlockImplSkipTest : public ::testing::Test {
+ protected:
+  mocks::MockAqlServer server;
+  ResourceMonitor monitor;
+  AqlItemBlockManager itemBlockManager{&monitor, SerializationFormat::SHADOWROWS};
+  TestExecutorHelperInfos infos{0, 1, 1, {}, {0}};
+  std::unique_ptr<arangodb::aql::Query> fakedQuery{server.createFakeQuery()};
+};
+
+TYPED_TEST_CASE_P(ExecutionBlockImplSkipTest);
+
+TYPED_TEST_P(ExecutionBlockImplSkipTest, skip_on_relevant_level_with_shadow_rows) {
+  std::deque<SharedAqlItemBlockPtr> blockDeque;
+  auto engine = this->fakedQuery->engine();
+  SharedAqlItemBlockPtr block =
+      buildBlock<1>(this->itemBlockManager, {{1}, {2}, {3}, {4}, {5}, {6}},
+                    {{1, 0}, {2, 1}, {4, 0}, {5, 1}});
+  blockDeque.push_back(std::move(block));
+
+  WaitingExecutionBlockMock dependency{engine, nullptr, std::move(blockDeque)};
+
+  ExecutionBlockImpl<TypeParam> testee(engine, nullptr, std::move(this->infos));
+  testee.addDependency(&dependency);
+
+  size_t atMost = 1000;
+  size_t skipped = 0;
+  ExecutionState state = ExecutionState::HASMORE;
+
+  std::tie(state, skipped) = testee.skipSome(atMost, 0);
+  ASSERT_EQ(state, ExecutionState::WAITING);
+  ASSERT_EQ(skipped, 0);
+
+  std::tie(state, skipped) = testee.skipSome(atMost, 0);
+  ASSERT_EQ(state, ExecutionState::HASMORE);
+  ASSERT_EQ(skipped, 2);
+
+  // done should stay done!
+  std::tie(state, skipped) = testee.skipSome(atMost, 0);
+  ASSERT_EQ(state, ExecutionState::DONE);
+  ASSERT_EQ(skipped, 2);
+}
+
+REGISTER_TYPED_TEST_CASE_P(ExecutionBlockImplSkipTest, skip_on_relevant_level_with_shadow_rows);
+
+INSTANTIATE_TYPED_TEST_CASE_P(ExecutionBlockSkipTests, ExecutionBlockImplSkipTest, ExecutorTypes);
 
 }  // namespace aql
 }  // namespace tests
