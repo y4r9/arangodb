@@ -68,6 +68,9 @@ class SubqueryStartExecutor {
    */
   std::pair<ExecutionState, size_t> expectedNumberOfRows(size_t atMost) const;
 
+  std::pair<ExecutionState, size_t> skipRowsWithDepth(size_t const atMost,
+                                                      size_t const subqueryDepth);
+
  private:
   // Fetcher to get data.
   Fetcher& _fetcher;

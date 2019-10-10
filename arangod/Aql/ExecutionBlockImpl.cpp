@@ -393,6 +393,24 @@ static SkipVariants constexpr skipType() {
 template <class Executor>
 std::pair<ExecutionState, size_t> ExecutionBlockImpl<Executor>::skipSome(size_t const atMost,
                                                                          size_t const subqueryDepth) {
+  return doSkipSome(atMost, subqueryDepth);
+}
+
+template <>
+std::pair<ExecutionState, size_t> ExecutionBlockImpl<SubqueryEndExecutor>::skipSome(
+    size_t const atMost, size_t const subqueryDepth) {
+  return doSkipSome(atMost, subqueryDepth+1);
+}
+
+template <>
+std::pair<ExecutionState, size_t> ExecutionBlockImpl<SubqueryStartExecutor>::skipSome(
+    size_t const atMost, size_t const subqueryDepth) {
+  return _executor.skipRowsWithDepth(atMost, subqueryDepth);
+}
+
+template <class Executor>
+std::pair<ExecutionState, size_t> ExecutionBlockImpl<Executor>::doSkipSome(
+    size_t const atMost, size_t const subqueryDepth) {
   traceSkipSomeBegin(atMost);
   auto state = ExecutionState::HASMORE;
 

@@ -187,6 +187,12 @@ class ExecutionBlockImpl final : public ExecutionBlock {
    */
   std::pair<ExecutionState, SharedAqlItemBlockPtr> getSomeWithoutTrace(size_t atMost);
 
+
+  /**
+  * @brief Actual skipSome implementation.
+  */
+  std::pair<ExecutionState, size_t> doSkipSome(size_t atMost, size_t subqueryDepth);
+
   /**
    * @brief Inner skipSome() part, without the tracing calls.
    */
