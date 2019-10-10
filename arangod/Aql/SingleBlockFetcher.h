@@ -136,6 +136,11 @@ class SingleBlockFetcher {
     THROW_ARANGO_EXCEPTION(TRI_ERROR_NOT_IMPLEMENTED);
   }
 
+  std::pair<ExecutionState, size_t> skipRows(size_t atMost, size_t subqueryDepth) {
+    TRI_ASSERT(false);
+    THROW_ARANGO_EXCEPTION(TRI_ERROR_NOT_IMPLEMENTED);
+  }
+
   bool _prefetched;
 
  private:

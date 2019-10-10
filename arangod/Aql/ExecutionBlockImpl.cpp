@@ -463,11 +463,9 @@ std::pair<ExecutionState, size_t> ExecutionBlockImpl<Executor>::skipSomeHigherSu
     size_t const atMost, size_t const subqueryDepth) {
   TRI_ASSERT(subqueryDepth > 0);
 
-  if (false /* TODO: !isModificationExecutor() */) {
+  if (!hasSideEffects()) {
     resetAfterShadowRow();
-    // TODO skipRows is not implemented for all fetchers yet
-    // return _rowFetcher.skipRows(atMost, subqueryDepth);
-    return {{}, {}};
+    return _rowFetcher.skipRows(atMost, subqueryDepth);
   } else {
     switch (_state) {
       case FETCH_DATA: {
@@ -883,6 +881,20 @@ void ExecutionBlockImpl<Executor>::resetAfterShadowRow() {
   // cppcheck-suppress unreadVariable
   constexpr bool customInit = hasInitializeCursor<decltype(_executor)>::value;
   InitializeCursor<customInit>::init(_executor, _rowFetcher, _infos);
+}
+
+template <class Executor>
+struct HasSideEffects : std::false_type {};
+
+template<class U, class V>
+struct HasSideEffects<ModificationExecutor<U, V>> : std::true_type {};
+
+template<class U>
+struct HasSideEffects<SingleRemoteModificationExecutor<U>> : std::true_type {};
+
+template <class Executor>
+constexpr bool ExecutionBlockImpl<Executor>::hasSideEffects() {
+  return HasSideEffects<Executor>::value;
 }
 
 template class ::arangodb::aql::ExecutionBlockImpl<CalculationExecutor<CalculationType::Condition>>;

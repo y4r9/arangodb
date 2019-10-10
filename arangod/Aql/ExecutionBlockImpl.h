@@ -238,6 +238,8 @@ class ExecutionBlockImpl final : public ExecutionBlock {
   ///        that have returned DONE before need to fetch the next input rows
   void resetAfterShadowRow();
 
+  static constexpr bool hasSideEffects();
+
  private:
   /**
    * @brief Used to allow the row Fetcher to access selected methods of this

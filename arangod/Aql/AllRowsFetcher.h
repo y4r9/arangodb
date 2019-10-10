@@ -173,9 +173,10 @@ class AllRowsFetcher {
   // only for ModificationNodes
   ExecutionState upstreamState();
 
-  // NOLINTNEXTLINE google-default-arguments
   std::pair<ExecutionState, ShadowAqlItemRow> fetchShadowRow(
       size_t atMost = ExecutionBlock::DefaultBatchSize());
+
+  std::pair<ExecutionState, size_t> skipRows(size_t atMost, size_t subqueryDepth);
 
  private:
   DependencyProxy<BlockPassthrough::Disable>* _dependencyProxy;
