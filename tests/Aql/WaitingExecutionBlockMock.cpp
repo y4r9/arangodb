@@ -92,7 +92,6 @@ std::pair<arangodb::aql::ExecutionState, size_t> WaitingExecutionBlockMock::skip
     size_t atMost, size_t subqueryDepth) {
   // Only subquery depth 0 cases is supported right now.
   // The below code has not been adapted yet.
-  TRI_ASSERT(subqueryDepth == 0);
   traceSkipSomeBegin(atMost);
   if (!_hasWaited) {
     _hasWaited = true;

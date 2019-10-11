@@ -389,35 +389,106 @@ TEST_F(ExecutionBlockImplTest,
   ASSERT_EQ(skipped, 0);
 }
 
-TEST_F(ExecutionBlockImplTest,
-       DISABLED_skipsome_in_fetcher_should_never_call_produceRows_on_outer_level) {
+/*
+ * Section: test the Waiting ExecutionBlockMock
+ *          This is test is to make sure the Mock behaves as we expect
+ *          and thereby ensure that the below test is actually testing
+ *          production Code
+ */
+class WaitingExecutionBlockMockTest : public ::testing::Test {
+ protected:
+  mocks::MockAqlServer server;
+  ResourceMonitor monitor;
+  AqlItemBlockManager itemBlockManager{&monitor, SerializationFormat::SHADOWROWS};
+  std::unique_ptr<arangodb::aql::Query> fakedQuery{server.createFakeQuery()};
+};
+
+TEST_F(WaitingExecutionBlockMockTest, mock_skip_on_relevant_level_without_shadow_rows) {
   std::deque<SharedAqlItemBlockPtr> blockDeque;
+  auto engine = this->fakedQuery->engine();
   SharedAqlItemBlockPtr block =
-      buildBlock<1>(itemBlockManager, {{1}, {2}, {3}, {4}, {5}, {6}},
+      buildBlock<1>(this->itemBlockManager, {{1}, {2}, {3}, {4}, {5}, {6}}, {});
+  blockDeque.push_back(std::move(block));
+
+  WaitingExecutionBlockMock testee{engine, nullptr, std::move(blockDeque)};
+  size_t atMost = 1000;
+  size_t skipped = 0;
+  ExecutionState state = ExecutionState::HASMORE;
+
+  std::tie(state, skipped) = testee.skipSome(atMost, 0);
+  EXPECT_EQ(state, ExecutionState::WAITING);
+  EXPECT_EQ(skipped, 0);
+
+  std::tie(state, skipped) = testee.skipSome(atMost, 0);
+  EXPECT_EQ(state, ExecutionState::DONE);
+  EXPECT_EQ(skipped, 6);
+}
+
+TEST_F(WaitingExecutionBlockMockTest, mock_skip_on_relevant_level_with_shadow_rows) {
+  std::deque<SharedAqlItemBlockPtr> blockDeque;
+  auto engine = this->fakedQuery->engine();
+  SharedAqlItemBlockPtr block =
+      buildBlock<1>(this->itemBlockManager, {{1}, {2}, {3}, {4}, {5}, {6}},
                     {{1, 0}, {2, 1}, {4, 0}, {5, 1}});
   blockDeque.push_back(std::move(block));
 
-  WaitingExecutionBlockMock dependency{&engine, node, std::move(blockDeque)};
+  WaitingExecutionBlockMock testee{engine, nullptr, std::move(blockDeque)};
 
-  ExecutionBlockImpl<TestExecutorHelperSkipInFetcher> testee(&engine, node,
-                                                             std::move(infos));
-  testee.addDependency(&dependency);
-
-  size_t atMost = 1;
+  size_t atMost = 1000;
   size_t skipped = 0;
+  ExecutionState state = ExecutionState::HASMORE;
+
+  std::tie(state, skipped) = testee.skipSome(atMost, 0);
+  EXPECT_EQ(state, ExecutionState::WAITING);
+  EXPECT_EQ(skipped, 0);
+
+  std::tie(state, skipped) = testee.skipSome(atMost, 0);
+  EXPECT_EQ(state, ExecutionState::DONE);
+  EXPECT_EQ(skipped, 2);
+
+  // Done should stay done
+  std::tie(state, skipped) = testee.skipSome(atMost, 0);
+  EXPECT_EQ(state, ExecutionState::DONE);
+  EXPECT_EQ(skipped, 0);
+
+  // TODO: I think we need to add a call here that consumes the shadowRow now.
+
+  // Skip more in next Subquery
+  std::tie(state, skipped) = testee.skipSome(atMost, 0);
+  EXPECT_EQ(state, ExecutionState::DONE);
+  EXPECT_EQ(skipped, 2);
+
+  std::tie(state, skipped) = testee.skipSome(atMost, 0);
+  EXPECT_EQ(state, ExecutionState::DONE);
+  EXPECT_EQ(skipped, 0);
+}
+
+TEST_F(WaitingExecutionBlockMockTest, mock_skip_on_non_relevant_level_with_shadow_rows) {
+  std::deque<SharedAqlItemBlockPtr> blockDeque;
+  auto engine = this->fakedQuery->engine();
+  SharedAqlItemBlockPtr block =
+      buildBlock<1>(this->itemBlockManager, {{1}, {2}, {3}, {4}, {5}, {6}},
+                    {{1, 0}, {2, 1}, {4, 0}, {5, 1}});
+  blockDeque.push_back(std::move(block));
+
+  WaitingExecutionBlockMock testee{engine, nullptr, std::move(blockDeque)};
+
+  size_t atMost = 1000;
+  size_t skipped = 0;
+  ExecutionState state = ExecutionState::HASMORE;
 
   std::tie(state, skipped) = testee.skipSome(atMost, 1);
-  ASSERT_EQ(state, ExecutionState::WAITING);
-  ASSERT_EQ(skipped, 0);
+  EXPECT_EQ(state, ExecutionState::WAITING);
+  EXPECT_EQ(skipped, 0);
 
   std::tie(state, skipped) = testee.skipSome(atMost, 1);
-  ASSERT_EQ(state, ExecutionState::DONE);
-  ASSERT_EQ(skipped, 2);
+  EXPECT_EQ(state, ExecutionState::DONE);
+  EXPECT_EQ(skipped, 2);
 
   // done should stay done!
   std::tie(state, skipped) = testee.skipSome(atMost, 1);
-  ASSERT_EQ(state, ExecutionState::DONE);
-  ASSERT_EQ(skipped, 0);
+  EXPECT_EQ(state, ExecutionState::DONE);
+  EXPECT_EQ(skipped, 0);
 }
 
 /*
@@ -438,6 +509,37 @@ class ExecutionBlockImplSkipTest : public ::testing::Test {
 };
 
 TYPED_TEST_CASE_P(ExecutionBlockImplSkipTest);
+
+TYPED_TEST_P(ExecutionBlockImplSkipTest, skip_on_relevant_level_without_shadow_rows) {
+  std::deque<SharedAqlItemBlockPtr> blockDeque;
+  auto engine = this->fakedQuery->engine();
+  SharedAqlItemBlockPtr block =
+      buildBlock<1>(this->itemBlockManager, {{1}, {2}, {3}, {4}, {5}, {6}}, {});
+  blockDeque.push_back(std::move(block));
+
+  WaitingExecutionBlockMock dependency{engine, nullptr, std::move(blockDeque)};
+
+  ExecutionBlockImpl<TypeParam> testee(engine, nullptr, std::move(this->infos));
+  testee.addDependency(&dependency);
+
+  size_t atMost = 1000;
+  size_t skipped = 0;
+  ExecutionState state = ExecutionState::HASMORE;
+
+  std::tie(state, skipped) = testee.skipSome(atMost, 0);
+  EXPECT_EQ(state, ExecutionState::WAITING);
+  EXPECT_EQ(skipped, 0);
+
+  std::tie(state, skipped) = testee.skipSome(atMost, 0);
+  EXPECT_EQ(state, ExecutionState::DONE);
+  EXPECT_EQ(skipped, 6);
+  testee.executor().AssertCallsToFunctions(skipped, true);
+
+  // Done should stay done
+  std::tie(state, skipped) = testee.skipSome(atMost, 0);
+  EXPECT_EQ(state, ExecutionState::DONE);
+  EXPECT_EQ(skipped, 0);
+}
 
 TYPED_TEST_P(ExecutionBlockImplSkipTest, skip_on_relevant_level_with_shadow_rows) {
   std::deque<SharedAqlItemBlockPtr> blockDeque;
@@ -461,18 +563,62 @@ TYPED_TEST_P(ExecutionBlockImplSkipTest, skip_on_relevant_level_with_shadow_rows
   EXPECT_EQ(skipped, 0);
 
   std::tie(state, skipped) = testee.skipSome(atMost, 0);
-  EXPECT_EQ(state, ExecutionState::HASMORE);
+  EXPECT_EQ(state, ExecutionState::DONE);
   EXPECT_EQ(skipped, 2);
   testee.executor().AssertCallsToFunctions(skipped, true);
 
-  // done should stay done!
+  // Done should stay done
+  std::tie(state, skipped) = testee.skipSome(atMost, 0);
+  EXPECT_EQ(state, ExecutionState::DONE);
+  EXPECT_EQ(skipped, 0);
+
+  // TODO: I think we need to add a call here that consumes the shadowRow now.
+
+  // Skip more in next Subquery
   std::tie(state, skipped) = testee.skipSome(atMost, 0);
   EXPECT_EQ(state, ExecutionState::DONE);
   EXPECT_EQ(skipped, 2);
   testee.executor().AssertCallsToFunctions(skipped, false);
+
+  std::tie(state, skipped) = testee.skipSome(atMost, 0);
+  EXPECT_EQ(state, ExecutionState::DONE);
+  EXPECT_EQ(skipped, 0);
 }
 
-REGISTER_TYPED_TEST_CASE_P(ExecutionBlockImplSkipTest, skip_on_relevant_level_with_shadow_rows);
+TYPED_TEST_P(ExecutionBlockImplSkipTest, skip_on_non_relevant_level_with_shadow_rows) {
+  std::deque<SharedAqlItemBlockPtr> blockDeque;
+  auto engine = this->fakedQuery->engine();
+  SharedAqlItemBlockPtr block =
+      buildBlock<1>(this->itemBlockManager, {{1}, {2}, {3}, {4}, {5}, {6}},
+                    {{1, 0}, {2, 1}, {4, 0}, {5, 1}});
+  blockDeque.push_back(std::move(block));
+
+  WaitingExecutionBlockMock dependency{engine, nullptr, std::move(blockDeque)};
+
+  ExecutionBlockImpl<TypeParam> testee(engine, nullptr, std::move(this->infos));
+  testee.addDependency(&dependency);
+
+  size_t atMost = 1000;
+  size_t skipped = 0;
+  ExecutionState state = ExecutionState::HASMORE;
+
+  std::tie(state, skipped) = testee.skipSome(atMost, 1);
+  EXPECT_EQ(state, ExecutionState::WAITING);
+  EXPECT_EQ(skipped, 0);
+
+  std::tie(state, skipped) = testee.skipSome(atMost, 1);
+  EXPECT_EQ(state, ExecutionState::DONE);
+  EXPECT_EQ(skipped, 2);
+
+  // done should stay done!
+  std::tie(state, skipped) = testee.skipSome(atMost, 1);
+  EXPECT_EQ(state, ExecutionState::DONE);
+  EXPECT_EQ(skipped, 0);
+}
+
+REGISTER_TYPED_TEST_CASE_P(ExecutionBlockImplSkipTest, skip_on_relevant_level_without_shadow_rows,
+                           skip_on_relevant_level_with_shadow_rows,
+                           skip_on_non_relevant_level_with_shadow_rows);
 
 INSTANTIATE_TYPED_TEST_CASE_P(ExecutionBlockSkipTests, ExecutionBlockImplSkipTest, ExecutorTypes);
 
