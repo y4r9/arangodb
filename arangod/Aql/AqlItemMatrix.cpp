@@ -208,3 +208,9 @@ ShadowAqlItemRow AqlItemMatrix::peekShadowRow() const {
 
 AqlItemMatrix::AqlItemMatrix(RegisterId nrRegs)
     : _size(0), _nrRegs(nrRegs), _lastShadowRow(InvalidRowIndex) {}
+
+void AqlItemMatrix::clear() {
+  _blocks.clear();
+  _size = 0;
+  _lastShadowRow = InvalidRowIndex;
+}

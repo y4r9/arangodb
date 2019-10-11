@@ -95,6 +95,8 @@ class AqlItemMatrix {
 
   ShadowAqlItemRow peekShadowRow() const;
 
+  void clear();
+
  private:
   std::vector<SharedAqlItemBlockPtr> _blocks;
 
