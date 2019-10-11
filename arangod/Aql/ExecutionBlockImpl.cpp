@@ -390,29 +390,39 @@ static SkipVariants constexpr skipType() {
 }  // namespace aql
 }  // namespace arangodb
 
+/*
+ * Generic implementation. There are specializations for Subquery(Start|End)Executors!
+ */
 template <class Executor>
 std::pair<ExecutionState, size_t> ExecutionBlockImpl<Executor>::skipSome(size_t const atMost,
                                                                          size_t const subqueryDepth) {
-  return doSkipSome(atMost, subqueryDepth);
+  traceSkipSomeBegin(atMost);
+  return traceSkipSomeEnd(skipSomeWithoutTrace(atMost, subqueryDepth));
 }
 
+/*
+ * skipSome Specialization for SubqueryEndExecutor.
+ */
 template <>
 std::pair<ExecutionState, size_t> ExecutionBlockImpl<SubqueryEndExecutor>::skipSome(
     size_t const atMost, size_t const subqueryDepth) {
-  return doSkipSome(atMost, subqueryDepth+1);
+  traceSkipSomeBegin(atMost);
+  return traceSkipSomeEnd(skipSomeWithoutTrace(atMost, subqueryDepth + 1));
 }
 
+/*
+ * skipSome Specialization for SubqueryStartExecutor.
+ */
 template <>
 std::pair<ExecutionState, size_t> ExecutionBlockImpl<SubqueryStartExecutor>::skipSome(
     size_t const atMost, size_t const subqueryDepth) {
-  // TODO tracing
-  return _executor.skipRowsWithDepth(atMost, subqueryDepth);
+  traceSkipSomeBegin(atMost);
+  return traceSkipSomeEnd(_executor.skipRowsWithDepth(atMost, subqueryDepth));
 }
 
 template <class Executor>
-std::pair<ExecutionState, size_t> ExecutionBlockImpl<Executor>::doSkipSome(
-    size_t const atMost, size_t const subqueryDepth) {
-  traceSkipSomeBegin(atMost);
+std::pair<ExecutionState, size_t> ExecutionBlockImpl<Executor>::skipSomeWithoutTrace(
+    size_t atMost, size_t subqueryDepth) {
   auto state = ExecutionState::HASMORE;
 
   while (state == ExecutionState::HASMORE && _skipped < atMost) {
@@ -429,7 +439,7 @@ std::pair<ExecutionState, size_t> ExecutionBlockImpl<Executor>::doSkipSome(
   }
 
   TRI_ASSERT(skipped <= atMost);
-  return traceSkipSomeEnd(state, skipped);
+  return {state, skipped};
 }
 
 template <class Executor>
