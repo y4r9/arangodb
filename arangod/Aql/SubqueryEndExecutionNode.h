@@ -63,7 +63,7 @@ class SubqueryEndNode : public ExecutionNode {
 
   bool isEqualTo(ExecutionNode const& other) const override final;
 
-  void getVariablesUsedHere(arangodb::HashSet<Variable const*>& usedVars) const final {
+  void getVariablesUsedHere(arangodb::containers::HashSet<Variable const*>& usedVars) const final {
     if (_inVariable != nullptr) {
       usedVars.emplace(_inVariable);
     }

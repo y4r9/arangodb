@@ -5506,7 +5506,7 @@ AqlValue Functions::ParseIdentifier(ExpressionContext* expressionContext,
   }
 
   size_t pos = identifier.find('/');
-  if (pos == std::string::npos) {
+  if (pos == std::string::npos || identifier.find('/', pos + 1) != std::string::npos) {
     ::registerWarning(expressionContext, AFN, TRI_ERROR_QUERY_FUNCTION_ARGUMENT_TYPE_MISMATCH);
     return AqlValue(AqlValueHintNull());
   }
@@ -6809,7 +6809,7 @@ AqlValue Functions::Call(ExpressionContext* expressionContext, transaction::Meth
     return AqlValue(AqlValueHintNull());
   }
 
-  SmallVector<AqlValue>::allocator_type::arena_type arena;
+  ::arangodb::containers::SmallVector<AqlValue>::allocator_type::arena_type arena;
   VPackFunctionParameters invokeParams{arena};
   if (parameters.size() >= 2) {
     // we have a list of parameters, need to copy them over except the
@@ -6835,7 +6835,7 @@ AqlValue Functions::Apply(ExpressionContext* expressionContext, transaction::Met
     return AqlValue(AqlValueHintNull());
   }
 
-  SmallVector<AqlValue>::allocator_type::arena_type arena;
+  ::arangodb::containers::SmallVector<AqlValue>::allocator_type::arena_type arena;
   VPackFunctionParameters invokeParams{arena};
   AqlValue rawParamArray;
   std::vector<bool> mustFree;
