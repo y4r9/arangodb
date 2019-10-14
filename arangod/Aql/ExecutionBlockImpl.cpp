@@ -156,28 +156,15 @@ std::pair<ExecutionState, SharedAqlItemBlockPtr> ExecutionBlockImpl<Executor>::g
     // We are done, so we stay done
     return {ExecutionState::DONE, nullptr};
   }
+  ExecutionState state = ExecutionState::HASMORE;
 
-  if (!_outputItemRow) {
-    ExecutionState state;
-    SharedAqlItemBlockPtr newBlock;
-    std::tie(state, newBlock) =
-        requestWrappedBlock(atMost, _infos.numberOfOutputRegisters());
-    if (state == ExecutionState::WAITING) {
-      TRI_ASSERT(newBlock == nullptr);
-      return {state, nullptr};
-    }
-    if (newBlock == nullptr) {
-      TRI_ASSERT(state == ExecutionState::DONE);
-      // _rowFetcher must be DONE now already
-      return {state, nullptr};
-    }
-    TRI_ASSERT(newBlock != nullptr);
-    TRI_ASSERT(newBlock->size() > 0);
-    TRI_ASSERT(newBlock->size() <= atMost);
-    _outputItemRow = createOutputRow(newBlock);
+  state = ensureOutputBlock(atMost);
+  if (state != ExecutionState::HASMORE) {
+    // Could not get a block to write to
+    // Either DONE or WAITING
+    return {state, nullptr};
   }
 
-  ExecutionState state = ExecutionState::HASMORE;
   ExecutorStats executorStats{};
 
   TRI_ASSERT(atMost > 0);
@@ -408,7 +395,8 @@ std::pair<ExecutionState, size_t> ExecutionBlockImpl<Executor>::skipSomeWithoutT
     size_t atMost, size_t subqueryDepth) {
   auto state = ExecutionState::HASMORE;
 
-  while (state == ExecutionState::HASMORE && _skipped < atMost) {
+  while (state == ExecutionState::HASMORE && _skipped < atMost &&
+         _state == InternalState::FETCH_DATA) {
     auto res = skipSomeOnceWithoutTrace(atMost - _skipped, subqueryDepth);
     TRI_ASSERT(state != ExecutionState::WAITING || res.second == 0);
     state = res.first;
@@ -419,6 +407,9 @@ std::pair<ExecutionState, size_t> ExecutionBlockImpl<Executor>::skipSomeWithoutT
   size_t skipped = 0;
   if (state != ExecutionState::WAITING) {
     std::swap(skipped, _skipped);
+    if (state == ExecutionState::DONE) {
+      _state = InternalState::FETCH_SHADOWROWS;
+    }
   }
 
   TRI_ASSERT(skipped <= atMost);
@@ -433,8 +424,18 @@ std::pair<ExecutionState, size_t> ExecutionBlockImpl<Executor>::skipSomeWithoutT
 ///        the execution is either DONE or at the first input on the next subquery.
 template <class Executor>
 std::pair<ExecutionState, ShadowAqlItemRow> ExecutionBlockImpl<Executor>::fetchShadowRow() {
-  // TODO state handling?
-  return fetchShadowRowInternal();
+  if (_state == InternalState::FETCH_SHADOWROWS) {
+    auto state = ensureOutputBlock(ExecutionBlock::DefaultBatchSize());
+    if (state == ExecutionState::HASMORE) {
+      return fetchShadowRowInternal();
+    }
+    return {state, ShadowAqlItemRow{CreateInvalidShadowRowHint{}}};
+  }
+
+  if (_state == InternalState::DONE) {
+    return {ExecutionState::DONE, ShadowAqlItemRow{CreateInvalidShadowRowHint{}}};
+  }
+  return {ExecutionState::HASMORE, ShadowAqlItemRow{CreateInvalidShadowRowHint{}}};
 };
 
 template <class Executor>
@@ -934,6 +935,30 @@ std::pair<ExecutionState, ShadowAqlItemRow> ExecutionBlockImpl<Executor>::fetchS
     }
   }
   return {state, shadowRow};
+}
+
+template <class Executor>
+ExecutionState ExecutionBlockImpl<Executor>::ensureOutputBlock(size_t atMost) {
+  if (!_outputItemRow) {
+    ExecutionState state;
+    SharedAqlItemBlockPtr newBlock;
+    std::tie(state, newBlock) =
+        requestWrappedBlock(atMost, _infos.numberOfOutputRegisters());
+    if (state == ExecutionState::WAITING) {
+      TRI_ASSERT(newBlock == nullptr);
+      return state;
+    }
+    if (newBlock == nullptr) {
+      TRI_ASSERT(state == ExecutionState::DONE);
+      // _rowFetcher must be DONE now already
+      return state;
+    }
+    TRI_ASSERT(newBlock != nullptr);
+    TRI_ASSERT(newBlock->size() > 0);
+    TRI_ASSERT(newBlock->size() <= atMost);
+    _outputItemRow = createOutputRow(newBlock);
+  }
+  return ExecutionState::HASMORE;
 }
 
 template <class Executor>
