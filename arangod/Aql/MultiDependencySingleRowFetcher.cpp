@@ -26,6 +26,8 @@
 #include "Aql/DependencyProxy.h"
 #include "Aql/ShadowAqlItemRow.h"
 
+#include <velocypack/Slice.h>
+
 using namespace arangodb;
 using namespace arangodb::aql;
 
@@ -228,6 +230,44 @@ std::pair<ExecutionState, InputAqlItemRow> MultiDependencySingleRowFetcher::fetc
   return {rowState, row};
 }
 
+std::pair<ExecutionState, size_t> MultiDependencySingleRowFetcher::localSkipRowsForDependency(
+    size_t const dependency, size_t const atMost, size_t const subqueryDepth) {
+  TRI_ASSERT(dependency < _dependencyInfos.size());
+  // This implementation assumes a non-zero depth.
+  TRI_ASSERT(subqueryDepth > 0);
+  auto& depInfo = _dependencyInfos[dependency];
+
+  if (!indexIsValid(depInfo)) {
+    return {ExecutionState::HASMORE, 0};
+  }
+
+  auto const& shadowRowIndexes = depInfo._currentBlock->getShadowRowIndexes();
+  auto it = shadowRowIndexes.lower_bound(depInfo._rowIndex);
+  if (it == shadowRowIndexes.cend()) {
+    depInfo._currentBlock = nullptr;
+    depInfo._rowIndex = 0;
+  }
+  size_t skipped{0};
+  for (; it != shadowRowIndexes.cend(); ++it) {
+    TRI_ASSERT(depInfo._currentBlock != nullptr);
+    auto const rowDepth = depInfo._currentBlock->getShadowRowDepth(*it).slice().getUInt();
+    depInfo._rowIndex = *it;
+    TRI_ASSERT(indexIsValid(depInfo));
+    if (rowDepth == subqueryDepth) {
+      ++skipped;
+      ++depInfo._rowIndex;
+      if (!indexIsValid(depInfo)) {
+        depInfo._currentBlock = nullptr;
+        depInfo._rowIndex = 0;
+      }
+    } else if (rowDepth > subqueryDepth) {
+      return {ExecutionState::DONE, skipped};
+    }
+  }
+
+  return {ExecutionState::HASMORE, skipped};
+}
+
 std::pair<ExecutionState, size_t> MultiDependencySingleRowFetcher::skipRowsForDependency(
     size_t const dependency, size_t const atMost) {
   TRI_ASSERT(dependency < _dependencyInfos.size());
@@ -363,7 +403,7 @@ std::pair<ExecutionState, size_t> MultiDependencySingleRowFetcher::skipRows(size
     while (_nextSkipDependencyIndex < _dependencyInfos.size() &&
            _dependencyInfos[_nextSkipDependencyIndex]._upstreamState == ExecutionState::DONE) {
       auto& depInfo = _dependencyInfos[_nextSkipDependencyIndex];
-      // TODO skip local shadow rows with depth >= subqueryDepth first
+      // TODO skip local shadow rows with depth == subqueryDepth first
       depInfo._currentBlock = nullptr;
       depInfo._rowIndex = 0;
       ++_nextSkipDependencyIndex;
@@ -381,7 +421,7 @@ std::pair<ExecutionState, size_t> MultiDependencySingleRowFetcher::skipRows(size
   while (_nextSkipDependencyIndex < _dependencyInfos.size()) {
     auto& depInfo = _dependencyInfos[_nextSkipDependencyIndex];
 
-    // TODO skip local shadow rows with depth >= subqueryDepth first
+    // TODO skip local shadow rows with depth == subqueryDepth first
     std::tie(state, skipped) = _dependencyProxy->skipSome(atMost, subqueryDepth);
     if (state == ExecutionState::WAITING) {
       TRI_ASSERT(skipped = 0);
@@ -394,5 +434,6 @@ std::pair<ExecutionState, size_t> MultiDependencySingleRowFetcher::skipRows(size
   TRI_ASSERT(_nextSkipDependencyIndex == _dependencyInfos.size());
   TRI_ASSERT(state != ExecutionState::WAITING);
 
+  _nextSkipDependencyIndex = 0;
   return {state, skipped};
 }

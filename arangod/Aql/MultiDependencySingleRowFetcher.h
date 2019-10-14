@@ -160,6 +160,16 @@ class MultiDependencySingleRowFetcher {
                                                           size_t subqueryDepth);
 
   /**
+  * @brief Skip rows in our local buffer, without calling upstream. Returns the
+  * number of skipped rows. Will skip the maximum number of rows possible, up to
+  * atMost.
+  * Returns DONE iff it encounters a shadow row with depth > subqueryDepth,
+  * and HASMORE otherwise. Never returns WAITING.
+  */
+  std::pair<ExecutionState, size_t> localSkipRowsForDependency(size_t dependency, size_t atMost,
+                                                               size_t subqueryDepth);
+
+  /**
    * @brief Delegates to ExecutionBlock::getNrInputRegisters()
    */
   RegisterId getNrInputRegisters() const;
