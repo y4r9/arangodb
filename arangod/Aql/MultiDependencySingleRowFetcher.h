@@ -126,8 +126,7 @@ class MultiDependencySingleRowFetcher {
   TEST_VIRTUAL std::pair<ExecutionState, InputAqlItemRow> fetchRowForDependency(
       size_t dependency, size_t atMost = ExecutionBlock::DefaultBatchSize());
 
-  std::pair<ExecutionState, size_t> skipRowsForDependency(size_t dependency, size_t atMost,
-                                                          size_t subqueryDepth);
+  std::pair<ExecutionState, size_t> skipRowsForDependency(size_t dependency, size_t atMost);
 
   std::pair<ExecutionState, ShadowAqlItemRow> fetchShadowRow(
       size_t atMost = ExecutionBlock::DefaultBatchSize());
@@ -138,7 +137,7 @@ class MultiDependencySingleRowFetcher {
     THROW_ARANGO_EXCEPTION(TRI_ERROR_NOT_IMPLEMENTED);
   }
 
-  std::pair<ExecutionState, size_t> skipRows(size_t atMost, size_t subqueryDepth);
+  std::pair<ExecutionState, size_t> skipSome(size_t atMost, size_t subqueryDepth);
 
  private:
   DependencyProxy<BlockPassthrough::Disable>* _dependencyProxy;
@@ -147,6 +146,8 @@ class MultiDependencySingleRowFetcher {
    * @brief Holds the information for all dependencies
    */
   std::vector<DependencyInfo> _dependencyInfos;
+
+  size_t _nextSkipDependencyIndex;
 
  private:
   /**

@@ -161,7 +161,7 @@ class ExecutionBlockImpl final : public ExecutionBlock {
    *
    * @return A pair with the following properties:
    *         ExecutionState:
-   *           WAITING => IO going on, immediatly return to caller.
+   *           WAITING => IO going on, immediately return to caller.
    *           DONE => No more to expect from Upstream, if you are done with
    *                   this row return DONE to caller.
    *           HASMORE => There is potentially more from above, call again if
@@ -196,7 +196,14 @@ class ExecutionBlockImpl final : public ExecutionBlock {
   std::pair<ExecutionState, SharedAqlItemBlockPtr> getSomeWithoutTrace(size_t atMost);
 
   /**
-   * @brief Inner skipSome() part, without the tracing calls.
+  * @brief Skip some without tracing. Calls skipSomeOnceWithoutTrace() until
+  * either DONE or atMost is reached, modulo WAITING.
+  */
+  std::pair<ExecutionState, size_t> skipSomeWithoutTrace(size_t atMost, size_t subqueryDepth);
+
+  /**
+   * @brief Does one skipSome call. Dispatches the actual variant used
+   * depending on subquery depth and Executor type.
    */
   std::pair<ExecutionState, size_t> skipSomeOnceWithoutTrace(size_t atMost, size_t subqueryDepth);
 
@@ -207,12 +214,15 @@ class ExecutionBlockImpl final : public ExecutionBlock {
   std::pair<ExecutionState, size_t> skipSomeWithGetSome(size_t atMost);
 
   /**
-   * @brief Skip atMost items in the current subquery level (i.e. subqueryDepth == 0)
+   * @brief Skip atMost items in the current subquery level (i.e. subqueryDepth == 0).
+   * Dispatches the skip variant used depending on the Executor type.
    */
   std::pair<ExecutionState, size_t> skipSomeSubqueryLocal(size_t atMost);
 
   /**
-   * @brief Skip atMost items in a higher subquery level (i.e. subqueryDepth > 0)
+   * @brief Skip atMost items in a higher subquery level (i.e. subqueryDepth > 0).
+   * Dispatches the skip variant used depending on whether the Executor has side
+   * effects.
    */
   std::pair<ExecutionState, size_t> skipSomeHigherSubquery(size_t atMost, size_t subqueryDepth);
 

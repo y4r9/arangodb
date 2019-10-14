@@ -87,3 +87,9 @@ std::pair<ExecutionState, size_t> SubqueryStartExecutor::expectedNumberOfRows(si
   // We might write less on all shadow rows in input, right now we do not figure this out yes.
   return {state, expected * 2};
 }
+
+std::pair<ExecutionState, size_t> SubqueryStartExecutor::skipRowsWithDepth(
+    size_t const atMost, size_t const subqueryDepth) {
+  TRI_ASSERT(false);
+  THROW_ARANGO_EXCEPTION(TRI_ERROR_NOT_IMPLEMENTED);
+}

@@ -62,7 +62,7 @@ void arangodb::tests::aql::runFetcher(arangodb::aql::MultiDependencySingleRowFet
       void operator()(ConcreteFetcherIOPair<SkipRowsForDependency> const& iop) {
         auto const& args = iop.first;
         auto const& expected = iop.second;
-        auto actual = testee.skipRowsForDependency(args.dependency, args.atMost, 0);
+        auto actual = testee.skipRowsForDependency(args.dependency, args.atMost);
         EXPECT_EQ(expected, actual) << "during step " << i;
       }
       void operator()(ConcreteFetcherIOPair<FetchShadowRow> const& iop) {

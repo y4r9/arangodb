@@ -116,6 +116,7 @@ ExecutionState AllRowsFetcher::fetchUntilDone() {
   if (_aqlItemMatrix == nullptr) {
     _aqlItemMatrix = std::make_unique<AqlItemMatrix>(getNrInputRegisters());
   }
+  TRI_ASSERT(_aqlItemMatrix->getNrRegisters() == getNrInputRegisters());
 
   ExecutionState state = ExecutionState::HASMORE;
   SharedAqlItemBlockPtr block;
@@ -155,7 +156,9 @@ AllRowsFetcher::AllRowsFetcher(DependencyProxy<BlockPassthrough::Disable>& execu
       _aqlItemMatrix(nullptr),
       _upstreamState(ExecutionState::HASMORE),
       _blockToReturnNext(0),
-      _dataFetchedState(NONE) {}
+      _dataFetchedState(NONE),
+      _rowIndexes(),
+      _nextReturn(0) {}
 
 RegisterId AllRowsFetcher::getNrInputRegisters() const {
   return _dependencyProxy->getNrInputRegisters();
@@ -209,11 +212,6 @@ ExecutionState AllRowsFetcher::upstreamState() {
   return ExecutionState::HASMORE;
 }
 
-std::pair<ExecutionState, SharedAqlItemBlockPtr> AllRowsFetcher::fetchBlockForPassthrough(size_t) {
-  TRI_ASSERT(false);
-  THROW_ARANGO_EXCEPTION(TRI_ERROR_NOT_IMPLEMENTED);
-}
-
 std::pair<ExecutionState, ShadowAqlItemRow> AllRowsFetcher::fetchShadowRow(size_t atMost) {
   TRI_ASSERT(_dataFetchedState != DATA_FETCH_ONGOING);
   if (ADB_UNLIKELY(_dataFetchedState == DATA_FETCH_ONGOING)) {
@@ -263,7 +261,20 @@ std::pair<ExecutionState, ShadowAqlItemRow> AllRowsFetcher::fetchShadowRow(size_
 std::pair<ExecutionState, size_t> AllRowsFetcher::skipRows(size_t const atMost, size_t const subqueryDepth) {
   // Must not be called for the current level
   TRI_ASSERT(subqueryDepth > 0);
-  // not yet implemented
-  TRI_ASSERT(false);
-  THROW_ARANGO_EXCEPTION(TRI_ERROR_NOT_IMPLEMENTED);
+
+  // Forget all local state
+  reset();
+
+  return _dependencyProxy->skipSome(atMost, subqueryDepth);
+}
+
+void AllRowsFetcher::reset() {
+  if (_aqlItemMatrix != nullptr) {
+    _aqlItemMatrix->clear();
+  }
+  _upstreamState = ExecutionState::HASMORE;
+  _blockToReturnNext = 0;
+  _dataFetchedState = NONE;
+  _rowIndexes.clear();
+  _nextReturn = 0;
 }
