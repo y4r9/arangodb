@@ -127,6 +127,19 @@ void ExecutionBlockImpl<IdExecutor<BlockPassthrough::Enable, void>>::countStats(
   }
 }
 
+/// @brief fetchShadowRow, get's the next shadowRow on the fetcher, and causes
+///        the subquery to reset.
+///        Returns State == DONE if we are at the end of the query and
+///        State == HASMORE if there is another subquery ongoing.
+///        ShadowAqlItemRow might be empty on any call, if it is
+///        the execution is either DONE or at the first input on the next subquery.
+std::pair<ExecutionState, ShadowAqlItemRow>
+ExecutionBlockImpl<IdExecutor<BlockPassthrough::Enable, void>>::fetchShadowRow() {
+  // This variant is ONLY used at the very end of the query. (root node)
+  // It does NOT need to implement this API, as there cannot be a shadowRow on toplevel
+  TRI_ASSERT(false);
+}
+
 IdExecutorInfos::IdExecutorInfos(RegisterId nrInOutRegisters,
                                  // cppcheck-suppress passedByValue
                                  std::unordered_set<RegisterId> registersToKeep,

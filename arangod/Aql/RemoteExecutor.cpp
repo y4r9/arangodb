@@ -27,6 +27,7 @@
 #include "Aql/ExecutorInfos.h"
 #include "Aql/InputAqlItemRow.h"
 #include "Aql/Query.h"
+#include "Aql/ShadowAqlItemRow.h"
 #include "Basics/MutexLocker.h"
 #include "Basics/RecursiveLocker.h"
 #include "Basics/StringBuffer.h"
@@ -371,6 +372,12 @@ std::pair<ExecutionState, Result> ExecutionBlockImpl<RemoteExecutor>::shutdown(i
     THROW_ARANGO_EXCEPTION(res);
   }
   return {ExecutionState::WAITING, TRI_ERROR_NO_ERROR};
+}
+
+std::pair<ExecutionState, ShadowAqlItemRow> ExecutionBlockImpl<RemoteExecutor>::fetchShadowRow() {
+  // This executor can not get into this state, or it needs to be implemented...
+  TRI_ASSERT(false);
+  return {ExecutionState::HASMORE, ShadowAqlItemRow{CreateInvalidShadowRowHint{}}};
 }
 
 namespace {

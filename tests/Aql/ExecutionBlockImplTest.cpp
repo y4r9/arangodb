@@ -437,6 +437,7 @@ TEST_F(WaitingExecutionBlockMockTest, mock_skip_on_relevant_level_with_shadow_ro
   size_t atMost = 1000;
   size_t skipped = 0;
   ExecutionState state = ExecutionState::HASMORE;
+  ShadowAqlItemRow shadow{CreateInvalidShadowRowHint{}};
 
   std::tie(state, skipped) = testee.skipSome(atMost, 0);
   EXPECT_EQ(state, ExecutionState::WAITING);
@@ -444,23 +445,50 @@ TEST_F(WaitingExecutionBlockMockTest, mock_skip_on_relevant_level_with_shadow_ro
 
   std::tie(state, skipped) = testee.skipSome(atMost, 0);
   EXPECT_EQ(state, ExecutionState::DONE);
-  EXPECT_EQ(skipped, 2);
+  EXPECT_EQ(skipped, 1);
 
   // Done should stay done
   std::tie(state, skipped) = testee.skipSome(atMost, 0);
   EXPECT_EQ(state, ExecutionState::DONE);
   EXPECT_EQ(skipped, 0);
 
-  // TODO: I think we need to add a call here that consumes the shadowRow now.
+  std::tie(state, shadow) = testee.fetchShadowRow();
+  EXPECT_EQ(state, ExecutionState::HASMORE);
+  ASSERT_TRUE(shadow.isInitialized());
+  EXPECT_EQ(shadow.getDepth(), 0);
+
+  std::tie(state, shadow) = testee.fetchShadowRow();
+  EXPECT_EQ(state, ExecutionState::HASMORE);
+  ASSERT_TRUE(shadow.isInitialized());
+  EXPECT_EQ(shadow.getDepth(), 1);
+
+  std::tie(state, shadow) = testee.fetchShadowRow();
+  EXPECT_EQ(state, ExecutionState::HASMORE);
+  EXPECT_FALSE(shadow.isInitialized());
 
   // Skip more in next Subquery
   std::tie(state, skipped) = testee.skipSome(atMost, 0);
   EXPECT_EQ(state, ExecutionState::DONE);
-  EXPECT_EQ(skipped, 2);
+  EXPECT_EQ(skipped, 1);
 
+  // Done should stay done
   std::tie(state, skipped) = testee.skipSome(atMost, 0);
   EXPECT_EQ(state, ExecutionState::DONE);
   EXPECT_EQ(skipped, 0);
+
+  std::tie(state, shadow) = testee.fetchShadowRow();
+  EXPECT_EQ(state, ExecutionState::HASMORE);
+  ASSERT_TRUE(shadow.isInitialized());
+  EXPECT_EQ(shadow.getDepth(), 0);
+
+  std::tie(state, shadow) = testee.fetchShadowRow();
+  EXPECT_EQ(state, ExecutionState::DONE);
+  ASSERT_TRUE(shadow.isInitialized());
+  EXPECT_EQ(shadow.getDepth(), 1);
+
+  std::tie(state, shadow) = testee.fetchShadowRow();
+  EXPECT_EQ(state, ExecutionState::DONE);
+  EXPECT_FALSE(shadow.isInitialized());
 }
 
 TEST_F(WaitingExecutionBlockMockTest, mock_skip_on_non_relevant_level_with_shadow_rows) {
@@ -476,6 +504,7 @@ TEST_F(WaitingExecutionBlockMockTest, mock_skip_on_non_relevant_level_with_shado
   size_t atMost = 1000;
   size_t skipped = 0;
   ExecutionState state = ExecutionState::HASMORE;
+  ShadowAqlItemRow shadow{CreateInvalidShadowRowHint{}};
 
   std::tie(state, skipped) = testee.skipSome(atMost, 1);
   EXPECT_EQ(state, ExecutionState::WAITING);
@@ -483,12 +512,41 @@ TEST_F(WaitingExecutionBlockMockTest, mock_skip_on_non_relevant_level_with_shado
 
   std::tie(state, skipped) = testee.skipSome(atMost, 1);
   EXPECT_EQ(state, ExecutionState::DONE);
-  EXPECT_EQ(skipped, 2);
+  EXPECT_EQ(skipped, 1);
 
   // done should stay done!
   std::tie(state, skipped) = testee.skipSome(atMost, 1);
   EXPECT_EQ(state, ExecutionState::DONE);
   EXPECT_EQ(skipped, 0);
+
+  // Consume the shadow row
+  std::tie(state, shadow) = testee.fetchShadowRow();
+  EXPECT_EQ(state, ExecutionState::HASMORE);
+  ASSERT_TRUE(shadow.isInitialized());
+  EXPECT_EQ(shadow.getDepth(), 1);
+
+  std::tie(state, shadow) = testee.fetchShadowRow();
+  EXPECT_EQ(state, ExecutionState::HASMORE);
+  EXPECT_FALSE(shadow.isInitialized());
+
+  std::tie(state, skipped) = testee.skipSome(atMost, 1);
+  EXPECT_EQ(state, ExecutionState::DONE);
+  EXPECT_EQ(skipped, 1);
+
+  // done should stay done!
+  std::tie(state, skipped) = testee.skipSome(atMost, 1);
+  EXPECT_EQ(state, ExecutionState::DONE);
+  EXPECT_EQ(skipped, 0);
+
+  // Consume the shadow row
+  std::tie(state, shadow) = testee.fetchShadowRow();
+  EXPECT_EQ(state, ExecutionState::DONE);
+  ASSERT_TRUE(shadow.isInitialized());
+  EXPECT_EQ(shadow.getDepth(), 1);
+
+  std::tie(state, shadow) = testee.fetchShadowRow();
+  EXPECT_EQ(state, ExecutionState::DONE);
+  EXPECT_FALSE(shadow.isInitialized());
 }
 
 /*
@@ -557,6 +615,7 @@ TYPED_TEST_P(ExecutionBlockImplSkipTest, skip_on_relevant_level_with_shadow_rows
   size_t atMost = 1000;
   size_t skipped = 0;
   ExecutionState state = ExecutionState::HASMORE;
+  ShadowAqlItemRow shadow{CreateInvalidShadowRowHint{}};
 
   std::tie(state, skipped) = testee.skipSome(atMost, 0);
   EXPECT_EQ(state, ExecutionState::WAITING);
@@ -564,25 +623,64 @@ TYPED_TEST_P(ExecutionBlockImplSkipTest, skip_on_relevant_level_with_shadow_rows
 
   std::tie(state, skipped) = testee.skipSome(atMost, 0);
   EXPECT_EQ(state, ExecutionState::DONE);
-  EXPECT_EQ(skipped, 2);
+  EXPECT_EQ(skipped, 1);
   testee.executor().AssertCallsToFunctions(skipped, true);
 
   // Done should stay done
   std::tie(state, skipped) = testee.skipSome(atMost, 0);
   EXPECT_EQ(state, ExecutionState::DONE);
   EXPECT_EQ(skipped, 0);
+  testee.executor().AssertCallsToFunctions(skipped, false);
 
-  // TODO: I think we need to add a call here that consumes the shadowRow now.
+  std::tie(state, shadow) = testee.fetchShadowRow();
+  EXPECT_EQ(state, ExecutionState::HASMORE);
+  ASSERT_TRUE(shadow.isInitialized());
+  EXPECT_EQ(shadow.getDepth(), 0);
+
+  std::tie(state, shadow) = testee.fetchShadowRow();
+  EXPECT_EQ(state, ExecutionState::HASMORE);
+  ASSERT_TRUE(shadow.isInitialized());
+  EXPECT_EQ(shadow.getDepth(), 1);
+
+  std::tie(state, shadow) = testee.fetchShadowRow();
+  EXPECT_EQ(state, ExecutionState::HASMORE);
+  EXPECT_FALSE(shadow.isInitialized());
 
   // Skip more in next Subquery
   std::tie(state, skipped) = testee.skipSome(atMost, 0);
   EXPECT_EQ(state, ExecutionState::DONE);
-  EXPECT_EQ(skipped, 2);
-  testee.executor().AssertCallsToFunctions(skipped, false);
+  EXPECT_EQ(skipped, 1);
 
+  // Done should stay done
   std::tie(state, skipped) = testee.skipSome(atMost, 0);
   EXPECT_EQ(state, ExecutionState::DONE);
   EXPECT_EQ(skipped, 0);
+
+  // Skip more in next Subquery
+  std::tie(state, skipped) = testee.skipSome(atMost, 0);
+  EXPECT_EQ(state, ExecutionState::DONE);
+  EXPECT_EQ(skipped, 1);
+  testee.executor().AssertCallsToFunctions(skipped, false);
+
+  // Done should stay done
+  std::tie(state, skipped) = testee.skipSome(atMost, 0);
+  EXPECT_EQ(state, ExecutionState::DONE);
+  EXPECT_EQ(skipped, 0);
+  testee.executor().AssertCallsToFunctions(skipped, false);
+
+  std::tie(state, shadow) = testee.fetchShadowRow();
+  EXPECT_EQ(state, ExecutionState::HASMORE);
+  ASSERT_TRUE(shadow.isInitialized());
+  EXPECT_EQ(shadow.getDepth(), 0);
+
+  std::tie(state, shadow) = testee.fetchShadowRow();
+  EXPECT_EQ(state, ExecutionState::DONE);
+  ASSERT_TRUE(shadow.isInitialized());
+  EXPECT_EQ(shadow.getDepth(), 1);
+
+  std::tie(state, shadow) = testee.fetchShadowRow();
+  EXPECT_EQ(state, ExecutionState::DONE);
+  EXPECT_FALSE(shadow.isInitialized());
 }
 
 TYPED_TEST_P(ExecutionBlockImplSkipTest, skip_on_non_relevant_level_with_shadow_rows) {

@@ -32,6 +32,7 @@
 #include "Aql/ExecutionStats.h"
 #include "Aql/InputAqlItemRow.h"
 #include "Aql/Query.h"
+#include "Aql/ShadowAqlItemRow.h"
 #include "Basics/Exceptions.h"
 #include "Basics/StaticStrings.h"
 #include "Basics/StringBuffer.h"
@@ -136,4 +137,8 @@ std::pair<ExecutionState, SharedAqlItemBlockPtr> BlocksWithClients::getSome(size
 std::pair<ExecutionState, size_t> BlocksWithClients::skipSome(size_t, size_t) {
   TRI_ASSERT(false);
   THROW_ARANGO_EXCEPTION(TRI_ERROR_NOT_IMPLEMENTED);
+}
+
+std::pair<ExecutionState, ShadowAqlItemRow> BlocksWithClients::fetchShadowRow() {
+  return _dependencies[0]->fetchShadowRow();
 }

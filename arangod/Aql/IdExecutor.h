@@ -93,6 +93,14 @@ class ExecutionBlockImpl<IdExecutor<BlockPassthrough::Enable, void>> : public Ex
 
   RegisterId getOutputRegisterId() const noexcept;
 
+  /// @brief fetchShadowRow, get's the next shadowRow on the fetcher, and causes
+  ///        the subquery to reset.
+  ///        Returns State == DONE if we are at the end of the query and
+  ///        State == HASMORE if there is another subquery ongoing.
+  ///        ShadowAqlItemRow might be empty on any call, if it is
+  ///        the execution is either DONE or at the first input on the next subquery.
+  std::pair<ExecutionState, ShadowAqlItemRow> fetchShadowRow() override;
+
  private:
   bool isDone() const noexcept;
 

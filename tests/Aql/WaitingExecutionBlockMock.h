@@ -96,12 +96,21 @@ class WaitingExecutionBlockMock final : public arangodb::aql::ExecutionBlock {
   std::pair<arangodb::aql::ExecutionState, size_t> skipSome(size_t atMost,
                                                             size_t subqueryDepth = 0) override;
 
+  /// @brief fetchShadowRow, get's the next shadowRow on the fetcher, and causes
+  ///        the subquery to reset.
+  ///        Returns State == DONE if we are at the end of the query and
+  ///        State == HASMORE if there is another subquery ongoing.
+  ///        ShadowAqlItemRow might be empty on any call, if it is
+  ///        the execution is either DONE or at the first input on the next subquery.
+  std::pair<arangodb::aql::ExecutionState, arangodb::aql::ShadowAqlItemRow> fetchShadowRow() override;
+
  private:
   std::deque<arangodb::aql::SharedAqlItemBlockPtr> _data;
   arangodb::aql::ResourceMonitor _resourceMonitor;
   size_t _inflight;
   bool _returnedDone = false;
   bool _hasWaited;
+  size_t _skippedInBlock;
 };
 }  // namespace aql
 

@@ -171,6 +171,14 @@ class ExecutionBlockImpl final : public ExecutionBlock {
    */
   std::pair<ExecutionState, size_t> skipSome(size_t atMost, size_t subqueryDepth) override;
 
+  /// @brief fetchShadowRow, get's the next shadowRow on the fetcher, and causes
+  ///        the subquery to reset.
+  ///        Returns State == DONE if we are at the end of the query and
+  ///        State == HASMORE if there is another subquery ongoing.
+  ///        ShadowAqlItemRow might be empty on any call, if it is
+  ///        the execution is either DONE or at the first input on the next subquery.
+  std::pair<ExecutionState, ShadowAqlItemRow> fetchShadowRow() override;
+
   std::pair<ExecutionState, Result> initializeCursor(InputAqlItemRow const& input) override;
 
   Infos const& infos() const;
@@ -193,9 +201,9 @@ class ExecutionBlockImpl final : public ExecutionBlock {
   std::pair<ExecutionState, size_t> skipSomeOnceWithoutTrace(size_t atMost, size_t subqueryDepth);
 
   /**
-  * @brief Most basic implementation of skipSome on the current subquery level:
-  * Calls getSome and counts the output rows.
-  */
+   * @brief Most basic implementation of skipSome on the current subquery level:
+   * Calls getSome and counts the output rows.
+   */
   std::pair<ExecutionState, size_t> skipSomeWithGetSome(size_t atMost);
 
   /**
@@ -249,6 +257,8 @@ class ExecutionBlockImpl final : public ExecutionBlock {
   void resetAfterShadowRow();
 
   static constexpr bool hasSideEffects();
+
+  std::pair<ExecutionState, ShadowAqlItemRow> fetchShadowRowInternal();
 
  private:
   /**

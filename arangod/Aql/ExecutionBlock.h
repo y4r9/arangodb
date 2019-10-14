@@ -43,6 +43,7 @@ class InputAqlItemRow;
 class ExecutionEngine;
 class ExecutionNode;
 class SharedAqlItemBlockPtr;
+class ShadowAqlItemRow;
 
 class ExecutionBlock {
  public:
@@ -128,6 +129,14 @@ class ExecutionBlock {
    *
    */
   virtual std::pair<ExecutionState, size_t> skipSome(size_t atMost, size_t subqueryDepth) = 0;
+
+  /// @brief fetchShadowRow, get's the next shadowRow on the fetcher, and causes
+  ///        the subquery to reset.
+  ///        Returns State == DONE if we are at the end of the query and
+  ///        State == HASMORE if there is another subquery ongoing.
+  ///        ShadowAqlItemRow might be empty on any call, if it is
+  ///        the execution is either DONE or at the first input on the next subquery.
+  virtual std::pair<ExecutionState, ShadowAqlItemRow> fetchShadowRow() = 0;
 
   ExecutionState getHasMoreState();
 

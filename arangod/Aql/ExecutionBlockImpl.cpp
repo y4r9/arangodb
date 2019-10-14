@@ -208,27 +208,10 @@ std::pair<ExecutionState, SharedAqlItemBlockPtr> ExecutionBlockImpl<Executor>::g
       }
       case InternalState::FETCH_SHADOWROWS: {
         ShadowAqlItemRow shadowRow{CreateInvalidShadowRowHint{}};
-        // TODO: Add lazy evaluation in case of LIMIT "lying" on done
-        std::tie(state, shadowRow) = _rowFetcher.fetchShadowRow();
-
+        std::tie(state, shadowRow) = fetchShadowRowInternal();
         if (state == ExecutionState::WAITING) {
           return {state, nullptr};
         }
-
-        if (state == ExecutionState::DONE) {
-          _state = InternalState::DONE;
-        }
-        if (shadowRow.isInitialized()) {
-          _outputItemRow->copyRow(shadowRow);
-          TRI_ASSERT(_outputItemRow->produced());
-          _outputItemRow->advanceRow();
-        } else {
-          if (_state != InternalState::DONE) {
-            _state = FETCH_DATA;
-            resetAfterShadowRow();
-          }
-        }
-
         break;
       }
       case InternalState::DONE: {
@@ -413,6 +396,18 @@ std::pair<ExecutionState, size_t> ExecutionBlockImpl<Executor>::skipSome(size_t 
   return traceSkipSomeEnd(state, skipped);
 }
 
+/// @brief fetchShadowRow, get's the next shadowRow on the fetcher, and causes
+///        the subquery to reset.
+///        Returns State == DONE if we are at the end of the query and
+///        State == HASMORE if there is another subquery ongoing.
+///        ShadowAqlItemRow might be empty on any call, if it is
+///        the execution is either DONE or at the first input on the next subquery.
+template <class Executor>
+std::pair<ExecutionState, ShadowAqlItemRow> ExecutionBlockImpl<Executor>::fetchShadowRow() {
+  // TODO state handling?
+  return fetchShadowRowInternal();
+};
+
 template <class Executor>
 std::pair<ExecutionState, size_t> ExecutionBlockImpl<Executor>::skipSomeOnceWithoutTrace(
     size_t const atMost, size_t const subqueryDepth) {
@@ -480,7 +475,7 @@ std::pair<ExecutionState, size_t> ExecutionBlockImpl<Executor>::skipSomeHigherSu
         TRI_ASSERT(state == ExecutionState::DONE);
         _state = InternalState::FETCH_SHADOWROWS;
         // Current level is done, now count shadow rows
-      } // intentionally falls through
+      }  // intentionally falls through
       case FETCH_SHADOWROWS: {
         ExecutionState state = ExecutionState::HASMORE;
         ShadowAqlItemRow row{CreateInvalidShadowRowHint{}};
@@ -884,12 +879,41 @@ void ExecutionBlockImpl<Executor>::resetAfterShadowRow() {
 }
 
 template <class Executor>
+std::pair<ExecutionState, ShadowAqlItemRow> ExecutionBlockImpl<Executor>::fetchShadowRowInternal() {
+  TRI_ASSERT(_state == InternalState::FETCH_SHADOWROWS);
+  TRI_ASSERT(!_outputItemRow->isFull());
+  ExecutionState state = ExecutionState::HASMORE;
+  ShadowAqlItemRow shadowRow{CreateInvalidShadowRowHint{}};
+  // TODO: Add lazy evaluation in case of LIMIT "lying" on done
+  std::tie(state, shadowRow) = _rowFetcher.fetchShadowRow();
+  if (state == ExecutionState::WAITING) {
+    TRI_ASSERT(!shadowRow.isInitialized());
+    return {state, shadowRow};
+  }
+
+  if (state == ExecutionState::DONE) {
+    _state = InternalState::DONE;
+  }
+  if (shadowRow.isInitialized()) {
+    _outputItemRow->copyRow(shadowRow);
+    TRI_ASSERT(_outputItemRow->produced());
+    _outputItemRow->advanceRow();
+  } else {
+    if (_state != InternalState::DONE) {
+      _state = FETCH_DATA;
+      resetAfterShadowRow();
+    }
+  }
+  return {state, shadowRow};
+}
+
+template <class Executor>
 struct HasSideEffects : std::false_type {};
 
-template<class U, class V>
+template <class U, class V>
 struct HasSideEffects<ModificationExecutor<U, V>> : std::true_type {};
 
-template<class U>
+template <class U>
 struct HasSideEffects<SingleRemoteModificationExecutor<U>> : std::true_type {};
 
 template <class Executor>

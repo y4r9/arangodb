@@ -62,6 +62,8 @@ class ExecutionBlockImpl<RemoteExecutor> : public ExecutionBlock {
 
   std::pair<ExecutionState, Result> shutdown(int errorCode) override;
 
+  std::pair<ExecutionState, ShadowAqlItemRow> fetchShadowRow() override;
+
 #ifdef ARANGODB_ENABLE_MAINTAINER_MODE
   // only for asserts:
  public:
