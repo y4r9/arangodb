@@ -349,7 +349,7 @@ bool MultiDependencySingleRowFetcher::fetchBlockIfNecessary(size_t const depende
   return true;
 }
 
-std::pair<ExecutionState, size_t> MultiDependencySingleRowFetcher::skipSome(size_t atMost,
+std::pair<ExecutionState, size_t> MultiDependencySingleRowFetcher::skipRows(size_t atMost,
                                                                             size_t subqueryDepth) {
   // Must not be called for the subqueryDepth == 0. It does not make sense for
   // this fetcher to use anything but skipRowsForDependency() for the current level!
@@ -357,7 +357,7 @@ std::pair<ExecutionState, size_t> MultiDependencySingleRowFetcher::skipSome(size
 
   TRI_ASSERT(_nextSkipDependencyIndex < _dependencyInfos.size());
 
-  { // Skip deps that are DONE
+  {  // Skip deps that are DONE
 
     // TODO Think this through. Is this necessary, and is it correct? What to do with DONE dependencies?
     while (_nextSkipDependencyIndex < _dependencyInfos.size() &&

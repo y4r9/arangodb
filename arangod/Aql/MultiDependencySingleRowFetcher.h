@@ -137,7 +137,7 @@ class MultiDependencySingleRowFetcher {
     THROW_ARANGO_EXCEPTION(TRI_ERROR_NOT_IMPLEMENTED);
   }
 
-  std::pair<ExecutionState, size_t> skipSome(size_t atMost, size_t subqueryDepth);
+  std::pair<ExecutionState, size_t> skipRows(size_t atMost, size_t subqueryDepth);
 
  private:
   DependencyProxy<BlockPassthrough::Disable>* _dependencyProxy;
