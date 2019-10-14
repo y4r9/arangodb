@@ -196,9 +196,9 @@ class ExecutionBlockImpl final : public ExecutionBlock {
   std::pair<ExecutionState, SharedAqlItemBlockPtr> getSomeWithoutTrace(size_t atMost);
 
   /**
-  * @brief Skip some without tracing. Calls skipSomeOnceWithoutTrace() until
-  * either DONE or atMost is reached, modulo WAITING.
-  */
+   * @brief Skip some without tracing. Calls skipSomeOnceWithoutTrace() until
+   * either DONE or atMost is reached, modulo WAITING.
+   */
   std::pair<ExecutionState, size_t> skipSomeWithoutTrace(size_t atMost, size_t subqueryDepth);
 
   /**
@@ -214,15 +214,15 @@ class ExecutionBlockImpl final : public ExecutionBlock {
   std::pair<ExecutionState, size_t> skipSomeWithGetSome(size_t atMost);
 
   /**
-   * @brief Skip atMost items in the current subquery level (i.e. subqueryDepth == 0).
-   * Dispatches the skip variant used depending on the Executor type.
+   * @brief Skip atMost items in the current subquery level (i.e. subqueryDepth
+   * == 0). Dispatches the skip variant used depending on the Executor type.
    */
   std::pair<ExecutionState, size_t> skipSomeSubqueryLocal(size_t atMost);
 
   /**
-   * @brief Skip atMost items in a higher subquery level (i.e. subqueryDepth > 0).
-   * Dispatches the skip variant used depending on whether the Executor has side
-   * effects.
+   * @brief Skip atMost items in a higher subquery level (i.e. subqueryDepth >
+   * 0). Dispatches the skip variant used depending on whether the Executor has
+   * side effects.
    */
   std::pair<ExecutionState, size_t> skipSomeHigherSubquery(size_t atMost, size_t subqueryDepth);
 
@@ -245,6 +245,17 @@ class ExecutionBlockImpl final : public ExecutionBlock {
   std::unique_ptr<OutputAqlItemRow> createOutputRow(SharedAqlItemBlockPtr& newBlock) const;
 
   Query const& getQuery() const;
+
+  /**
+   * @brief Ensure that we have an output block we can write to
+   *        If we already have a block, this is a noop.
+   *        if not we will create one with the given size.
+   *        Returns: WAITING, if there is WAITING from above
+   *                 DONE, if above does not issue anything anymore, so no need
+   *                     to write here
+   *                 HASMORE if the block is valid.
+   */
+  ExecutionState ensureOutputBlock(size_t atMost);
 
 #ifdef ARANGODB_USE_GOOGLE_TESTS
   // We need the Executor to be availabe during Tests
