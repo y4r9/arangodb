@@ -147,7 +147,13 @@ class MultiDependencySingleRowFetcher {
    */
   std::vector<DependencyInfo> _dependencyInfos;
 
+  size_t _skipped;
+
   size_t _nextSkipDependencyIndex;
+
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+  std::vector<size_t> _skippedPerDep{};
+#endif
 
  private:
   /**
@@ -166,7 +172,8 @@ class MultiDependencySingleRowFetcher {
   * Returns DONE iff it encounters a shadow row with depth > subqueryDepth,
   * and HASMORE otherwise. Never returns WAITING.
   */
-  std::pair<ExecutionState, size_t> localSkipRowsForDependency(size_t dependency, size_t atMost,
+  std::pair<ExecutionState, size_t> localSkipRowsForDependency(DependencyInfo& info,
+                                                               size_t atMost,
                                                                size_t subqueryDepth);
 
   /**
