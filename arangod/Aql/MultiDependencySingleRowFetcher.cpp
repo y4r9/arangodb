@@ -34,7 +34,7 @@ MultiDependencySingleRowFetcher::DependencyInfo::DependencyInfo()
 
 MultiDependencySingleRowFetcher::MultiDependencySingleRowFetcher(
     DependencyProxy<BlockPassthrough::Disable>& executionBlock)
-    : _dependencyProxy(&executionBlock) {}
+    : _dependencyProxy{&executionBlock}, _dependencyInfos{}, _nextSkipDependencyIndex{0} {}
 
 std::pair<ExecutionState, SharedAqlItemBlockPtr> MultiDependencySingleRowFetcher::fetchBlockForDependency(
     size_t dependency, size_t atMost) {
@@ -148,7 +148,7 @@ std::pair<ExecutionState, ShadowAqlItemRow> MultiDependencySingleRowFetcher::fet
 }
 
 MultiDependencySingleRowFetcher::MultiDependencySingleRowFetcher()
-    : _dependencyProxy(nullptr) {}
+    : _dependencyProxy{nullptr}, _dependencyInfos{}, _nextSkipDependencyIndex{0} {}
 
 RegisterId MultiDependencySingleRowFetcher::getNrInputRegisters() const {
   return _dependencyProxy->getNrInputRegisters();
@@ -229,7 +229,7 @@ std::pair<ExecutionState, InputAqlItemRow> MultiDependencySingleRowFetcher::fetc
 }
 
 std::pair<ExecutionState, size_t> MultiDependencySingleRowFetcher::skipRowsForDependency(
-    size_t const dependency, size_t const atMost, size_t const subqueryDepth) {
+    size_t const dependency, size_t const atMost) {
   TRI_ASSERT(dependency < _dependencyInfos.size());
   auto& depInfo = _dependencyInfos[dependency];
 
@@ -258,7 +258,7 @@ std::pair<ExecutionState, size_t> MultiDependencySingleRowFetcher::skipRowsForDe
   TRI_ASSERT(!indexIsValid(depInfo));
   ExecutionState state;
   size_t skipped;
-  std::tie(state, skipped) = skipSomeForDependency(dependency, atMost, subqueryDepth);
+  std::tie(state, skipped) = skipSomeForDependency(dependency, atMost, 0);
   if (state == ExecutionState::HASMORE && skipped < atMost) {
     state = ExecutionState::DONE;
   }
@@ -349,11 +349,50 @@ bool MultiDependencySingleRowFetcher::fetchBlockIfNecessary(size_t const depende
   return true;
 }
 
-std::pair<ExecutionState, size_t> MultiDependencySingleRowFetcher::skipRows(
-    size_t const atMost, size_t const subqueryDepth) {
-  // Must not be called for the current level
+std::pair<ExecutionState, size_t> MultiDependencySingleRowFetcher::skipSome(size_t atMost,
+                                                                            size_t subqueryDepth) {
+  // Must not be called for the subqueryDepth == 0. It does not make sense for
+  // this fetcher to use anything but skipRowsForDependency() for the current level!
   TRI_ASSERT(subqueryDepth > 0);
-  // not yet implemented
-  TRI_ASSERT(false);
-  THROW_ARANGO_EXCEPTION(TRI_ERROR_NOT_IMPLEMENTED);
+
+  TRI_ASSERT(_nextSkipDependencyIndex < _dependencyInfos.size());
+
+  { // Skip deps that are DONE
+
+    // TODO Think this through. Is this necessary, and is it correct? What to do with DONE dependencies?
+    while (_nextSkipDependencyIndex < _dependencyInfos.size() &&
+           _dependencyInfos[_nextSkipDependencyIndex]._upstreamState == ExecutionState::DONE) {
+      auto& depInfo = _dependencyInfos[_nextSkipDependencyIndex];
+      // TODO skip local shadow rows with depth >= subqueryDepth first
+      depInfo._currentBlock = nullptr;
+      depInfo._rowIndex = 0;
+      ++_nextSkipDependencyIndex;
+    }
+    if (_nextSkipDependencyIndex >= _dependencyInfos.size()) {
+      _nextSkipDependencyIndex = 0;
+      return {ExecutionState::DONE, 0};
+    }
+  }
+
+  TRI_ASSERT(_nextSkipDependencyIndex < _dependencyInfos.size());
+
+  ExecutionState state{};
+  size_t skipped{};
+  while (_nextSkipDependencyIndex < _dependencyInfos.size()) {
+    auto& depInfo = _dependencyInfos[_nextSkipDependencyIndex];
+
+    // TODO skip local shadow rows with depth >= subqueryDepth first
+    std::tie(state, skipped) = _dependencyProxy->skipSome(atMost, subqueryDepth);
+    if (state == ExecutionState::WAITING) {
+      TRI_ASSERT(skipped = 0);
+      return {ExecutionState::WAITING, 0};
+    }
+    depInfo._currentBlock = nullptr;
+    depInfo._rowIndex = 0;
+    ++_nextSkipDependencyIndex;
+  }
+  TRI_ASSERT(_nextSkipDependencyIndex == _dependencyInfos.size());
+  TRI_ASSERT(state != ExecutionState::WAITING);
+
+  return {state, skipped};
 }

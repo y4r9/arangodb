@@ -464,7 +464,7 @@ std::tuple<ExecutionState, SortingGatherExecutor::Stats, size_t> SortingGatherEx
     while (state != ExecutionState::DONE && _skipped < atMost) {
       std::size_t skippedNow;
       std::tie(state, skippedNow) =
-          _fetcher.skipRowsForDependency(_dependencyToFetch, 0, atMost - _skipped);
+          _fetcher.skipRowsForDependency(_dependencyToFetch, atMost - _skipped);
       if (state == ExecutionState::WAITING) {
         TRI_ASSERT(skippedNow == 0);
         return {state, NoStats{}, 0};
