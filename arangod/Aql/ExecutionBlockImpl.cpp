@@ -393,6 +393,10 @@ std::pair<ExecutionState, size_t> ExecutionBlockImpl<SubqueryStartExecutor>::ski
 template <class Executor>
 std::pair<ExecutionState, size_t> ExecutionBlockImpl<Executor>::skipSomeWithoutTrace(
     size_t atMost, size_t subqueryDepth) {
+  if (_state != InternalState::FETCH_DATA) {
+    return {ExecutionState::DONE, 0};
+  }
+
   auto state = ExecutionState::HASMORE;
 
   while (state == ExecutionState::HASMORE && _skipped < atMost &&

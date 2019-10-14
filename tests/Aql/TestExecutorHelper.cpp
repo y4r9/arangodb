@@ -139,6 +139,7 @@ TestExecutorHelperSkipAsGetSomeExecutor::~TestExecutorHelperSkipAsGetSomeExecuto
 std::pair<ExecutionState, NoStats> TestExecutorHelperSkipAsGetSomeExecutor::produceRows(OutputAqlItemRow& output) {
   // This Executor is bascially copying the rows one by one (like IdExecutor)
   auto res = _fetcher.fetchRow();
+  _produceRowsCalls++;
   if (res.second.isInitialized()) {
     output.copyRow(res.second);
   }
