@@ -757,6 +757,7 @@ std::tuple<ExecutorState, size_t, AqlCall> IndexExecutor::skipRowsRange(
     THROW_ARANGO_EXCEPTION(TRI_ERROR_DEBUG);
   }
 
+  _executorState = ExecutorState::HASMORE;
   IndexStats stats{};
   size_t skipped = 0;
 
