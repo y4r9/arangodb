@@ -25,6 +25,7 @@
 
 #include "IndexExecutor.h"
 
+#include "Aql/AqlCall.h"
 #include "Aql/AqlValue.h"
 #include "Aql/Ast.h"
 #include "Aql/Collection.h"
@@ -74,8 +75,7 @@ static inline DocumentProducingFunctionContext createContext(InputAqlItemRow con
                                                              IndexExecutorInfos& infos) {
   return DocumentProducingFunctionContext(
       inputRow, nullptr, infos.getOutputRegisterId(), infos.getProduceResult(),
-      infos.getQuery(), infos.getFilter(),
-      infos.getProjections(), 
+      infos.getQuery(), infos.getFilter(), infos.getProjections(),
       infos.getCoveringIndexAttributePositions(), false, infos.getUseRawDocumentPointers(),
       infos.getIndexes().size() > 1 || infos.hasMultipleExpansions());
 }
@@ -88,8 +88,7 @@ IndexExecutorInfos::IndexExecutorInfos(
     // cppcheck-suppress passedByValue
     std::unordered_set<RegisterId> registersToKeep, ExecutionEngine* engine,
     Collection const* collection, Variable const* outVariable, bool produceResult,
-    Expression* filter,
-    std::vector<std::string> const& projections, 
+    Expression* filter, std::vector<std::string> const& projections,
     std::vector<size_t> const& coveringIndexAttributePositions, bool useRawDocumentPointers,
     std::vector<std::unique_ptr<NonConstExpression>>&& nonConstExpression,
     std::vector<Variable const*>&& expInVars, std::vector<RegisterId>&& expInRegs,
@@ -193,9 +192,7 @@ transaction::Methods* IndexExecutorInfos::getTrxPtr() const noexcept {
   return _engine->getQuery()->trx();
 }
 
-Expression* IndexExecutorInfos::getFilter() const noexcept {
-  return _filter;
-}
+Expression* IndexExecutorInfos::getFilter() const noexcept { return _filter; }
 
 std::vector<size_t> const& IndexExecutorInfos::getCoveringIndexAttributePositions() const noexcept {
   return _coveringIndexAttributePositions;
@@ -617,6 +614,65 @@ std::pair<ExecutionState, IndexStats> IndexExecutor::produceRows(OutputAqlItemRo
   }
 }
 
+std::tuple<ExecutorState, IndexStats, AqlCall> IndexExecutor::produceRows(
+    size_t limit, AqlItemBlockInputRange& inputRange, OutputAqlItemRow& output) {
+  TRI_IF_FAILURE("IndexExecutor::produceRows") {
+    THROW_ARANGO_EXCEPTION(TRI_ERROR_DEBUG);
+  }
+  _executorState = ExecutorState::HASMORE;
+  IndexStats stats{};
+
+  TRI_ASSERT(_documentProducingFunctionContext.getAndResetNumScanned() == 0);
+  TRI_ASSERT(_documentProducingFunctionContext.getAndResetNumFiltered() == 0);
+  _documentProducingFunctionContext.setOutputRow(&output);
+
+  while (inputRange.hasMore() && limit > 0) {
+    TRI_ASSERT(!output.isFull());
+    std::tie(_executorState, _input) = inputRange.next();
+
+    TRI_ASSERT(_input);
+    initIndexes(_input);
+
+    if (!advanceCursor()) {
+      _input = InputAqlItemRow{CreateInvalidInputRowHint{}};
+      // just to validate that after continue we get into retry mode
+      TRI_ASSERT(!_input);
+      continue;
+    }
+    TRI_ASSERT(_input.isInitialized());
+
+    // Short Loop over the output block here for performance!
+    while (!output.isFull()) {
+      if (!getCursor().hasMore()) {
+        if (!advanceCursor()) {
+          // End of this cursor. Either return or try outer loop again.
+          _input = InputAqlItemRow{CreateInvalidInputRowHint{}};
+          break;
+        }
+      }
+      auto& cursor = getCursor();
+      TRI_ASSERT(cursor.hasMore());
+
+      // Read the next elements from the index
+      bool more = cursor.readIndex(output);
+      TRI_ASSERT(more == cursor.hasMore());
+      // NOTE: more => output.isFull() does not hold, if we do uniqness checks.
+      // The index iterator does still count skipped rows for limit.
+      // Nevertheless loop here, the cursor has more so we will retigger
+      // read more.
+      // Loop here, either we have filled the output
+      // Or the cursor is done, so we need to advance
+    }
+    stats.incrScanned(_documentProducingFunctionContext.getAndResetNumScanned());
+    stats.incrFiltered(_documentProducingFunctionContext.getAndResetNumFiltered());
+    limit--;
+  }
+
+  AqlCall upstreamCall{};
+  upstreamCall.softLimit = limit;
+  return {_executorState, stats, upstreamCall};
+}
+
 std::tuple<ExecutionState, IndexExecutor::Stats, size_t> IndexExecutor::skipRows(size_t toSkip) {
   // This code does not work correctly with multiple indexes, as it does not
   // check for duplicates. Currently, no plan is generated where that can
@@ -688,6 +744,54 @@ std::tuple<ExecutionState, IndexExecutor::Stats, size_t> IndexExecutor::skipRows
 
   return std::make_tuple(ExecutionState::HASMORE, stats,
                          skipped);  // tupple, cannot use initializer list due to build failure
+}
+
+std::tuple<ExecutorState, size_t, AqlCall> IndexExecutor::skipRowsRange(
+    size_t offset, AqlItemBlockInputRange& inputRange) {
+  // This code does not work correctly with multiple indexes, as it does not
+  // check for duplicates. Currently, no plan is generated where that can
+  // happen, because with multiple indexes, the FILTER is not removed and thus
+  // skipSome is not called on the IndexExecutor.
+  TRI_ASSERT(_infos.getIndexes().size() <= 1);
+  TRI_IF_FAILURE("IndexExecutor::skipRows") {
+    THROW_ARANGO_EXCEPTION(TRI_ERROR_DEBUG);
+  }
+
+  IndexStats stats{};
+  size_t skipped = 0;
+
+  while (inputRange.hasMore() && skipped < offset) {
+    // get an input row first, if necessary
+    std::tie(_executorState, _input) = inputRange.next();
+
+    initIndexes(_input);
+
+    if (!advanceCursor()) {
+      _input = InputAqlItemRow{CreateInvalidInputRowHint{}};
+      // just to validate that after continue we get into retry mode
+      TRI_ASSERT(!_input);
+      continue;
+    }
+
+    if (!getCursor().hasMore()) {
+      if (!advanceCursor()) {
+        _input = InputAqlItemRow{CreateInvalidInputRowHint{}};
+        break;
+      }
+    }
+
+    size_t skippedNow = getCursor().skipIndex(offset - _skipped);
+    stats.incrScanned(skippedNow);
+    _skipped += skippedNow;
+  }
+
+  skipped = _skipped;
+
+  _skipped = 0;
+
+  AqlCall upstreamCall{};
+  upstreamCall.softLimit = offset - skipped;
+  return {_executorState, skipped, upstreamCall};
 }
 
 IndexExecutor::CursorReader& IndexExecutor::getCursor() {

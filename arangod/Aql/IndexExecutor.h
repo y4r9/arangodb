@@ -40,6 +40,8 @@ namespace arangodb {
 struct OperationCursor;
 namespace aql {
 
+struct AqlCall;
+class AqlItemBlockInputRange;
 class ExecutionEngine;
 class ExecutorInfos;
 class Expression;
@@ -213,6 +215,18 @@ class IndexExecutor {
   std::pair<ExecutionState, Stats> produceRows(OutputAqlItemRow& output);
   std::tuple<ExecutionState, Stats, size_t> skipRows(size_t toSkip);
 
+  /**
+   * @brief produce the next Row of Aql Values.
+   *
+   * @return ExecutorState, the stats, and a new Call that needs to be send to upstream
+   */
+  std::tuple<ExecutorState, Stats, AqlCall> produceRows(size_t atMost,
+                                                        AqlItemBlockInputRange& input,
+                                                        OutputAqlItemRow& output);
+
+  std::tuple<ExecutorState, size_t, AqlCall> skipRowsRange(size_t atMost,
+                                                           AqlItemBlockInputRange& input);
+
  public:
   void initializeCursor();
 
@@ -230,6 +244,7 @@ class IndexExecutor {
   Fetcher& _fetcher;
   DocumentProducingFunctionContext _documentProducingFunctionContext;
   ExecutionState _state;
+  ExecutorState _executorState;
   InputAqlItemRow _input;
 
   /// @brief a vector of cursors for the index block
