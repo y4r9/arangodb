@@ -23,6 +23,8 @@
 #ifndef ARANGOD_AQL_MODIFICATION_EXECUTOR_H
 #define ARANGOD_AQL_MODIFICATION_EXECUTOR_H
 
+#include "Aql/AqlCall.h"
+#include "Aql/AqlItemBlockInputRange.h"
 #include "Aql/ExecutionState.h"
 #include "Aql/InputAqlItemRow.h"
 #include "Aql/ModificationExecutorInfos.h"
@@ -154,11 +156,18 @@ class ModificationExecutor {
   ModificationExecutor(FetcherType&, Infos&);
   ~ModificationExecutor();
 
+  // produce the next Row of Aql Values, old variant
   std::pair<ExecutionState, Stats> produceRows(OutputAqlItemRow& output);
 
+  // produce the next Row of Aql Values, new variant
+  std::tuple<ExecutorState, Stats, AqlCall> produceRows(size_t atMost,
+                                                        AqlItemBlockInputRange& inputRange,
+                                                        OutputAqlItemRow& output);
+
  protected:
+  ExecutorState doCollect(size_t const atMost, AqlItemBlockInputRange& inputRange);
   std::pair<ExecutionState, Stats> doCollect(size_t const maxOutputs);
-  void doOutput(OutputAqlItemRow& output, Stats& stats);
+  void doOutput(OutputAqlItemRow& output);
 
   // The state that was returned on the last call to produceRows. For us
   // this is relevant because we might have collected some documents in the
