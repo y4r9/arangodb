@@ -34,6 +34,7 @@
 #include "Aql/SingleRowFetcher.h"
 #include "Aql/Stats.h"
 
+#include <Logger/LogMacros.h>
 #include <utility>
 
 using namespace arangodb;
@@ -101,12 +102,13 @@ std::tuple<ExecutorState, NoStats, AqlCall> CountCollectExecutor::produceRows(
     THROW_ARANGO_EXCEPTION(TRI_ERROR_DEBUG);
   }
   InputAqlItemRow input{CreateInvalidInputRowHint{}};
+  _executorState = ExecutorState::DONE;
 
   while (inputRange.hasMore() && limit > 0) {
     std::tie(_executorState, input) = inputRange.next();
 
     limit--;
-    _count++;
+    incrCountBy(1);
   }
 
   // In general, we do not have an input row. In fact, we never fetch one.

@@ -31,6 +31,11 @@ AqlItemBlockInputRange::AqlItemBlockInputRange()
   TRI_ASSERT(state() == ExecutorState::HASMORE);
 }
 
+AqlItemBlockInputRange::AqlItemBlockInputRange(ExecutorState state)
+    : _block(nullptr), _rowIndex(0), _endIndex(0), _finalState(state) {
+  TRI_ASSERT(!hasMore());
+}
+
 AqlItemBlockInputRange::AqlItemBlockInputRange(ExecutorState state,
                                                SharedAqlItemBlockPtr const& block,
                                                std::size_t index, std::size_t endIndex)

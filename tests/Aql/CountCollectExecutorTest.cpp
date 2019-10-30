@@ -32,6 +32,7 @@
 #include "Aql/ResourceUsage.h"
 #include "Aql/Stats.h"
 
+#include <Logger/LogMacros.h>
 #include <velocypack/Builder.h>
 #include <velocypack/velocypack-aliases.h>
 
@@ -163,15 +164,14 @@ TEST_F(CountCollectExecutorTest, there_are_rows_in_the_upstream_the_producer_wai
   ASSERT_EQ(3, fetcher.totalSkipped());
 }
 
-TEST_F(CountCollectExecutorTest, test_produce_datarange) {
+TEST_F(CountCollectExecutorTest, test_produce_datarange_empty) {
   CountCollectExecutorInfos infos(1 /* outputRegId */, 1 /* nrIn */, nrOutputReg, {}, {});
   auto fakeUnusedBlock = VPackParser::fromJson("[  ]");
   SingleRowFetcherHelper<::arangodb::aql::BlockPassthrough::Disable> fetcher(
       itemBlockManager, fakeUnusedBlock->steal(), false);
   CountCollectExecutor testee(fetcher, infos);
 
-  SharedAqlItemBlockPtr inBlock = buildBlock<1>(itemBlockManager, {{}});
-  AqlItemBlockInputRange input{ExecutorState::DONE, inBlock, 0, inBlock->size()};
+  AqlItemBlockInputRange input{ExecutorState::DONE};
 
   OutputAqlItemRow output(std::move(block), outputRegisters,
                           infos.registersToKeep(), infos.registersToClear());
@@ -186,6 +186,33 @@ TEST_F(CountCollectExecutorTest, test_produce_datarange) {
   ASSERT_EQ(x.toInt64(), 0);
 
   ASSERT_EQ(0, fetcher.totalSkipped());
+}
+
+TEST_F(CountCollectExecutorTest, test_produce_datarange) {
+  CountCollectExecutorInfos infos(1 /* outputRegId */, 1 /* nrIn */, nrOutputReg, {}, {});
+  auto fakeUnusedBlock = VPackParser::fromJson("[  ]");
+  SingleRowFetcherHelper<::arangodb::aql::BlockPassthrough::Disable> fetcher(
+      itemBlockManager, fakeUnusedBlock->steal(), false);
+  CountCollectExecutor testee(fetcher, infos);
+
+  SharedAqlItemBlockPtr inBlock =
+      buildBlock<1>(itemBlockManager, {{R"(1)"}, {R"(2)"}, {R"(3)"}});
+
+  AqlItemBlockInputRange input{ExecutorState::DONE, inBlock, 0, inBlock->size()};
+
+  OutputAqlItemRow output(std::move(block), outputRegisters,
+                          infos.registersToKeep(), infos.registersToClear());
+  EXPECT_EQ(output.numRowsWritten(), 0);
+  auto const [state, stats, call] = testee.produceRows(1000, input, output);
+  ASSERT_EQ(state, ExecutorState::DONE);
+  ASSERT_TRUE(output.produced());
+
+  auto block = output.stealBlock();
+  AqlValue x = block->getValue(0, 1);
+  ASSERT_TRUE(x.isNumber());
+  ASSERT_EQ(x.toInt64(), 3);
+
+  ASSERT_EQ(3, fetcher.totalSkipped());
 }
 
 }  // namespace aql

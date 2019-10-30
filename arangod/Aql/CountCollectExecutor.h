@@ -104,7 +104,8 @@ class CountCollectExecutor {
 
   void incrCountBy(size_t incr) noexcept;
 
-  uint64_t getCount() noexcept;;
+  uint64_t getCount() noexcept;
+  ;
 
   std::pair<ExecutionState, size_t> expectedNumberOfRows(size_t atMost) const;
 

@@ -33,6 +33,8 @@ class AqlItemBlockInputRange {
  public:
   AqlItemBlockInputRange();
 
+  explicit AqlItemBlockInputRange(ExecutorState state);
+
   AqlItemBlockInputRange(ExecutorState, arangodb::aql::SharedAqlItemBlockPtr const&,
                          std::size_t, std::size_t endIndex);
   AqlItemBlockInputRange(ExecutorState, arangodb::aql::SharedAqlItemBlockPtr&&,
