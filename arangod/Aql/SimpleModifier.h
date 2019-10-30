@@ -26,6 +26,7 @@
 #include "Aql/ModificationExecutorAccumulator.h"
 #include "Aql/ModificationExecutorInfos.h"
 
+#include "Aql/AqlCall.h"
 #include "Aql/InsertModifier.h"
 #include "Aql/RemoveModifier.h"
 #include "Aql/UpdateReplaceModifier.h"
@@ -117,14 +118,14 @@ class SimpleModifier {
   size_t nrOfDocuments() const;
   // The number of entries in the results slice
   size_t nrOfResults() const;
-
+  // The number of errors that occurred in a transaction
   size_t nrOfErrors() const;
 
   size_t nrOfWritesExecuted() const;
   size_t nrOfWritesIgnored() const;
 
   ModificationExecutorInfos& getInfos() const noexcept;
-  size_t getBatchSize() const noexcept;
+  void adjustUpstreamCall(AqlCall& call) const noexcept;
 
  private:
   bool resultAvailable() const;
@@ -140,8 +141,6 @@ class SimpleModifier {
 
   std::vector<ModOp>::const_iterator _operationsIterator;
   VPackArrayIterator _resultsIterator;
-
-  size_t const _batchSize;
 };
 
 using InsertModifier = SimpleModifier<InsertModifierCompletion>;

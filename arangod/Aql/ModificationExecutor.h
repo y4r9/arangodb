@@ -141,6 +141,8 @@ class ModifierOutput {
   std::unique_ptr<AqlValue> _newValue;
 };
 
+// TODO: As soon as the fetcher argument goes away out of the constructor, we can
+//       remove that template parameter.
 template <typename FetcherType, typename ModifierType>
 class ModificationExecutor {
  public:
@@ -167,13 +169,8 @@ class ModificationExecutor {
  protected:
   ExecutorState doCollect(size_t const atMost, AqlItemBlockInputRange& inputRange);
   std::pair<ExecutionState, Stats> doCollect(size_t const maxOutputs);
-  void doOutput(OutputAqlItemRow& output);
+  void doOutput(OutputAqlItemRow& outputs);
 
-  // The state that was returned on the last call to produceRows. For us
-  // this is relevant because we might have collected some documents in the
-  // modifier's accumulator, but not written them yet, because we ran into
-  // WAITING
-  ExecutionState _lastState;
   ModificationExecutorInfos& _infos;
   FetcherType& _fetcher;
   ModifierType _modifier;

@@ -134,8 +134,7 @@ SimpleModifier<ModifierCompletion, Enable>::SimpleModifier(ModificationExecutorI
     : _infos(infos),
       _completion(infos),
       _accumulator(nullptr),
-      _resultsIterator(VPackSlice::emptyArraySlice()),
-      _batchSize(ExecutionBlock::DefaultBatchSize()) {}
+      _resultsIterator(VPackSlice::emptyArraySlice()) {}
 
 template <typename ModifierCompletion, typename Enable>
 SimpleModifier<ModifierCompletion, Enable>::~SimpleModifier() = default;
@@ -206,10 +205,10 @@ ModificationExecutorInfos& SimpleModifier<ModifierCompletion, Enable>::getInfos(
   return _infos;
 }
 
+// Yes this is intentionally empty.
 template <typename ModifierCompletion, typename Enable>
-size_t SimpleModifier<ModifierCompletion, Enable>::getBatchSize() const noexcept {
-  return _batchSize;
-}
+void SimpleModifier<ModifierCompletion, Enable>::adjustUpstreamCall(AqlCall& call) const
+    noexcept {}
 
 template <typename ModifierCompletion, typename Enable>
 bool SimpleModifier<ModifierCompletion, Enable>::resultAvailable() const {

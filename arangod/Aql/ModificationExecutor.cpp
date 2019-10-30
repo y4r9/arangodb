@@ -77,7 +77,7 @@ AqlValue&& ModifierOutput::getNewValue() const {
 template <typename FetcherType, typename ModifierType>
 ModificationExecutor<FetcherType, ModifierType>::ModificationExecutor(Fetcher& fetcher,
                                                                       Infos& infos)
-    : _lastState(ExecutionState::HASMORE), _infos(infos), _fetcher(fetcher), _modifier(infos) {
+    : _infos(infos), _fetcher(fetcher), _modifier(infos) {
   // In MMFiles we need to make sure that the data is not moved in memory or collected
   // for this collection as soon as we start writing to it.
   // This pin makes sure that no memory is moved pointers we get from a collection stay
@@ -129,8 +129,9 @@ ExecutorState ModificationExecutor<FetcherType, ModifierType>::doCollect(
   InputAqlItemRow row{CreateInvalidInputRowHint{}};
   ExecutorState state = ExecutorState::HASMORE;
 
-  const size_t maxOutputs = std::min(atMost, _modifier.getBatchSize());
-  while (inputRange.hasMore() && _modifier.nrOfOperations() < maxOutputs) {
+  // TODO: getHardLimit isn't named particularly well; maybe we need to
+  //       just add a property to modifiers
+  while (inputRange.hasMore() && _modifier.nrOfOperations() < atMost) {
     // if inputRange.hasMore() == true then the row is
     // guaranteed to be initialized.
     std::tie(state, row) = inputRange.next();
@@ -178,7 +179,7 @@ std::pair<ExecutionState, typename ModificationExecutor<FetcherType, ModifierTyp
 ModificationExecutor<FetcherType, ModifierType>::produceRows(OutputAqlItemRow& output) {
   TRI_ASSERT(false);
   ModificationExecutor::Stats stats;
-  return {_lastState, ModificationExecutor::Stats{}};
+  return {ExecutionState::DONE, ModificationExecutor::Stats{}};
 }
 
 template <typename FetcherType, typename ModifierType>
@@ -187,15 +188,23 @@ std::tuple<ExecutorState, typename ModificationExecutor<FetcherType, ModifierTyp
 ModificationExecutor<FetcherType, ModifierType>::produceRows(size_t atMost,
                                                              AqlItemBlockInputRange& inputRange,
                                                              OutputAqlItemRow& output) {
+  // Ask the modifier whether it wants to impose any limits.
+  // Currently this is just the Upsert modifier who needs to set
+  // soft and hard limit to 1
+  AqlCall upstreamCall;
+  _modifier.adjustUpstreamCall(upstreamCall);
+
   TRI_IF_FAILURE("ModificationBlock::getSome") {
     THROW_ARANGO_EXCEPTION(TRI_ERROR_DEBUG);
   }
 
-  // Collect modifications for submission to transaction
   ExecutorState state = ExecutorState::HASMORE;
-  state = doCollect(atMost, inputRange);
 
-  // Submit modifications
+  // This is really just an exception for Upsert, where
+  // we can only do one input/output
+  atMost = std::min(upstreamCall.getLimit(), atMost);
+
+  state = doCollect(atMost, inputRange);
   _modifier.transact();
 
   // If the query is silent, there is no way to relate
@@ -205,19 +214,14 @@ ModificationExecutor<FetcherType, ModifierType>::produceRows(size_t atMost,
   // Yes. Really.
   TRI_ASSERT(_infos._options.silent || _modifier.nrOfDocuments() == _modifier.nrOfResults());
 
-  // Produce output from collected modifications and the results of the
-  // submitted operations
+  ModificationExecutor::Stats stats;
   doOutput(output);
 
-  ModificationExecutor::Stats stats;
   if (_infos._doCount) {
     stats.addWritesExecuted(_modifier.nrOfWritesExecuted());
     stats.addWritesIgnored(_modifier.nrOfWritesIgnored());
   }
 
-  // TODO: Check this is correct
-  AqlCall upstreamCall;
-  upstreamCall.softLimit = atMost;
   return {state, std::move(stats), upstreamCall};
 }
 

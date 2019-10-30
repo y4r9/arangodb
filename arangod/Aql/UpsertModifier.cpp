@@ -132,13 +132,7 @@ typename UpsertModifier::OutputIterator UpsertModifier::OutputIterator::end() co
 }
 
 UpsertModifier::UpsertModifier(ModificationExecutorInfos& infos)
-    : _infos(infos),
-
-      // Batch size has to be 1 so that the upsert modifier sees its own
-      // writes.
-      // This behaviour could be improved, if we can prove that an UPSERT
-      // does not need to see its own writes
-      _batchSize(1) {}
+    : _infos(infos) {}
 
 UpsertModifier::~UpsertModifier() = default;
 
@@ -312,4 +306,7 @@ size_t UpsertModifier::nrOfWritesExecuted() const {
 
 size_t UpsertModifier::nrOfWritesIgnored() const { return nrOfErrors(); }
 
-size_t UpsertModifier::getBatchSize() const { return _batchSize; }
+void UpsertModifier::adjustUpstreamCall(AqlCall& call) const noexcept {
+  call.softLimit = 1;
+  call.hardLimit = 1;
+}

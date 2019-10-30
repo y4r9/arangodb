@@ -86,7 +86,7 @@ class UpsertModifier {
   size_t nrOfWritesExecuted() const;
   size_t nrOfWritesIgnored() const;
 
-  size_t getBatchSize() const;
+  void adjustUpstreamCall(AqlCall& call) const noexcept;
 
  private:
   bool resultAvailable() const;
@@ -104,8 +104,6 @@ class UpsertModifier {
 
   OperationResult _updateResults;
   OperationResult _insertResults;
-
-  size_t const _batchSize;
 };
 
 }  // namespace aql
