@@ -174,7 +174,7 @@ class Message {
   bool isContentTypeText() const;
 };
 
-// Request contains the message send to a server in a request.
+// Request contains the message sent to a server in a request.
 class Request final : public Message {
  public:
   static constexpr std::chrono::milliseconds defaultTimeout =

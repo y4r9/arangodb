@@ -153,7 +153,7 @@ void GeneralConnection<ST>::restartConnection(const Error error) {
     FUERTE_LOG_DEBUG << "restartConnection this=" << this << "\n";
     shutdownConnection(error);  // Terminate connection
     if (error != Error::Canceled && requestsLeft() > 0) {
-      startConnection();  // switches state to Conneccting
+      startConnection();  // switches state to Connecting
     }
   }
 }

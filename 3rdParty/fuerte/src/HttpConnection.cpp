@@ -33,6 +33,18 @@
 #include <fuerte/types.h>
 #include <velocypack/Parser.h>
 
+namespace {
+std::string const acceptHeader("Accept: ");
+std::string const authorizationBasicHeader("Authorization: Basic ");
+std::string const authorizationBearerHeader("Authorization: bearer ");
+std::string const connectionCloseHeader("Connection: Close\r\n");
+std::string const connectionKeepAliveHeader("Connection: Keep-Alive\r\n");
+std::string const contentLengthHeader("Content-Length: ");
+std::string const contentTypeHeader("Content-Type: ");
+std::string const hostHeader("Host: ");
+std::string const http11Header(" HTTP/1.1\r\n");
+}
+
 namespace arangodb { namespace fuerte { inline namespace v1 { namespace http {
 
 namespace fu = ::arangodb::fuerte::v1;
@@ -55,12 +67,18 @@ int HttpConnection<ST>::on_message_begin(http_parser* parser) {
 template <SocketType ST>
 int HttpConnection<ST>::on_status(http_parser* parser, const char* at,
                                   size_t len) {
+  char buffer[8];
+  buffer[0] = 'h';
+  buffer[1] = 't';
+  buffer[2] = 't';
+  buffer[3] = 'p';
+  buffer[4] = '/';
+  buffer[5] = static_cast<char>(parser->http_major) + '0';
+  buffer[6] = '.';
+  buffer[7] = static_cast<char>(parser->http_minor) + '0';
   HttpConnection<ST>* self = static_cast<HttpConnection<ST>*>(parser->data);
   // required for some arango shenanigans
-  self->_response->header.addMeta(std::string("http/") +
-                                      std::to_string(parser->http_major) + '.' +
-                                      std::to_string(parser->http_minor),
-                                  std::string(at, len));
+  self->_response->header.addMeta(std::string(&buffer[0], 8), std::string(at, len));
   return 0;
 }
 
@@ -155,17 +173,17 @@ HttpConnection<ST>::HttpConnection(EventLoopService& loop,
 
   // preemtively cache
   if (this->_config._authenticationType == AuthenticationType::Basic) {
-    _authHeader.append("Authorization: Basic ");
+    _authHeader.append(::authorizationBasicHeader);
     _authHeader.append(
         fu::encodeBase64(this->_config._user + ":" + this->_config._password));
-    _authHeader.append("\r\n");
+    _authHeader.append("\r\n", 2);
   } else if (this->_config._authenticationType == AuthenticationType::Jwt) {
     if (this->_config._jwtToken.empty()) {
       throw std::logic_error("JWT token is not set");
     }
-    _authHeader.append("Authorization: bearer ");
+    _authHeader.append(::authorizationBearerHeader);
     _authHeader.append(this->_config._jwtToken);
-    _authHeader.append("\r\n");
+    _authHeader.append("\r\n", 2);
   }
 
   FUERTE_LOG_TRACE << "creating http connection: this=" << this << "\n";
@@ -290,26 +308,26 @@ std::string HttpConnection<ST>::buildRequestBody(Request const& req) {
       http::urlEncode(header, p.second);
     }
   }
-  header.append(" HTTP/1.1\r\n")
-      .append("Host: ")
+  header.append(::http11Header) // " HTTP/1.1\r\n"
+      .append(::hostHeader)  // "Host: "
       .append(this->_config._host)
-      .append("\r\n");
+      .append("\r\n", 2);
   if (this->_config._idleTimeout.count() > 0) {  // technically not required for http 1.1
-    header.append("Connection: Keep-Alive\r\n");
+    header.append(::connectionKeepAliveHeader); // "Connection: Keep-Alive\r\n"
   } else {
-    header.append("Connection: Close\r\n");
+    header.append(::connectionCloseHeader); // "Connection: Close\r\n"
   }
 
   if (req.header.restVerb != RestVerb::Get &&
       req.contentType() != ContentType::Custom) {
-    header.append("Content-Type: ")
+    header.append(::contentTypeHeader) // "Content-Type: "
           .append(to_string(req.contentType()))
-          .append("\r\n");
+          .append("\r\n", 2);
   }
   if (req.acceptType() != ContentType::Custom) {
-    header.append("Accept: ")
+    header.append(::acceptHeader) // "Accept: "
           .append(to_string(req.acceptType()))
-          .append("\r\n");
+          .append("\r\n", 2);
   }
 
   bool haveAuth = false;
@@ -323,9 +341,9 @@ std::string HttpConnection<ST>::buildRequestBody(Request const& req) {
     }
 
     header.append(pair.first);
-    header.append(": ");
+    header.append(": ", 2);
     header.append(pair.second);
-    header.append("\r\n");
+    header.append("\r\n", 2);
   }
 
   if (!haveAuth && !_authHeader.empty()) {
@@ -334,11 +352,11 @@ std::string HttpConnection<ST>::buildRequestBody(Request const& req) {
 
   if (req.header.restVerb != RestVerb::Get &&
       req.header.restVerb != RestVerb::Head) {
-    header.append("Content-Length: ");
+    header.append(::contentLengthHeader); // "Content-Length: "
     header.append(std::to_string(req.payloadSize()));
-    header.append("\r\n\r\n");
+    header.append("\r\n\r\n", 4);
   } else {
-    header.append("\r\n");
+    header.append("\r\n", 2);
   }
   // body will be appended seperately
   return header;
