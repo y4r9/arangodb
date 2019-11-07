@@ -144,7 +144,7 @@ NS_END
 
 #endif
 
-NS_LOCAL
+namespace bla {
 
 irs::bytes_ref DUMMY; // placeholder for visiting logic in columnstore
 
@@ -549,7 +549,7 @@ void postings_writer::prepare(index_output& out, const irs::flush_state& state) 
 }
 
 void postings_writer::begin_field(const irs::flags& field) {
-  features_ = ::features(field);
+  features_ = bla::features(field);
   docs_.value.clear();
   last_state.clear();
 }
@@ -964,7 +964,7 @@ struct doc_state {
   uint32_t* enc_buf;
   uint64_t tail_start;
   size_t tail_length;
-  ::features features;
+  bla::features features;
 }; // doc_state
 
 // ----------------------------------------------------------------------------
@@ -1918,7 +1918,7 @@ class pos_doc_iterator final: public doc_iterator {
 
  protected:
   virtual void prepare_attributes(
-    const ::features& features,
+    const bla::features& features,
     const irs::attribute_view& attrs,
     const index_input* pos_in,
     const index_input* pay_in
@@ -1934,7 +1934,7 @@ class pos_doc_iterator final: public doc_iterator {
 
 template<typename PosItrType>
 void pos_doc_iterator<PosItrType>::prepare_attributes(
-    const ::features& enabled,
+    const bla::features& enabled,
     const irs::attribute_view& attrs,
     const index_input* pos_in,
     const index_input* pay_in) {
@@ -5089,7 +5089,7 @@ irs::doc_iterator::ptr postings_reader::iterator(
     const attribute_view& attrs,
     const flags& req) {
   // compile field features
-  const auto features = ::features(field);
+  const auto features = bla::features(field);
   // get enabled features:
   // find intersection between requested and available features
   const auto enabled = features & req;
@@ -5160,40 +5160,40 @@ class format : public irs::version10::format {
 format::format() NOEXCEPT : irs::version10::format(format::type()) {}
 
 index_meta_writer::ptr format::get_index_meta_writer() const  {
-  return irs::index_meta_writer::make<::index_meta_writer>();
+  return irs::index_meta_writer::make<bla::index_meta_writer>();
 }
 
 index_meta_reader::ptr format::get_index_meta_reader() const {
   // can reuse stateless reader
-  static ::index_meta_reader INSTANCE;
+  static bla::index_meta_reader INSTANCE;
 
   return memory::make_managed<irs::index_meta_reader, false>(&INSTANCE);
 }
 
 segment_meta_writer::ptr format::get_segment_meta_writer() const {
   // can reuse stateless writer
-  static ::segment_meta_writer INSTANCE;
+  static bla::segment_meta_writer INSTANCE;
 
   return memory::make_managed<irs::segment_meta_writer, false>(&INSTANCE);
 }
 
 segment_meta_reader::ptr format::get_segment_meta_reader() const {
   // can reuse stateless writer
-  static ::segment_meta_reader INSTANCE;
+  static bla::segment_meta_reader INSTANCE;
 
   return memory::make_managed<irs::segment_meta_reader, false>(&INSTANCE);
 }
 
 document_mask_writer::ptr format::get_document_mask_writer() const {
   // can reuse stateless writer
-  static ::document_mask_writer INSTANCE;
+  static bla::document_mask_writer INSTANCE;
 
   return memory::make_managed<irs::document_mask_writer, false>(&INSTANCE);
 }
 
 document_mask_reader::ptr format::get_document_mask_reader() const {
   // can reuse stateless writer
-  static ::document_mask_reader INSTANCE;
+  static bla::document_mask_reader INSTANCE;
 
   return memory::make_managed<irs::document_mask_reader, false>(&INSTANCE);
 }
@@ -5228,22 +5228,22 @@ columnstore_reader::ptr format::get_columnstore_reader() const {
 }
 
 irs::postings_writer::ptr format::get_postings_writer(bool volatile_state) const {
-  return irs::postings_writer::make<::postings_writer>(volatile_state);
+  return irs::postings_writer::make<bla::postings_writer>(volatile_state);
 }
 
 irs::postings_reader::ptr format::get_postings_reader() const {
-  return irs::postings_reader::make<::postings_reader>();
+  return irs::postings_reader::make<bla::postings_reader>();
 }
 
 /*static*/ irs::format::ptr format::make() {
-  static const ::format INSTANCE;
+  static const bla::format INSTANCE;
 
   // aliasing constructor
   return irs::format::ptr(irs::format::ptr(), &INSTANCE);
 }
 
-DEFINE_FORMAT_TYPE_NAMED(::format, format_traits::NAME);
-REGISTER_FORMAT(::format);
+DEFINE_FORMAT_TYPE_NAMED(bla::format, format_traits::NAME);
+REGISTER_FORMAT(bla::format);
 
 NS_END
 
@@ -5252,7 +5252,7 @@ NS_BEGIN(version10)
 
 void init() {
 #ifndef IRESEARCH_DLL
-  REGISTER_FORMAT(::format);
+  REGISTER_FORMAT(bla::format);
 #endif
 }
 

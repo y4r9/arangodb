@@ -1300,3 +1300,12 @@ message(STATUS "building for git revision: ${ARANGODB_BUILD_REPOSITORY}")
 #     message(STATUS "${_variableName}=${${_variableName}}")
 #   endforeach ()
 # endif ()
+
+add_executable(irs test/main.cpp)
+target_link_libraries(irs PUBLIC iresearch-static)
+target_include_directories(irs PUBLIC
+    3rdParty/iresearch/core
+    3rdParty/iresearch
+    3rdParty/
+    )
+
