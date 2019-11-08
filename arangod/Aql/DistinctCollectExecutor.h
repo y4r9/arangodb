@@ -41,6 +41,8 @@ class Methods;
 }
 namespace aql {
 
+struct AqlCall;
+class AqlItemBlockInputRange;
 class InputAqlItemRow;
 class OutputAqlItemRow;
 class NoStats;
@@ -104,6 +106,15 @@ class DistinctCollectExecutor {
    * @return ExecutionState, and if successful exactly one new Row of AqlItems.
    */
   std::pair<ExecutionState, Stats> produceRows(OutputAqlItemRow& output);
+
+  /**
+   * @brief produce the next Row of Aql Values.
+   *
+   * @return ExecutorState, the stats, and a new Call that needs to be send to upstream
+   */
+  std::tuple<ExecutorState, Stats, AqlCall> produceRows(size_t atMost,
+                                                        AqlItemBlockInputRange& input,
+                                                        OutputAqlItemRow& output);
 
   std::pair<ExecutionState, size_t> expectedNumberOfRows(size_t atMost) const;
 
