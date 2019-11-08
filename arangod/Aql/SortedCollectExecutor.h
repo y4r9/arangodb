@@ -45,6 +45,8 @@
 namespace arangodb {
 namespace aql {
 
+struct AqlCall;
+class AqlItemBlockInputRange;
 class InputAqlItemRow;
 class ExecutorInfos;
 template <BlockPassthrough>
@@ -161,6 +163,7 @@ class SortedCollectExecutor {
     bool isSameGroup(InputAqlItemRow& input);
     void groupValuesToArray(velocypack::Builder& builder);
     void writeToOutput(OutputAqlItemRow& output, InputAqlItemRow& input);
+    void writeToOutput(OutputAqlItemRow& output, InputAqlItemRow& input, size_t& limit);
   };
 
  public:
@@ -184,6 +187,15 @@ class SortedCollectExecutor {
    * @return ExecutionState, and if successful exactly one new Row of AqlItems.
    */
   std::pair<ExecutionState, Stats> produceRows(OutputAqlItemRow& output);
+
+  /**
+   * @brief produce the next Row of Aql Values.
+   *
+   * @return ExecutorState, the stats, and a new Call that needs to be send to upstream
+   */
+  std::tuple<ExecutorState, Stats, AqlCall> produceRows(size_t limit,
+                                                        AqlItemBlockInputRange& inputRange,
+                                                        OutputAqlItemRow& output);
 
   /**
    * This executor has no chance to estimate how many rows

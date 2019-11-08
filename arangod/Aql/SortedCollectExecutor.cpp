@@ -25,6 +25,8 @@
 
 #include "SortedCollectExecutor.h"
 
+#include "Aql/AqlCall.h"
+#include "Aql/AqlItemBlockInputRange.h"
 #include "Aql/AqlValue.h"
 #include "Aql/ExecutorInfos.h"
 #include "Aql/InputAqlItemRow.h"
@@ -290,6 +292,59 @@ void SortedCollectExecutor::CollectGroup::writeToOutput(OutputAqlItemRow& output
   }
 }
 
+void SortedCollectExecutor::CollectGroup::writeToOutput(OutputAqlItemRow& output,
+                                                        InputAqlItemRow& input,
+                                                        size_t& limit) {
+  // Thanks to the edge case that we have to emit a row even if we have no
+  // input We cannot assert here that the input row is valid ;(
+
+  if (!input.isInitialized()) {
+    output.setAllowSourceRowUninitialized();
+  }
+
+  size_t i = 0;
+  for (auto& it : infos.getGroupRegisters()) {
+    AqlValue val = this->groupValues[i];
+    AqlValueGuard guard{val, true};
+
+    output.moveValueInto(it.first, _lastInputRow, guard);
+    // ownership of value is transferred into res
+    this->groupValues[i].erase();
+    ++i;
+  }
+
+  // handle aggregators
+  size_t j = 0;
+  for (auto& it : this->aggregators) {
+    AqlValue val = it->stealValue();
+    AqlValueGuard guard{val, true};
+    output.moveValueInto(infos.getAggregatedRegisters()[j].first, _lastInputRow, guard);
+    ++j;
+  }
+
+  // set the group values
+  if (infos.getCollectRegister() != RegisterPlan::MaxRegisterId) {
+    if (infos.getCount()) {
+      // only set group count in result register
+      output.cloneValueInto(infos.getCollectRegister(), _lastInputRow,
+                            AqlValue(AqlValueHintUInt(static_cast<uint64_t>(this->groupLength))));
+      output.advanceRow();
+      limit--;
+    } else {
+      TRI_ASSERT(_builder.isOpenArray());
+      _builder.close();
+
+      auto buffer = _builder.steal();
+      AqlValue val(buffer.get(), _shouldDeleteBuilderBuffer);
+      AqlValueGuard guard{val, true};
+
+      output.moveValueInto(infos.getCollectRegister(), _lastInputRow, guard);
+      output.advanceRow();
+      limit--;
+    }
+  }
+}
+
 std::pair<ExecutionState, NoStats> SortedCollectExecutor::produceRows(OutputAqlItemRow& output) {
   TRI_IF_FAILURE("SortedCollectExecutor::produceRows") {
     THROW_ARANGO_EXCEPTION(TRI_ERROR_DEBUG);
@@ -367,6 +422,56 @@ std::pair<ExecutionState, NoStats> SortedCollectExecutor::produceRows(OutputAqlI
       }
     }
   }
+}
+
+std::tuple<ExecutorState, NoStats, AqlCall> SortedCollectExecutor::produceRows(
+    size_t limit, AqlItemBlockInputRange& inputRange, OutputAqlItemRow& output) {
+  TRI_IF_FAILURE("SortedCollectExecutor::produceRows") {
+    THROW_ARANGO_EXCEPTION(TRI_ERROR_DEBUG);
+  }
+
+  InputAqlItemRow input{CreateInvalidInputRowHint{}};
+
+  while (inputRange.hasMore() && limit > 0) {
+    TRI_IF_FAILURE("SortedCollectBlock::getOrSkipSomeOuter") {
+      THROW_ARANGO_EXCEPTION(TRI_ERROR_DEBUG);
+    }
+
+    TRI_IF_FAILURE("SortedCollectBlock::hasMore") {
+      THROW_ARANGO_EXCEPTION(TRI_ERROR_DEBUG);
+    }
+
+    auto [state, input] = inputRange.next();
+
+    // if we are in the same group, we need to add lines to the current group
+    if (_currentGroup.isSameGroup(input)) {
+      _currentGroup.addLine(input);
+    } else {
+      if (_currentGroup.isValid()) {
+        // Write the current group.
+        // Start a new group from input
+        _currentGroup.writeToOutput(output, input);
+        TRI_ASSERT(output.produced());
+        output.advanceRow();
+        limit--;
+        _currentGroup.reset(input);  // reset and recreate new group
+      } else {
+        // old group was not valid, do not write it
+        _currentGroup.reset(input);  // reset and recreate new group
+      }
+    }
+  }
+
+  if (_currentGroup.isValid()) {
+    _currentGroup.writeToOutput(output, input);
+    InputAqlItemRow input{CreateInvalidInputRowHint{}};
+    _currentGroup.reset(input);
+    TRI_ASSERT(!_currentGroup.isValid());
+  }
+
+  AqlCall upstreamCall{};
+  upstreamCall.softLimit = limit;
+  return {inputRange.peek().first, NoStats{}, upstreamCall};
 }
 
 std::pair<ExecutionState, size_t> SortedCollectExecutor::expectedNumberOfRows(size_t atMost) const {
