@@ -23,6 +23,10 @@
 #ifndef ARANGOD_AQL_MATERIALIZE_EXECUTOR_H
 #define ARANGOD_AQL_MATERIALIZE_EXECUTOR_H
 
+#include "Aql/MaterializeExecutor.h"
+
+#include "Aql/AqlCall.h"
+#include "Aql/AqlItemBlockInputRange.h"
 #include "Aql/ExecutionBlock.h"
 #include "Aql/ExecutionBlockImpl.h"
 #include "Aql/ExecutionState.h"
@@ -38,6 +42,8 @@
 namespace arangodb {
 namespace aql {
 
+struct AqlCall;
+class AqlItemBlockInputRange;
 class InputAqlItemRow;
 class ExecutorInfos;
 template <BlockPassthrough>
@@ -47,10 +53,10 @@ class NoStats;
 class MaterializerExecutorInfos : public ExecutorInfos {
  public:
   MaterializerExecutorInfos(RegisterId nrInputRegisters, RegisterId nrOutputRegisters,
-                     std::unordered_set<RegisterId> registersToClear,
-                     std::unordered_set<RegisterId> registersToKeep,
-                     RegisterId inNmColPtr, RegisterId inNmDocId,
-                     RegisterId outDocRegId, transaction::Methods* trx);
+                            std::unordered_set<RegisterId> registersToClear,
+                            std::unordered_set<RegisterId> registersToKeep,
+                            RegisterId inNmColPtr, RegisterId inNmDocId,
+                            RegisterId outDocRegId, transaction::Methods* trx);
 
   MaterializerExecutorInfos() = delete;
   MaterializerExecutorInfos(MaterializerExecutorInfos&&) = default;
@@ -69,9 +75,7 @@ class MaterializerExecutorInfos : public ExecutorInfos {
     return _inNonMaterializedDocRegId;
   }
 
-  inline transaction::Methods* trx() const {
-    return _trx;
-  }
+  inline transaction::Methods* trx() const { return _trx; }
 
  private:
   /// @brief register to store raw collection pointer
@@ -97,19 +101,32 @@ class MaterializeExecutor {
 
   MaterializeExecutor(MaterializeExecutor&&) = default;
   MaterializeExecutor(MaterializeExecutor const&) = delete;
-  MaterializeExecutor(Fetcher& fetcher, Infos& infos) : _readDocumentContext(infos), _infos(infos), _fetcher(fetcher) {}
+  MaterializeExecutor(Fetcher& fetcher, Infos& infos)
+      : _readDocumentContext(infos), _infos(infos), _fetcher(fetcher) {}
 
   std::pair<ExecutionState, Stats> produceRows(OutputAqlItemRow& output);
   std::tuple<ExecutionState, Stats, size_t> skipRows(size_t toSkipRequested);
+
+  /**
+   * @brief produce the next Row of Aql Values.
+   *
+   * @return ExecutorState, the stats, and a new Call that needs to be send to upstream
+   */
+  std::tuple<ExecutorState, Stats, AqlCall> produceRows(size_t limit,
+                                                        AqlItemBlockInputRange& inputRange,
+                                                        OutputAqlItemRow& output);
+
+  std::tuple<ExecutorState, size_t, AqlCall> skipRowsRange(size_t atMost,
+                                                           AqlItemBlockInputRange& inputRange);
 
  protected:
   class ReadContext {
    public:
     explicit ReadContext(Infos& infos)
-      : _infos(&infos),
-      _inputRow(nullptr),
-      _outputRow(nullptr),
-      _callback(copyDocumentCallback(*this)) {}
+        : _infos(&infos),
+          _inputRow(nullptr),
+          _outputRow(nullptr),
+          _callback(copyDocumentCallback(*this)) {}
 
     ReadContext(ReadContext&&) = default;
 
