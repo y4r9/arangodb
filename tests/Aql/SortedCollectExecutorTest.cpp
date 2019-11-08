@@ -25,8 +25,10 @@
 
 #include "gtest/gtest.h"
 
+#include "AqlItemBlockHelper.h"
 #include "RowFetcherHelper.h"
 
+#include "Aql/AqlCall.h"
 #include "Aql/AqlItemBlock.h"
 #include "Aql/Collection.h"
 #include "Aql/ExecutionEngine.h"
@@ -104,7 +106,8 @@ class SortedCollectExecutorTestNoRowsUpstream : public ::testing::Test {
 };
 
 TEST_F(SortedCollectExecutorTestNoRowsUpstream, producer_doesnt_wait) {
-  SingleRowFetcherHelper<::arangodb::aql::BlockPassthrough::Disable> fetcher(itemBlockManager, input.steal(), false);
+  SingleRowFetcherHelper<::arangodb::aql::BlockPassthrough::Disable> fetcher(
+      itemBlockManager, input.steal(), false);
   SortedCollectExecutor testee(fetcher, infos);
 
   OutputAqlItemRow result(std::move(block), infos.getOutputRegisters(),
@@ -115,7 +118,8 @@ TEST_F(SortedCollectExecutorTestNoRowsUpstream, producer_doesnt_wait) {
 }
 
 TEST_F(SortedCollectExecutorTestNoRowsUpstream, producer_waits) {
-  SingleRowFetcherHelper<::arangodb::aql::BlockPassthrough::Disable> fetcher(itemBlockManager, input.steal(), true);
+  SingleRowFetcherHelper<::arangodb::aql::BlockPassthrough::Disable> fetcher(
+      itemBlockManager, input.steal(), true);
   SortedCollectExecutor testee(fetcher, infos);
 
   OutputAqlItemRow result(std::move(block), infos.getOutputRegisters(),
@@ -187,7 +191,8 @@ class SortedCollectExecutorTestRowsUpstream : public ::testing::Test {
 
 TEST_F(SortedCollectExecutorTestRowsUpstream, producer_doesnt_wait) {
   auto input = VPackParser::fromJson("[ [1], [2] ]");
-  SingleRowFetcherHelper<::arangodb::aql::BlockPassthrough::Disable> fetcher(itemBlockManager, input->steal(), false);
+  SingleRowFetcherHelper<::arangodb::aql::BlockPassthrough::Disable> fetcher(
+      itemBlockManager, input->steal(), false);
   SortedCollectExecutor testee(fetcher, infos);
 
   OutputAqlItemRow result(std::move(block), infos.getOutputRegisters(),
@@ -208,7 +213,6 @@ TEST_F(SortedCollectExecutorTestRowsUpstream, producer_doesnt_wait) {
   ASSERT_FALSE(result.produced());
 
   auto block = result.stealBlock();
-
   // check for groups in this executor they are guaranteed to be ordered
 
   // First group
@@ -223,7 +227,8 @@ TEST_F(SortedCollectExecutorTestRowsUpstream, producer_doesnt_wait) {
 
 TEST_F(SortedCollectExecutorTestRowsUpstream, producer_doesnt_wait_2) {
   auto input = VPackParser::fromJson("[ [1], [2], [3] ]");
-  SingleRowFetcherHelper<::arangodb::aql::BlockPassthrough::Disable> fetcher(itemBlockManager, input->steal(), false);
+  SingleRowFetcherHelper<::arangodb::aql::BlockPassthrough::Disable> fetcher(
+      itemBlockManager, input->steal(), false);
   SortedCollectExecutor testee(fetcher, infos);
 
   OutputAqlItemRow result(std::move(block), infos.getOutputRegisters(),
@@ -267,7 +272,8 @@ TEST_F(SortedCollectExecutorTestRowsUpstream, producer_doesnt_wait_2) {
 TEST_F(SortedCollectExecutorTestRowsUpstream, producer_doesnt_wait_3) {
   // Input order needs to be guaranteed
   auto input = VPackParser::fromJson("[ [1], [1], [2], [2], [3] ]");
-  SingleRowFetcherHelper<::arangodb::aql::BlockPassthrough::Disable> fetcher(itemBlockManager, input->steal(), false);
+  SingleRowFetcherHelper<::arangodb::aql::BlockPassthrough::Disable> fetcher(
+      itemBlockManager, input->steal(), false);
   SortedCollectExecutor testee(fetcher, infos);
 
   OutputAqlItemRow result(std::move(block), infos.getOutputRegisters(),
@@ -311,7 +317,8 @@ TEST_F(SortedCollectExecutorTestRowsUpstream, producer_doesnt_wait_3) {
 
 TEST_F(SortedCollectExecutorTestRowsUpstream, producer_doesnt_wait_4) {
   auto input = VPackParser::fromJson("[ [1], [1], [2], [2] ]");
-  SingleRowFetcherHelper<::arangodb::aql::BlockPassthrough::Disable> fetcher(itemBlockManager, input->steal(), false);
+  SingleRowFetcherHelper<::arangodb::aql::BlockPassthrough::Disable> fetcher(
+      itemBlockManager, input->steal(), false);
   SortedCollectExecutor testee(fetcher, infos);
 
   OutputAqlItemRow result(std::move(block), infos.getOutputRegisters(),
@@ -346,7 +353,8 @@ TEST_F(SortedCollectExecutorTestRowsUpstream, producer_doesnt_wait_4) {
 
 TEST_F(SortedCollectExecutorTestRowsUpstream, producer_waits) {
   auto input = VPackParser::fromJson("[ [1], [2] ]");
-  SingleRowFetcherHelper<::arangodb::aql::BlockPassthrough::Disable> fetcher(itemBlockManager, input->steal(), true);
+  SingleRowFetcherHelper<::arangodb::aql::BlockPassthrough::Disable> fetcher(
+      itemBlockManager, input->steal(), true);
   SortedCollectExecutor testee(fetcher, infos);
 
   OutputAqlItemRow result(std::move(block), infos.getOutputRegisters(),
@@ -434,7 +442,8 @@ TEST(SortedCollectExecutorTestRowsUpstreamCount, test) {
   NoStats stats{};
 
   auto input = VPackParser::fromJson("[ [1], [2] ]");
-  SingleRowFetcherHelper<::arangodb::aql::BlockPassthrough::Disable> fetcher(itemBlockManager, input->steal(), false);
+  SingleRowFetcherHelper<::arangodb::aql::BlockPassthrough::Disable> fetcher(
+      itemBlockManager, input->steal(), false);
   SortedCollectExecutor testee(fetcher, infos);
 
   OutputAqlItemRow result(std::move(block), infos.getOutputRegisters(),
@@ -525,7 +534,8 @@ TEST(SortedCollectExecutorTestRowsUpstreamCountNumbers, test) {
   NoStats stats{};
 
   auto input = VPackParser::fromJson("[ [1], [2], [3] ]");
-  SingleRowFetcherHelper<::arangodb::aql::BlockPassthrough::Disable> fetcher(itemBlockManager, input->steal(), false);
+  SingleRowFetcherHelper<::arangodb::aql::BlockPassthrough::Disable> fetcher(
+      itemBlockManager, input->steal(), false);
   SortedCollectExecutor testee(fetcher, infos);
 
   OutputAqlItemRow result(std::move(block), infos.getOutputRegisters(),
@@ -631,7 +641,8 @@ TEST(SortedCollectExecutorTestRowsUpstreamCountStrings, test) {
   NoStats stats{};
 
   auto input = VPackParser::fromJson("[ [\"a\"], [\"aa\"], [\"aaa\"] ]");
-  SingleRowFetcherHelper<::arangodb::aql::BlockPassthrough::Disable> fetcher(itemBlockManager, input->steal(), false);
+  SingleRowFetcherHelper<::arangodb::aql::BlockPassthrough::Disable> fetcher(
+      itemBlockManager, input->steal(), false);
   SortedCollectExecutor testee(fetcher, infos);
 
   OutputAqlItemRow result(std::move(block), infos.getOutputRegisters(),
@@ -659,6 +670,431 @@ TEST(SortedCollectExecutorTestRowsUpstreamCountStrings, test) {
   std::vector<std::string> myStrings;
   std::vector<int> myCountNumbers;
   auto newBlock = result.stealBlock();
+
+  // check for types
+  AqlValue x = newBlock->getValue(0, 1);
+  ASSERT_TRUE(x.isString());
+  EXPECT_EQ(x.slice().copyString(), "a");
+
+  // Check the count register
+  AqlValue c = newBlock->getValue(0, 2);
+  ASSERT_TRUE(c.isNumber());
+  EXPECT_EQ(c.slice().getInt(), 1);
+
+  // check for types
+  x = newBlock->getValue(1, 1);
+  ASSERT_TRUE(x.isString());
+  EXPECT_EQ(x.slice().copyString(), "aa");
+
+  // Check the count register
+  c = newBlock->getValue(1, 2);
+  ASSERT_TRUE(c.isNumber());
+  EXPECT_EQ(c.slice().getInt(), 1);
+
+  // check for types
+  x = newBlock->getValue(2, 1);
+  ASSERT_TRUE(x.isString());
+  EXPECT_EQ(x.slice().copyString(), "aaa");
+
+  // Check the count register
+  c = newBlock->getValue(2, 2);
+  ASSERT_TRUE(c.isNumber());
+  EXPECT_EQ(c.slice().getInt(), 1);
+}
+
+TEST_F(SortedCollectExecutorTestRowsUpstream, test_produce_datarange_1) {
+  // This fetcher will not be called!
+  // After Execute is done this fetcher shall be removed, the Executor does not need it anymore!
+  auto fakeUnusedBlock = VPackParser::fromJson("[  ]");
+  SingleRowFetcherHelper<::arangodb::aql::BlockPassthrough::Disable> fetcher(
+      itemBlockManager, fakeUnusedBlock->steal(), false);
+
+  // This is the relevant part of the test
+  SortedCollectExecutor testee(fetcher, infos);
+  SharedAqlItemBlockPtr inBlock = buildBlock<1>(itemBlockManager, {{R"(1)"}, {R"(2)"}});
+  AqlItemBlockInputRange input{ExecutorState::DONE, inBlock, 0, inBlock->size()};
+
+  OutputAqlItemRow output(std::move(block), infos.getOutputRegisters(),
+                          infos.registersToKeep(), infos.registersToClear());
+  EXPECT_EQ(output.numRowsWritten(), 0);
+
+  auto const [state, stats, call] = testee.produceRows(1000, input, output);
+  EXPECT_EQ(state, ExecutorState::DONE);
+  EXPECT_EQ(output.numRowsWritten(), 2);
+
+  auto block = output.stealBlock();
+  // check for groups in this executor they are guaranteed to be ordered
+
+  // First group
+  AqlValue x = block->getValue(0, 1);
+  ASSERT_TRUE(x.isNumber());
+  ASSERT_EQ(x.slice().getInt(), 1);
+  // check for collect
+  x = block->getValue(1, 1);
+  ASSERT_TRUE(x.isNumber());
+  ASSERT_EQ(x.slice().getInt(), 2);
+}
+
+TEST_F(SortedCollectExecutorTestRowsUpstream, test_produce_datarange_2) {
+  // This fetcher will not be called!
+  // After Execute is done this fetcher shall be removed, the Executor does not need it anymore!
+  auto fakeUnusedBlock = VPackParser::fromJson("[  ]");
+  SingleRowFetcherHelper<::arangodb::aql::BlockPassthrough::Disable> fetcher(
+      itemBlockManager, fakeUnusedBlock->steal(), false);
+
+  // This is the relevant part of the test
+  SortedCollectExecutor testee(fetcher, infos);
+  SharedAqlItemBlockPtr inBlock =
+      buildBlock<1>(itemBlockManager, {{R"(1)"}, {R"(2)"}, {R"(3)"}});
+  AqlItemBlockInputRange input{ExecutorState::DONE, inBlock, 0, inBlock->size()};
+
+  OutputAqlItemRow output(std::move(block), infos.getOutputRegisters(),
+                          infos.registersToKeep(), infos.registersToClear());
+  EXPECT_EQ(output.numRowsWritten(), 0);
+
+  auto const [state, stats, call] = testee.produceRows(1000, input, output);
+  EXPECT_EQ(state, ExecutorState::DONE);
+  EXPECT_EQ(output.numRowsWritten(), 3);
+
+  auto block = output.stealBlock();
+  // check for groups in this executor they are guaranteed to be ordered
+
+  // check for collects
+  AqlValue x = block->getValue(0, 1);
+  ASSERT_TRUE(x.isNumber());
+  ASSERT_EQ(x.slice().getInt(), 1);
+
+  x = block->getValue(1, 1);
+  ASSERT_TRUE(x.isNumber());
+  ASSERT_EQ(x.slice().getInt(), 2);
+
+  x = block->getValue(2, 1);
+  ASSERT_TRUE(x.isNumber());
+  ASSERT_EQ(x.slice().getInt(), 3);
+}
+
+TEST_F(SortedCollectExecutorTestRowsUpstream, test_produce_datarange_3) {
+  // This fetcher will not be called!
+  // After Execute is done this fetcher shall be removed, the Executor does not need it anymore!
+  auto fakeUnusedBlock = VPackParser::fromJson("[  ]");
+  SingleRowFetcherHelper<::arangodb::aql::BlockPassthrough::Disable> fetcher(
+      itemBlockManager, fakeUnusedBlock->steal(), false);
+
+  // This is the relevant part of the test
+  SortedCollectExecutor testee(fetcher, infos);
+  SharedAqlItemBlockPtr inBlock =
+      buildBlock<1>(itemBlockManager, {{R"(1)"}, {R"(1)"}, {R"(2)"}, {R"(2)"}, {R"(3)"}});
+  AqlItemBlockInputRange input{ExecutorState::DONE, inBlock, 0, inBlock->size()};
+
+  OutputAqlItemRow output(std::move(block), infos.getOutputRegisters(),
+                          infos.registersToKeep(), infos.registersToClear());
+  EXPECT_EQ(output.numRowsWritten(), 0);
+
+  auto const [state, stats, call] = testee.produceRows(1000, input, output);
+  EXPECT_EQ(state, ExecutorState::DONE);
+  EXPECT_EQ(output.numRowsWritten(), 3);
+
+  auto block = output.stealBlock();
+  // check for types
+  AqlValue x = block->getValue(0, 1);
+  ASSERT_TRUE(x.isNumber());
+  ASSERT_EQ(x.slice().getInt(), 1);
+
+  x = block->getValue(1, 1);
+  ASSERT_TRUE(x.isNumber());
+  ASSERT_EQ(x.slice().getInt(), 2);
+
+  x = block->getValue(2, 1);
+  ASSERT_TRUE(x.isNumber());
+  ASSERT_EQ(x.slice().getInt(), 3);
+}
+
+TEST_F(SortedCollectExecutorTestRowsUpstream, test_produce_datarange_4) {
+  // This fetcher will not be called!
+  // After Execute is done this fetcher shall be removed, the Executor does not need it anymore!
+  auto fakeUnusedBlock = VPackParser::fromJson("[  ]");
+  SingleRowFetcherHelper<::arangodb::aql::BlockPassthrough::Disable> fetcher(
+      itemBlockManager, fakeUnusedBlock->steal(), false);
+
+  // This is the relevant part of the test
+  SortedCollectExecutor testee(fetcher, infos);
+  SharedAqlItemBlockPtr inBlock =
+      buildBlock<1>(itemBlockManager, {{R"(1)"}, {R"(1)"}, {R"(2)"}, {R"(2)"}});
+  AqlItemBlockInputRange input{ExecutorState::DONE, inBlock, 0, inBlock->size()};
+
+  OutputAqlItemRow output(std::move(block), infos.getOutputRegisters(),
+                          infos.registersToKeep(), infos.registersToClear());
+  EXPECT_EQ(output.numRowsWritten(), 0);
+
+  auto const [state, stats, call] = testee.produceRows(1000, input, output);
+  EXPECT_EQ(state, ExecutorState::DONE);
+  EXPECT_EQ(output.numRowsWritten(), 2);
+
+  auto block = output.stealBlock();
+
+  // check for types
+  AqlValue x = block->getValue(0, 1);
+  ASSERT_TRUE(x.isNumber());
+  ASSERT_EQ(x.slice().getInt(), 1);
+
+  x = block->getValue(1, 1);
+  ASSERT_TRUE(x.isNumber());
+  ASSERT_EQ(x.slice().getInt(), 2);
+}
+
+TEST(SortedCollectExecutorTestRowsUpstreamCount, test_produce_datarange_sum) {
+  ResourceMonitor monitor;
+  AqlItemBlockManager itemBlockManager{&monitor, SerializationFormat::SHADOWROWS};
+
+  mocks::MockAqlServer server{};
+  std::unique_ptr<arangodb::aql::Query> fakedQuery = server.createFakeQuery();
+  arangodb::transaction::Methods* trx = fakedQuery->trx();
+
+  std::unordered_set<RegisterId> regToClear;
+  std::unordered_set<RegisterId> regToKeep;
+  std::vector<std::pair<RegisterId, RegisterId>> groupRegisters;
+  groupRegisters.emplace_back(std::make_pair<RegisterId, RegisterId>(1, 0));
+
+  std::unordered_set<RegisterId> readableInputRegisters;
+  readableInputRegisters.insert(0);
+
+  std::unordered_set<RegisterId> writeableOutputRegisters;
+  writeableOutputRegisters.insert(1);
+
+  RegisterId nrOutputRegister = 3;
+
+  std::vector<std::pair<RegisterId, RegisterId>> aggregateRegisters;
+  aggregateRegisters.emplace_back(std::make_pair<RegisterId, RegisterId>(2, 0));
+  writeableOutputRegisters.insert(2);
+
+  std::vector<std::string> aggregateTypes;
+  aggregateTypes.emplace_back("SUM");
+
+  // if count = true, then we need to set a valid countRegister
+  bool count = true;
+  RegisterId collectRegister = RegisterPlan::MaxRegisterId;
+  RegisterId expressionRegister = RegisterPlan::MaxRegisterId;
+  Variable const* expressionVariable = nullptr;
+  std::vector<std::pair<std::string, RegisterId>> variables;
+
+  SortedCollectExecutorInfos infos(1, nrOutputRegister, regToClear, regToKeep,
+                                   std::move(readableInputRegisters),
+                                   std::move(writeableOutputRegisters),
+                                   std::move(groupRegisters), collectRegister,
+                                   expressionRegister, expressionVariable,
+                                   std::move(aggregateTypes), std::move(variables),
+                                   std::move(aggregateRegisters), trx, count);
+
+  SharedAqlItemBlockPtr block{new AqlItemBlock(itemBlockManager, 1000, nrOutputRegister)};
+
+  // This fetcher will not be called!
+  // After Execute is done this fetcher shall be removed, the Executor does not need it anymore!
+  auto fakeUnusedBlock = VPackParser::fromJson("[  ]");
+  SingleRowFetcherHelper<::arangodb::aql::BlockPassthrough::Disable> fetcher(
+      itemBlockManager, fakeUnusedBlock->steal(), false);
+
+  // This is the relevant part of the test
+  SortedCollectExecutor testee(fetcher, infos);
+  SharedAqlItemBlockPtr inBlock = buildBlock<1>(itemBlockManager, {{R"(1)"}, {R"(2)"}});
+  AqlItemBlockInputRange input{ExecutorState::DONE, inBlock, 0, inBlock->size()};
+
+  OutputAqlItemRow output(std::move(block), infos.getOutputRegisters(),
+                          infos.registersToKeep(), infos.registersToClear());
+  EXPECT_EQ(output.numRowsWritten(), 0);
+
+  auto const [state, stats, call] = testee.produceRows(1000, input, output);
+  EXPECT_EQ(state, ExecutorState::DONE);
+  EXPECT_EQ(output.numRowsWritten(), 2);
+
+  auto newBlock = output.stealBlock();
+
+  // check for types
+  AqlValue x = newBlock->getValue(0, 1);
+  ASSERT_TRUE(x.isNumber());
+  EXPECT_EQ(x.slice().getInt(), 1);
+
+  // Check the SUM register
+  AqlValue counter = newBlock->getValue(0, 2);
+  ASSERT_TRUE(counter.isNumber());
+  EXPECT_EQ(counter.slice().getDouble(), 1);
+
+  // check for types
+  x = newBlock->getValue(1, 1);
+  ASSERT_TRUE(x.isNumber());
+  EXPECT_EQ(x.slice().getInt(), 2);
+
+  // Check the SUM register
+  counter = newBlock->getValue(1, 2);
+  ASSERT_TRUE(counter.isNumber());
+  EXPECT_EQ(counter.slice().getDouble(), 2);
+}
+
+TEST(SortedCollectExecutorTestRowsUpstreamCountNumbers, test_produce_datarange_length_1) {
+  ResourceMonitor monitor;
+  AqlItemBlockManager itemBlockManager{&monitor, SerializationFormat::SHADOWROWS};
+
+  mocks::MockAqlServer server{};
+  std::unique_ptr<arangodb::aql::Query> fakedQuery = server.createFakeQuery();
+  arangodb::transaction::Methods* trx = fakedQuery->trx();
+
+  std::unordered_set<RegisterId> regToClear;
+  std::unordered_set<RegisterId> regToKeep;
+  std::vector<std::pair<RegisterId, RegisterId>> groupRegisters;
+  groupRegisters.emplace_back(std::make_pair<RegisterId, RegisterId>(1, 0));
+
+  std::unordered_set<RegisterId> readableInputRegisters;
+  readableInputRegisters.insert(0);
+
+  std::unordered_set<RegisterId> writeableOutputRegisters;
+  writeableOutputRegisters.insert(1);
+
+  RegisterId nrOutputRegister = 3;
+
+  std::vector<std::pair<RegisterId, RegisterId>> aggregateRegisters;
+  aggregateRegisters.emplace_back(std::make_pair<RegisterId, RegisterId>(2, 0));
+
+  std::vector<std::string> aggregateTypes;
+  aggregateTypes.emplace_back("LENGTH");
+
+  // if count = true, then we need to set a valid countRegister
+  bool count = true;
+  RegisterId collectRegister = RegisterPlan::MaxRegisterId;
+  RegisterId expressionRegister = RegisterPlan::MaxRegisterId;
+  Variable const* expressionVariable = nullptr;
+  std::vector<std::pair<std::string, RegisterId>> variables;
+  writeableOutputRegisters.insert(2);
+
+  SortedCollectExecutorInfos infos(1, nrOutputRegister, regToClear, regToKeep,
+                                   std::move(readableInputRegisters),
+                                   std::move(writeableOutputRegisters),
+                                   std::move(groupRegisters), collectRegister,
+                                   expressionRegister, expressionVariable,
+                                   std::move(aggregateTypes), std::move(variables),
+                                   std::move(aggregateRegisters), trx, count);
+
+  SharedAqlItemBlockPtr block{new AqlItemBlock(itemBlockManager, 1000, nrOutputRegister)};
+
+  // This fetcher will not be called!
+  // After Execute is done this fetcher shall be removed, the Executor does not need it anymore!
+  auto fakeUnusedBlock = VPackParser::fromJson("[  ]");
+  SingleRowFetcherHelper<::arangodb::aql::BlockPassthrough::Disable> fetcher(
+      itemBlockManager, fakeUnusedBlock->steal(), false);
+
+  // This is the relevant part of the test
+  SortedCollectExecutor testee(fetcher, infos);
+  SharedAqlItemBlockPtr inBlock =
+      buildBlock<1>(itemBlockManager, {{R"(1)"}, {R"(2)"}, {R"(3)"}});
+  AqlItemBlockInputRange input{ExecutorState::DONE, inBlock, 0, inBlock->size()};
+
+  OutputAqlItemRow output(std::move(block), infos.getOutputRegisters(),
+                          infos.registersToKeep(), infos.registersToClear());
+
+  EXPECT_EQ(output.numRowsWritten(), 0);
+  auto const [state, stats, call] = testee.produceRows(1000, input, output);
+  EXPECT_EQ(state, ExecutorState::DONE);
+  EXPECT_EQ(output.numRowsWritten(), 3);
+
+  auto newBlock = output.stealBlock();
+
+  // check for types
+  AqlValue x = newBlock->getValue(0, 1);
+  ASSERT_TRUE(x.isNumber());
+  EXPECT_EQ(x.slice().getInt(), 1);
+
+  // Check the LENGTH register
+  AqlValue xx = newBlock->getValue(0, 2);
+  ASSERT_TRUE(xx.isNumber());
+  EXPECT_EQ(xx.slice().getInt(), 1);
+
+  // check for types
+  x = newBlock->getValue(1, 1);
+  ASSERT_TRUE(x.isNumber());
+  EXPECT_EQ(x.slice().getInt(), 2);
+
+  // Check the LENGTH register
+  xx = newBlock->getValue(1, 2);
+  ASSERT_TRUE(xx.isNumber());
+  EXPECT_EQ(xx.slice().getInt(), 1);
+
+  // check for types
+  x = newBlock->getValue(2, 1);
+  ASSERT_TRUE(x.isNumber());
+  EXPECT_EQ(x.slice().getInt(), 3);
+
+  // Check the LENGTH register
+  xx = newBlock->getValue(2, 2);
+  ASSERT_TRUE(xx.isNumber());
+  EXPECT_EQ(xx.slice().getInt(), 1);
+}
+
+TEST(SortedCollectExecutorTestRowsUpstreamCountStrings, test_produce_datarange_length_2) {
+  ResourceMonitor monitor;
+  AqlItemBlockManager itemBlockManager{&monitor, SerializationFormat::SHADOWROWS};
+
+  mocks::MockAqlServer server{};
+  std::unique_ptr<arangodb::aql::Query> fakedQuery = server.createFakeQuery();
+  arangodb::transaction::Methods* trx = fakedQuery->trx();
+
+  std::unordered_set<RegisterId> regToClear;
+  std::unordered_set<RegisterId> regToKeep;
+  std::vector<std::pair<RegisterId, RegisterId>> groupRegisters;
+  groupRegisters.emplace_back(std::make_pair<RegisterId, RegisterId>(1, 0));
+
+  std::unordered_set<RegisterId> readableInputRegisters;
+  readableInputRegisters.insert(0);
+
+  std::unordered_set<RegisterId> writeableOutputRegisters;
+  writeableOutputRegisters.insert(1);
+
+  RegisterId nrOutputRegister = 3;
+
+  std::vector<std::pair<RegisterId, RegisterId>> aggregateRegisters;
+  aggregateRegisters.emplace_back(std::make_pair<RegisterId, RegisterId>(2, 0));
+
+  std::vector<std::string> aggregateTypes;
+  aggregateTypes.emplace_back("LENGTH");
+
+  // if count = true, then we need to set a valid countRegister
+  bool count = true;
+  RegisterId collectRegister = RegisterPlan::MaxRegisterId;
+  RegisterId expressionRegister = RegisterPlan::MaxRegisterId;
+  Variable const* expressionVariable = nullptr;
+  std::vector<std::pair<std::string, RegisterId>> variables;
+  writeableOutputRegisters.insert(2);
+
+  SortedCollectExecutorInfos infos(1, nrOutputRegister, regToClear, regToKeep,
+                                   std::move(readableInputRegisters),
+                                   std::move(writeableOutputRegisters),
+                                   std::move(groupRegisters), collectRegister,
+                                   expressionRegister, expressionVariable,
+                                   std::move(aggregateTypes), std::move(variables),
+                                   std::move(aggregateRegisters), trx, count);
+
+  SharedAqlItemBlockPtr block{new AqlItemBlock(itemBlockManager, 1000, nrOutputRegister)};
+
+  // This fetcher will not be called!
+  // After Execute is done this fetcher shall be removed, the Executor does not need it anymore!
+  auto fakeUnusedBlock = VPackParser::fromJson("[  ]");
+  SingleRowFetcherHelper<::arangodb::aql::BlockPassthrough::Disable> fetcher(
+      itemBlockManager, fakeUnusedBlock->steal(), false);
+
+  // This is the relevant part of the test
+  SortedCollectExecutor testee(fetcher, infos);
+  SharedAqlItemBlockPtr inBlock =
+      buildBlock<1>(itemBlockManager, {{R"("a")"}, {R"("aa")"}, {R"("aaa")"}});
+  AqlItemBlockInputRange input{ExecutorState::DONE, inBlock, 0, inBlock->size()};
+
+  OutputAqlItemRow output(std::move(block), infos.getOutputRegisters(),
+                          infos.registersToKeep(), infos.registersToClear());
+
+  EXPECT_EQ(output.numRowsWritten(), 0);
+  auto const [state, stats, call] = testee.produceRows(1000, input, output);
+  EXPECT_EQ(state, ExecutorState::DONE);
+  EXPECT_EQ(output.numRowsWritten(), 3);
+
+  std::vector<std::string> myStrings;
+  std::vector<int> myCountNumbers;
+  auto newBlock = output.stealBlock();
 
   // check for types
   AqlValue x = newBlock->getValue(0, 1);
