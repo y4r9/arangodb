@@ -727,12 +727,60 @@ TEST_F(TraversalExecutorTestConstantStartVertex, test_produce_datarange_edges_ar
   auto const [state, stats, call] = testee.produceRows(1000, input, output);
   EXPECT_EQ(state, ExecutorState::DONE);
   EXPECT_EQ(output.numRowsWritten(), 3);
+  ASSERT_EQ(stats.getFiltered(), 0);
 
   ASSERT_EQ(traverser->startVertexUsedAt(0), "v/1");
   ASSERT_EQ(traverser->startVertexUsedAt(1), "v/1");
   ASSERT_EQ(traverser->startVertexUsedAt(2), "v/1");
 
   std::vector<std::string> expectedResult{"v/2", "v/2", "v/2"};
+  auto block = output.stealBlock();
+  for (std::size_t index = 0; index < 3; index++) {
+    AqlValue value = block->getValue(index, outReg);
+    ASSERT_TRUE(value.isObject());
+    ASSERT_TRUE(arangodb::basics::VelocyPackHelper::compare(
+        value.slice(),
+        myGraph.getVertexData(
+            arangodb::velocypack::StringRef(expectedResult.at(index))),
+        false) == 0);
+  }
+}
+
+TEST_F(TraversalExecutorTestInputStartVertex, test_produce_datarange_edges_are_connected) {
+  // add vertices
+  myGraph.addVertex("1");
+  myGraph.addVertex("2");
+  myGraph.addVertex("3");
+  // add edges
+  myGraph.addEdge("1", "2", "1->2");
+  myGraph.addEdge("2", "3", "2->3");
+  myGraph.addEdge("3", "1", "3->1");
+
+  // This fetcher will not be called!
+  // After Execute is done this fetcher shall be removed, the Executor does not need it anymore!
+  auto fakeUnusedBlock = VPackParser::fromJson("[  ]");
+  SingleRowFetcherHelper<::arangodb::aql::BlockPassthrough::Disable> fetcher(
+      itemBlockManager, fakeUnusedBlock->steal(), false);
+
+  // This is the relevant part of the test
+  TraversalExecutor testee(fetcher, infos);
+  SharedAqlItemBlockPtr inBlock =
+      buildBlock<1>(itemBlockManager, {{R"("v/1")"}, {R"("v/2")"}, {R"("v/3")"}});
+
+  AqlItemBlockInputRange input{ExecutorState::DONE, inBlock, 0, inBlock->size()};
+  OutputAqlItemRow output(std::move(block), infos.getOutputRegisters(),
+                          infos.registersToKeep(), infos.registersToClear());
+  EXPECT_EQ(output.numRowsWritten(), 0);
+  auto const [state, stats, call] = testee.produceRows(1000, input, output);
+  EXPECT_EQ(state, ExecutorState::DONE);
+  EXPECT_EQ(output.numRowsWritten(), 3);
+  ASSERT_EQ(stats.getFiltered(), 0);
+
+  ASSERT_EQ(traverser->startVertexUsedAt(0), "v/1");
+  ASSERT_EQ(traverser->startVertexUsedAt(1), "v/2");
+  ASSERT_EQ(traverser->startVertexUsedAt(2), "v/3");
+
+  std::vector<std::string> expectedResult{"v/2", "v/3", "v/1"};
   auto block = output.stealBlock();
   for (std::size_t index = 0; index < 3; index++) {
     AqlValue value = block->getValue(index, outReg);
