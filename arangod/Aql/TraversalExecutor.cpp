@@ -256,8 +256,7 @@ std::tuple<ExecutorState, TraversalStats, AqlCall> TraversalExecutor::produceRow
   TraversalStats s;
 
   while (inputRange.hasMore() && limit > 0) {
-    auto const& [state, input] = inputRange.next();
-    LOG_DEVEL << "ExecutorState: " << state << " - remove me after review";
+    auto [state, input] = inputRange.next();
 
     if (!resetTraverser(input)) {
       // Could not start here, (invalid)
@@ -289,6 +288,9 @@ std::tuple<ExecutorState, TraversalStats, AqlCall> TraversalExecutor::produceRow
       }
       output.advanceRow();
       limit--;
+      s.addFiltered(_traverser.getAndResetFilteredPaths());
+      s.addScannedIndex(_traverser.getAndResetReadDocuments());
+      s.addHttpRequests(_traverser.getAndResetHttpRequests());
     }
   }
 
