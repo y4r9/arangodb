@@ -92,9 +92,9 @@ arangodb::graph::KShortestPathsFinder& KShortestPathsExecutorInfos::finder() con
 
 bool KShortestPathsExecutorInfos::useRegisterForInput(bool isTarget) const {
   if (isTarget) {
-    return _target.type == InputVertex::REGISTER;
+    return _target.type == InputVertex::Type::REGISTER;
   }
-  return _source.type == InputVertex::REGISTER;
+  return _source.type == InputVertex::Type::REGISTER;
 }
 
 RegisterId KShortestPathsExecutorInfos::getInputRegister(bool isTarget) const {
@@ -118,6 +118,16 @@ RegisterId KShortestPathsExecutorInfos::getOutputRegister() const {
   return _outputRegister;
 }
 
+KShortestPathsExecutorInfos::InputVertex KShortestPathsExecutorInfos::getSourceVertex() const
+    noexcept {
+  return _source;
+}
+
+KShortestPathsExecutorInfos::InputVertex KShortestPathsExecutorInfos::getTargetVertex() const
+    noexcept {
+  return _target;
+}
+
 graph::TraverserCache* KShortestPathsExecutorInfos::cache() const {
   return _finder->options().cache();
 }
@@ -125,7 +135,7 @@ graph::TraverserCache* KShortestPathsExecutorInfos::cache() const {
 KShortestPathsExecutor::KShortestPathsExecutor(Fetcher& fetcher, Infos& infos)
     : _infos(infos),
       _fetcher(fetcher),
-      _input{CreateInvalidInputRowHint{}},
+      _inputRow{CreateInvalidInputRowHint{}},
       _rowState(ExecutionState::HASMORE),
       _finder{infos.finder()},
       _sourceBuilder{},
@@ -137,8 +147,6 @@ KShortestPathsExecutor::KShortestPathsExecutor(Fetcher& fetcher, Infos& infos)
     _targetBuilder.add(VPackValue(_infos.getInputValue(true)));
   }
 }
-
-KShortestPathsExecutor::~KShortestPathsExecutor() = default;
 
 // Shutdown query
 std::pair<ExecutionState, Result> KShortestPathsExecutor::shutdown(int errorCode) {
@@ -163,7 +171,7 @@ std::pair<ExecutionState, NoStats> KShortestPathsExecutor::produceRows(OutputAql
     if (_finder.getNextPathAql(*tmp.builder())) {
       AqlValue path = AqlValue(*tmp.builder());
       AqlValueGuard guard{path, true};
-      output.moveValueInto(_infos.getOutputRegister(), _input, guard);
+      output.moveValueInto(_infos.getOutputRegister(), _inputRow, guard);
       return {computeState(), s};
     }
   }
@@ -174,8 +182,8 @@ bool KShortestPathsExecutor::fetchPaths() {
   VPackSlice end;
   while (true) {
     // Fetch a row from upstream
-    std::tie(_rowState, _input) = _fetcher.fetchRow();
-    if (!_input.isInitialized()) {
+    std::tie(_rowState, _inputRow) = _fetcher.fetchRow();
+    if (!_inputRow.isInitialized()) {
       // Either WAITING or DONE, in either case we cannot produce any paths.
       TRI_ASSERT(_rowState == ExecutionState::WAITING || _rowState == ExecutionState::DONE);
       return false;
@@ -190,7 +198,7 @@ bool KShortestPathsExecutor::fetchPaths() {
     if (_finder.startKShortestPathsTraversal(start, end)) {
       break;
     }
-  } 
+  }
   return true;
 }
 
@@ -206,7 +214,7 @@ bool KShortestPathsExecutor::getVertexId(bool isTarget, VPackSlice& id) {
     // The input row stays valid until the next fetchRow is executed.
     // So the slice can easily point to it.
     RegisterId reg = _infos.getInputRegister(isTarget);
-    AqlValue const& in = _input.getValue(reg);
+    AqlValue const& in = _inputRow.getValue(reg);
     if (in.isObject()) {
       try {
         auto idString = _finder.options().trx()->extractIdString(in.slice());
@@ -263,4 +271,113 @@ bool KShortestPathsExecutor::getVertexId(bool isTarget, VPackSlice& id) {
     }
     return true;
   }
+}
+
+std::tuple<ExecutorState, NoStats, AqlCall> KShortestPathsExecutor::produceRows(
+    size_t atMost, AqlItemBlockInputRange& input, OutputAqlItemRow& output) {
+  auto stats = NoStats{};
+  auto upstreamCall = AqlCall{};
+  auto nrOutput = size_t{0};
+
+  while (nrOutput < atMost) {
+    // We will have paths available, or return
+    if (!_finder.isPathAvailable()) {
+      if (!fetchPaths(input)) {
+        return {ExecutorState::DONE, stats, upstreamCall};
+      }
+    }
+
+    // Now we have a path available, so we go and output it
+    transaction::BuilderLeaser tmp(_finder.options().trx());
+    tmp->clear();
+    if (_finder.getNextPathAql(*tmp.builder())) {
+      AqlValue path = AqlValue(*tmp.builder());
+      output.cloneValueInto(_infos.getOutputRegister(), _inputRow, path);
+    }
+  }
+
+  // if we reached here, we output atMost, so we might have more
+  // paths available
+  return {ExecutorState::HASMORE, stats, upstreamCall};
+}
+
+bool KShortestPathsExecutor::fetchPaths(AqlItemBlockInputRange& input) {
+  VPackSlice source;
+  VPackSlice target;
+  ExecutorState state;
+
+  while (input.hasMore()) {
+    std::tie(state, _inputRow) = input.next();
+    TRI_ASSERT(_inputRow.isInitialized());
+
+    // Check start and end for validity
+    if (!getVertexId(_infos.getSourceVertex(), _inputRow, _sourceBuilder, source) ||
+        !getVertexId(_infos.getTargetVertex(), _inputRow, _targetBuilder, target)) {
+      // Fetch another row
+      continue;
+    }
+    TRI_ASSERT(source.isString());
+    TRI_ASSERT(target.isString());
+    if (_finder.startKShortestPathsTraversal(source, target)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool KShortestPathsExecutor::getVertexId(KShortestPathsExecutorInfos::InputVertex const& vertex,
+                                         InputAqlItemRow& row,
+                                         VPackBuilder& builder, VPackSlice& id) {
+  switch (vertex.type) {
+    case KShortestPathsExecutorInfos::InputVertex::Type::REGISTER: {
+      AqlValue const& in = row.getValue(vertex.reg);
+      if (in.isObject()) {
+        try {
+          auto idString = _finder.options().trx()->extractIdString(in.slice());
+          builder.clear();
+          builder.add(VPackValue(idString));
+          id = builder.slice();
+          // Guranteed by extractIdValue
+          TRI_ASSERT(::isValidId(id));
+        } catch (...) {
+          // _id or _key not present... ignore this error and fall through
+          // returning no path
+          return false;
+        }
+        return true;
+      } else if (in.isString()) {
+        id = in.slice();
+        // Validation
+        if (!::isValidId(id)) {
+          _finder.options().query()->registerWarning(
+              TRI_ERROR_BAD_PARAMETER,
+              "Invalid input for Shortest Path: "
+              "Only id strings or objects with "
+              "_id are allowed");
+          return false;
+        }
+        return true;
+      } else {
+        _finder.options().query()->registerWarning(
+            TRI_ERROR_BAD_PARAMETER,
+            "Invalid input for Shortest Path: "
+            "Only id strings or objects with "
+            "_id are allowed");
+        return false;
+      }
+    }
+    case KShortestPathsExecutorInfos::InputVertex::Type::CONSTANT: {
+      id = builder.slice();
+      if (!::isValidId(id)) {
+        _finder.options().query()->registerWarning(
+            TRI_ERROR_BAD_PARAMETER,
+            "Invalid input for Shortest Path: "
+            "Only id strings or objects with "
+            "_id are allowed");
+        return false;
+      }
+      return true;
+    }
+  }
+  return false;
 }
