@@ -45,6 +45,7 @@ set(ARANGODB_TESTS_SOURCES
   Aql/HashedCollectExecutorTest.cpp
   Aql/IdExecutorTest.cpp
   Aql/InsertExecutorTest.cpp
+  Aql/KShortestPathsExecutorTest.cpp
   Aql/LimitExecutorTest.cpp
   Aql/MultiDepFetcherHelper.cpp
   Aql/MultiDependencySingleRowFetcherTest.cpp
