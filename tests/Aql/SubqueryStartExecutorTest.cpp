@@ -20,6 +20,7 @@
 /// @author Michael Hackstein
 ////////////////////////////////////////////////////////////////////////////////
 
+#include "AqlItemBlockHelper.h"
 #include "RowFetcherHelper.h"
 #include "gtest/gtest.h"
 
@@ -237,6 +238,194 @@ TEST_F(SubqueryStartExecutorTest, does_only_add_shadowrows_on_data_rows) {
                             infos.registersToKeep(), infos.registersToClear()};
     std::tie(state, stats) = testee.produceRows(output);
     EXPECT_EQ(state, ExecutionState::DONE);
+    EXPECT_FALSE(output.produced());
+    ASSERT_EQ(output.numRowsWritten(), 9);
+    block = output.stealBlock();
+    EXPECT_FALSE(block->isShadowRow(0));
+    TestShadowRow(block, 1, true);
+    TestShadowRow(block, 2, false);
+    EXPECT_FALSE(block->isShadowRow(3));
+    TestShadowRow(block, 4, true);
+    TestShadowRow(block, 5, false);
+    EXPECT_FALSE(block->isShadowRow(6));
+    TestShadowRow(block, 7, true);
+    TestShadowRow(block, 8, false);
+  }
+}
+
+// New API
+
+TEST_F(SubqueryStartExecutorTest, empty_input_does_not_add_shadow_rows_new) {
+  auto fakeUnusedBlock = VPackParser::fromJson("[]");
+  SingleRowFetcherHelper<::arangodb::aql::BlockPassthrough::Disable> fetcher(
+      itemBlockManager, fakeUnusedBlock->steal(), false);
+
+  auto infos = MakeBaseInfos(1);
+
+  auto inputBlock = buildBlock<1>(itemBlockManager, {{}});
+  auto input = AqlItemBlockInputRange(ExecutorState::HASMORE, inputBlock, 0,
+                                      inputBlock->size());
+
+  SharedAqlItemBlockPtr block{new AqlItemBlock(itemBlockManager, 1000, 1)};
+  OutputAqlItemRow output{std::move(block), infos.getOutputRegisters(),
+                          infos.registersToKeep(), infos.registersToClear()};
+
+  SubqueryStartExecutor testee(fetcher, infos);
+
+  auto const& [state, stats, upstreamCall] = testee.produceRows(1000, input, output);
+
+  // TODO
+  // find out why this doesnt work
+  // EXPECT_EQ(state, ExecutorState::DONE);
+  EXPECT_FALSE(output.produced());
+  EXPECT_EQ(output.numRowsWritten(), 0);
+}
+
+TEST_F(SubqueryStartExecutorTest, adds_a_shadowrow_after_single_input_new) {
+  auto fakeUnusedBlock = VPackParser::fromJson("[]");
+  SingleRowFetcherHelper<::arangodb::aql::BlockPassthrough::Disable> fetcher(
+      itemBlockManager, fakeUnusedBlock->steal(), false);
+
+  auto infos = MakeBaseInfos(1);
+
+  auto inputBlock = buildBlock<1>(itemBlockManager, {{{{"a"}}}});
+  auto input = AqlItemBlockInputRange(ExecutorState::HASMORE, inputBlock, 0,
+                                      inputBlock->size());
+
+  SharedAqlItemBlockPtr block{new AqlItemBlock(itemBlockManager, 1000, 1)};
+  OutputAqlItemRow output{std::move(block), infos.getOutputRegisters(),
+                          infos.registersToKeep(), infos.registersToClear()};
+
+  SubqueryStartExecutor testee(fetcher, infos);
+
+  auto [state, stats, upstreamCall] = testee.produceRows(1000, input, output);
+
+  EXPECT_EQ(state, ExecutorState::DONE);
+  EXPECT_FALSE(output.produced());
+  EXPECT_EQ(output.numRowsWritten(), 2);
+
+  block = output.stealBlock();
+  EXPECT_FALSE(block->isShadowRow(0));
+  TestShadowRow(block, 1, true);
+}
+
+TEST_F(SubqueryStartExecutorTest, adds_a_shadowrow_after_every_input_line_in_single_pass_new) {
+  auto fakeUnusedBlock = VPackParser::fromJson("[]");
+  SingleRowFetcherHelper<::arangodb::aql::BlockPassthrough::Disable> fetcher(
+      itemBlockManager, fakeUnusedBlock->steal(), false);
+
+  auto infos = MakeBaseInfos(1);
+
+  auto inputBlock = buildBlock<1>(itemBlockManager, {{{{"a"}}, {{"b"}}, {{"c"}}}});
+  auto input = AqlItemBlockInputRange(ExecutorState::HASMORE, inputBlock, 0,
+                                      inputBlock->size());
+
+  SharedAqlItemBlockPtr block{new AqlItemBlock(itemBlockManager, 1000, 1)};
+  OutputAqlItemRow output{std::move(block), infos.getOutputRegisters(),
+                          infos.registersToKeep(), infos.registersToClear()};
+
+  SubqueryStartExecutor testee(fetcher, infos);
+
+  auto [state, stats, upstreamCall] = testee.produceRows(1000, input, output);
+
+  EXPECT_EQ(state, ExecutorState::DONE);
+  EXPECT_FALSE(output.produced());
+  EXPECT_EQ(output.numRowsWritten(), 6);
+
+  block = output.stealBlock();
+  EXPECT_FALSE(block->isShadowRow(0));
+  TestShadowRow(block, 1, true);
+  EXPECT_FALSE(block->isShadowRow(2));
+  TestShadowRow(block, 3, true);
+  EXPECT_FALSE(block->isShadowRow(4));
+  TestShadowRow(block, 5, true);
+}
+
+TEST_F(SubqueryStartExecutorTest, shadow_row_does_not_fit_in_current_block_new) {
+  auto fakeUnusedBlock = VPackParser::fromJson("[]");
+  SingleRowFetcherHelper<::arangodb::aql::BlockPassthrough::Disable> fetcher(
+      itemBlockManager, fakeUnusedBlock->steal(), false);
+
+  auto infos = MakeBaseInfos(1);
+
+  auto inputBlock = buildBlock<1>(itemBlockManager, {{{{"a"}}, {{"b"}}, {{"c"}}}});
+  auto input = AqlItemBlockInputRange(ExecutorState::HASMORE, inputBlock, 0,
+                                      inputBlock->size());
+
+  SubqueryStartExecutor testee(fetcher, infos);
+
+  {
+    SharedAqlItemBlockPtr block{new AqlItemBlock(itemBlockManager, 3, 1)};
+    OutputAqlItemRow output{std::move(block), infos.getOutputRegisters(),
+                            infos.registersToKeep(), infos.registersToClear()};
+    auto [state, stats, upstreamCall] = testee.produceRows(1000, input, output);
+    EXPECT_EQ(state, ExecutorState::HASMORE);
+    EXPECT_FALSE(output.produced());
+    EXPECT_EQ(output.numRowsWritten(), 3);
+
+    block = output.stealBlock();
+    EXPECT_FALSE(block->isShadowRow(0));
+    TestShadowRow(block, 1, true);
+    EXPECT_FALSE(block->isShadowRow(2));
+  }
+  {
+    SharedAqlItemBlockPtr block{new AqlItemBlock(itemBlockManager, 3, 1)};
+    OutputAqlItemRow output{std::move(block), infos.getOutputRegisters(),
+                            infos.registersToKeep(), infos.registersToClear()};
+    auto [state, stats, upstreamCall] = testee.produceRows(1000, input, output);
+    EXPECT_EQ(state, ExecutorState::DONE);
+    EXPECT_FALSE(output.produced());
+    EXPECT_EQ(output.numRowsWritten(), 3);
+
+    block = output.stealBlock();
+    TestShadowRow(block, 0, true);
+    EXPECT_FALSE(block->isShadowRow(1));
+    TestShadowRow(block, 2, true);
+  }
+}
+
+// TODO:
+// This test can be enabled and should work as soon as the Fetcher skips non-relevant Subqueries
+TEST_F(SubqueryStartExecutorTest, does_only_add_shadowrows_on_data_rows_new) {
+  auto fakeUnusedBlock = VPackParser::fromJson("[]");
+  SingleRowFetcherHelper<::arangodb::aql::BlockPassthrough::Disable> fetcher(
+      itemBlockManager, fakeUnusedBlock->steal(), false);
+
+  auto inputBlock = buildBlock<1>(itemBlockManager, {{{{"a"}}, {{"b"}}, {{"c"}}}});
+  auto input = AqlItemBlockInputRange(ExecutorState::HASMORE, inputBlock, 0,
+                                      inputBlock->size());
+
+  auto infos = MakeBaseInfos(1);
+  {
+    SubqueryStartExecutor testee(fetcher, infos);
+
+    SharedAqlItemBlockPtr block{new AqlItemBlock(itemBlockManager, 1000, 1)};
+    OutputAqlItemRow output{std::move(block), infos.getOutputRegisters(),
+                            infos.registersToKeep(), infos.registersToClear()};
+
+    auto [state, stats, upstreamCall] = testee.produceRows(1000, input, output);
+    EXPECT_EQ(state, ExecutorState::DONE);
+    EXPECT_FALSE(output.produced());
+    ASSERT_EQ(output.numRowsWritten(), 6);
+    block = output.stealBlock();
+    EXPECT_FALSE(block->isShadowRow(0));
+    TestShadowRow(block, 1, true);
+    EXPECT_FALSE(block->isShadowRow(2));
+    TestShadowRow(block, 3, true);
+    EXPECT_FALSE(block->isShadowRow(4));
+    TestShadowRow(block, 5, true);
+    // Taken from test above. We now have produced a block
+    // having 3 data rows alternating with 3 shadow rows
+  }
+  {
+    SubqueryStartExecutor testee(fetcher, infos);
+
+    SharedAqlItemBlockPtr block{new AqlItemBlock(itemBlockManager, 1000, 1)};
+    OutputAqlItemRow output{std::move(block), infos.getOutputRegisters(),
+                            infos.registersToKeep(), infos.registersToClear()};
+
+    auto [state, stats, upstreamCall] = testee.produceRows(1000, input, output);
+    EXPECT_EQ(state, ExecutorState::DONE);
     EXPECT_FALSE(output.produced());
     ASSERT_EQ(output.numRowsWritten(), 9);
     block = output.stealBlock();

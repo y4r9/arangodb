@@ -80,7 +80,7 @@ class SubqueryStartExecutor {
   ExecutionState _state;
 
   // Cache for the input row we are currently working on
-  InputAqlItemRow _input;
+  InputAqlItemRow _inputRow;
 };
 }  // namespace aql
 }  // namespace arangodb

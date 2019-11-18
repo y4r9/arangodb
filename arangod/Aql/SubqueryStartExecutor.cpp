@@ -38,13 +38,13 @@ constexpr bool SubqueryStartExecutor::Properties::inputSizeRestrictsOutputSize;
 SubqueryStartExecutor::SubqueryStartExecutor(Fetcher& fetcher, Infos& infos)
     : _fetcher(fetcher),
       _state(ExecutionState::HASMORE),
-      _input(CreateInvalidInputRowHint{}) {}
+      _inputRow(CreateInvalidInputRowHint{}) {}
 SubqueryStartExecutor::~SubqueryStartExecutor() = default;
 
 std::pair<ExecutionState, NoStats> SubqueryStartExecutor::produceRows(OutputAqlItemRow& output) {
   while (!output.isFull()) {
     TRI_ASSERT(!output.produced());
-    if (_state == ExecutionState::DONE && !_input.isInitialized()) {
+    if (_state == ExecutionState::DONE && !_inputRow.isInitialized()) {
       // We need to handle shadowRows now. It is the job of this node to
       // increase the shadow row depth
       ShadowAqlItemRow shadowRow{CreateInvalidShadowRowHint{}};
@@ -57,22 +57,22 @@ std::pair<ExecutionState, NoStats> SubqueryStartExecutor::produceRows(OutputAqlI
       output.increaseShadowRowDepth(shadowRow);
     } else {
       // This loop alternates between data row and shadow row
-      if (_input.isInitialized()) {
-        output.createShadowRow(_input);
-        _input = InputAqlItemRow(CreateInvalidInputRowHint{});
+      if (_inputRow.isInitialized()) {
+        output.createShadowRow(_inputRow);
+        _inputRow = InputAqlItemRow(CreateInvalidInputRowHint{});
       } else {
-        std::tie(_state, _input) = _fetcher.fetchRow(output.numRowsLeft() / 2);
-        if (!_input.isInitialized()) {
+        std::tie(_state, _inputRow) = _fetcher.fetchRow(output.numRowsLeft() / 2);
+        if (!_inputRow.isInitialized()) {
           TRI_ASSERT(_state == ExecutionState::WAITING || _state == ExecutionState::DONE);
           return {_state, NoStats{}};
         }
         TRI_ASSERT(!output.isFull());
-        output.copyRow(_input);
+        output.copyRow(_inputRow);
       }
     }
     output.advanceRow();
   }
-  if (_input.isInitialized()) {
+  if (_inputRow.isInitialized()) {
     // We at least need to insert the Shadow row!
     return {ExecutionState::HASMORE, NoStats{}};
   }
@@ -100,21 +100,21 @@ std::pair<ExecutionState, size_t> SubqueryStartExecutor::expectedNumberOfRows(si
   // actual row (and if we don't we'd have to store the input row
   // across calls to produce row, because we could run out of space
   // in output).
-  while ((nrOutput < limit - 1) && (input.hasMore() || input.hasShadowRow())) {
-    if (input.hasMore()) {
-      TRI_ASSERT(!output.produced());
-
-      auto const& [state, row] = input.next();
-
-      output.copyRow(row);
+  while ((nrOutput < limit) && (input.hasMore() || input.hasShadowRow())) {
+    TRI_ASSERT(!output.produced());
+    if (_inputRow.isInitialized()) {
+      // We have a row from a previous call to input.next() for which
+      // we still have to write the ShadowRow
+      output.createShadowRow(_inputRow);
       output.advanceRow();
       nrOutput++;
+      _inputRow = InputAqlItemRow{CreateInvalidInputRowHint{}};
+    } else if (input.hasMore()) {
+      std::tie(std::ignore, _inputRow) = input.next();
 
-      output.createShadowRow(row);
+      output.copyRow(_inputRow);
       output.advanceRow();
       nrOutput++;
-      TRI_ASSERT(!output.isFull());
-
     } else if (input.hasShadowRow()) {
       auto const& [state, row] = input.nextShadowRow();
       output.increaseShadowRowDepth(row);
@@ -123,7 +123,7 @@ std::pair<ExecutionState, size_t> SubqueryStartExecutor::expectedNumberOfRows(si
     }
   }
 
-  if (input.hasMore() || input.hasShadowRow()) {
+  if (input.hasMore() || input.hasShadowRow() || _inputRow.isInitialized()) {
     return {ExecutorState::HASMORE, stats, upstreamCall};
   } else {
     return {ExecutorState::DONE, stats, upstreamCall};
