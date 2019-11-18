@@ -97,24 +97,35 @@ std::pair<ExecutionState, size_t> SubqueryStartExecutor::expectedNumberOfRows(si
 
   // this is a slight hack, because in this loop we always need
   // two slots in output, one for the ShadowRow, and one for the
-  // actual row.
-  while ((nrOutput < limit - 1) && input.hasMore()) {
-    TRI_ASSERT(!output.produced());
+  // actual row (and if we don't we'd have to store the input row
+  // across calls to produce row, because we could run out of space
+  // in output).
+  while ((nrOutput < limit - 1) && (input.hasMore() || input.hasShadowRow())) {
+    if (input.hasMore()) {
+      TRI_ASSERT(!output.produced());
 
-    auto const& [state, row] = input.next();
-    output.createShadowRow(row);
-    output.advanceRow();
-    nrOutput++;
-    TRI_ASSERT(!output.isFull());
+      auto const& [state, row] = input.next();
 
-    output.copyRow(row);
-    output.advanceRow();
-    nrOutput++;
+      output.copyRow(row);
+      output.advanceRow();
+      nrOutput++;
 
-    if (state == ExecutorState::DONE) {
-      return {ExecutorState::DONE, stats, upstreamCall};
+      output.createShadowRow(row);
+      output.advanceRow();
+      nrOutput++;
+      TRI_ASSERT(!output.isFull());
+
+    } else if (input.hasShadowRow()) {
+      auto const& [state, row] = input.nextShadowRow();
+      output.increaseShadowRowDepth(row);
+      output.advanceRow();
+      nrOutput++;
     }
   }
-  // If we reach here, upstream wasn't done yet.
-  return {ExecutorState::HASMORE, stats, upstreamCall};
+
+  if (input.hasMore() || input.hasShadowRow()) {
+    return {ExecutorState::HASMORE, stats, upstreamCall};
+  } else {
+    return {ExecutorState::DONE, stats, upstreamCall};
+  }
 }
