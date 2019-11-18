@@ -33,6 +33,8 @@ namespace aql {
 
 template <BlockPassthrough allowsPassThrough>
 class SingleRowFetcher;
+class AqlCall;
+class AqlItemBlockInputRange;
 class NoStats;
 class ExecutorInfos;
 class OutputAqlItemRow;
@@ -58,6 +60,8 @@ class SubqueryStartExecutor {
    *         if something was written output.hasValue() == true
    */
   std::pair<ExecutionState, Stats> produceRows(OutputAqlItemRow& output);
+  [[nodiscard]] std::tuple<ExecutorState, Stats, AqlCall> produceRows(
+      size_t limit, AqlItemBlockInputRange& input, OutputAqlItemRow& output);
 
   /**
    * @brief Estimate of expected number of rows.

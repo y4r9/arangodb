@@ -22,6 +22,7 @@
 
 #include "SubqueryStartExecutor.h"
 
+#include "Aql/AqlCall.h"
 #include "Aql/ExecutionState.h"
 #include "Aql/OutputAqlItemRow.h"
 #include "Aql/SingleRowFetcher.h"
@@ -86,4 +87,34 @@ std::pair<ExecutionState, size_t> SubqueryStartExecutor::expectedNumberOfRows(si
   // We will write one shadow row per input data row.
   // We might write less on all shadow rows in input, right now we do not figure this out yes.
   return {state, expected * 2};
+}
+
+[[nodiscard]] std::tuple<ExecutorState, NoStats, AqlCall> SubqueryStartExecutor::produceRows(
+    size_t limit, AqlItemBlockInputRange& input, OutputAqlItemRow& output) {
+  auto upstreamCall = AqlCall{};
+  auto stats = NoStats{};
+  auto nrOutput = size_t{0};
+
+  // this is a slight hack, because in this loop we always need
+  // two slots in output, one for the ShadowRow, and one for the
+  // actual row.
+  while ((nrOutput < limit - 1) && input.hasMore()) {
+    TRI_ASSERT(!output.produced());
+
+    auto const& [state, row] = input.next();
+    output.createShadowRow(row);
+    output.advanceRow();
+    nrOutput++;
+    TRI_ASSERT(!output.isFull());
+
+    output.copyRow(row);
+    output.advanceRow();
+    nrOutput++;
+
+    if (state == ExecutorState::DONE) {
+      return {ExecutorState::DONE, stats, upstreamCall};
+    }
+  }
+  // If we reach here, upstream wasn't done yet.
+  return {ExecutorState::HASMORE, stats, upstreamCall};
 }
