@@ -141,9 +141,9 @@ class KShortestPathsFinder : public ShortestPathFinder {
     void setWeight(double weight) { _weight = weight; }
 
     DijkstraInfo(VertexRef const& vertex, Edge const&& edge, VertexRef const& pred, double weight)
-      : _vertex(vertex), _edge(std::move(edge)), _pred(pred), _weight(weight), _done(false) {}
+        : _vertex(vertex), _edge(std::move(edge)), _pred(pred), _weight(weight), _done(false) {}
     explicit DijkstraInfo(VertexRef const& vertex)
-      : _vertex(vertex), _weight(0), _done(true) {}
+        : _vertex(vertex), _weight(0), _done(true) {}
   };
 
   typedef ShortestPathPriorityQueue<VertexRef, DijkstraInfo, double> Frontier;
@@ -193,7 +193,7 @@ class KShortestPathsFinder : public ShortestPathFinder {
     std::vector<size_t> _paths;
 
     explicit FoundVertex(VertexRef const& vertex)
-      : _vertex(vertex), _hasCachedOutNeighbours(false), _hasCachedInNeighbours(false) {}
+        : _vertex(vertex), _hasCachedOutNeighbours(false), _hasCachedInNeighbours(false) {}
   };
   // Contains the vertices that were found while searching
   // for a shortest path between start and end together with
@@ -215,18 +215,18 @@ class KShortestPathsFinder : public ShortestPathFinder {
   }
 
   // initialise k Shortest Paths
-  bool startKShortestPathsTraversal(arangodb::velocypack::Slice const& start,
-                                    arangodb::velocypack::Slice const& end);
+  virtual bool startKShortestPathsTraversal(arangodb::velocypack::Slice const& start,
+                                            arangodb::velocypack::Slice const& end);
 
   // get the next available path as AQL value.
-  bool getNextPathAql(arangodb::velocypack::Builder& builder);
+  virtual bool getNextPathAql(arangodb::velocypack::Builder& builder);
   // get the next available path as a ShortestPathResult
   // TODO: this is only here to not break catch-tests and needs a cleaner solution.
   //       probably by making ShortestPathResult versatile enough and using that
   bool getNextPathShortestPathResult(ShortestPathResult& path);
   // get the next available path as a Path
   bool getNextPath(Path& path);
-  bool isPathAvailable() const { return _pathAvailable; }
+  virtual bool isPathAvailable() const { return _pathAvailable; }
 
  private:
   // Compute the first shortest path
