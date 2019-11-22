@@ -32,6 +32,9 @@
 #include "Basics/fpconv.h"
 #include "Zip/zip.h"
 
+
+FAIL THIS BUILD!
+
 /// @brief append a character without check
 static inline void AppendChar(TRI_string_buffer_t* self, char chr) {
   *self->_current++ = chr;
