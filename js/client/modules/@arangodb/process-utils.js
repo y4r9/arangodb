@@ -1155,6 +1155,15 @@ function checkInstanceAlive (instanceInfo, options) {
       rc = instanceInfo.arangods.reduce((previous, arangod) => {
         if (arangod.role === "agent") return true;
         if (arangod.role === "single") return true;
+        if (health.hasOwnProperty(arangod.id)) {
+          if (health[arangod.id].Status === "GOOD") {
+            return true;
+	  } else {
+            print(RED + "ClusterHealthCheck failed " + arangod.id + " has status " + health[arangod.id].Status + " (which is not equal to GOOD)");
+          }
+        } else {
+          print(RED + "ClusterHealthCheck failed " + arangod.id + " does not have health property");
+        }
         return health.hasOwnProperty(arangod.id) && health[arangod.id].Status === "GOOD";
       }, true);
     } catch (x) {
