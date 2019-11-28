@@ -31,7 +31,7 @@ var internal = require("internal");
 let db = arangodb.db;
 let ArangoCollection = require("@arangodb/arango-collection").ArangoCollection;
 let tasks = require("@arangodb/tasks");
-  
+
 let cleanTasks = function () {
   tasks.get().forEach(function(task) {
     if (task.id.match(/^UnitTest/) || task.name.match(/^UnitTest/)) {
@@ -247,7 +247,7 @@ function ThrowCollectionNotLoadedSuite() {
 
       // wait for tasks to join
       let rc = db._collection(cnCollect);
-      
+
       // check for errors
       let errors = internal.errors;
 
