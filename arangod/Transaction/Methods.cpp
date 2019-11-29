@@ -1360,6 +1360,7 @@ Future<OperationResult> transaction::Methods::documentLocal(std::string const& c
           buildDocumentIdentity(collection.get(), resultBuilder, cid, key,
                                 foundRevision, 0, nullptr, nullptr);
         }
+        LOG_DEVEL << "revision conflict: " << expectedRevision << " " << foundRevision;
         return TRI_ERROR_ARANGO_CONFLICT;
       }
     }
@@ -1729,8 +1730,10 @@ Future<OperationResult> transaction::Methods::updateAsync(std::string const& cna
 
   auto f = Future<OperationResult>::makeEmpty();
   if (_state->isCoordinator()) {
+    LOG_DEVEL << "modify coordinatror";
     f = modifyCoordinator(cname, newValue, options, TRI_VOC_DOCUMENT_OPERATION_UPDATE);
   } else {
+    LOG_DEVEL << "modify local";
     OperationOptions optionsCopy = options;
     f = modifyLocal(cname, newValue, optionsCopy, TRI_VOC_DOCUMENT_OPERATION_UPDATE);
   }
@@ -1812,6 +1815,7 @@ Future<OperationResult> transaction::Methods::modifyLocal(std::string const& col
 
   bool const needsLock = !isLocked(collection.get(), AccessMode::Type::WRITE);
 
+  LOG_DEVEL << "needsLock: " << needsLock;
   // Assert my assumption that we don't have a lock only with mmfiles single
   // document operations.
 
@@ -1903,6 +1907,7 @@ Future<OperationResult> transaction::Methods::modifyLocal(std::string const& col
   Result lockResult = lockRecursive(cid, AccessMode::Type::WRITE);
 
   if (!lockResult.ok() && !lockResult.is(TRI_ERROR_LOCKED)) {
+    LOG_DEVEL << "locking failed";
     return OperationResult(lockResult);
   }
   // Iff we didn't have a lock before, we got one now.
@@ -1933,6 +1938,7 @@ Future<OperationResult> transaction::Methods::modifyLocal(std::string const& col
       res = collection->replace(this, newVal, result, options,
                                 /*lock*/ false, previous);
     } else {
+      LOG_DEVEL << "we're doing an actual update";
       res = collection->update(this, newVal, result, options,
                                /*lock*/ false, previous);
     }
@@ -1945,6 +1951,7 @@ Future<OperationResult> transaction::Methods::modifyLocal(std::string const& col
                               previous.revisionId(), 0,
                               options.returnOld ? &previous : nullptr, nullptr);
       }
+      LOG_DEVEL << "res fail: " << res;
       return res;
     }
 

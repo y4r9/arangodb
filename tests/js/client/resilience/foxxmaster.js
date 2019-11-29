@@ -33,10 +33,14 @@ const internal = require('internal');
 const request = require('@arangodb/request');
 const foxxManager = require('@arangodb/foxx/manager');
 
+const processUtils = require('@arangodb/process-utils');
+
 const suspendExternal = internal.suspendExternal;
 const continueExternal = internal.continueExternal;
+const statusExternal = internal.statusExternal;
 const download = internal.download;
 const pathForTesting = require('internal').pathForTesting;
+
 
 const instanceInfo = JSON.parse(internal.env.INSTANCEINFO);
 
@@ -157,15 +161,13 @@ function FoxxmasterSuite() {
       assertNotNull(server);
 
       let instance = instanceInfo.arangods.filter(arangod => {
+        print("pid pid: " + arangod.pid);
         if (arangod.role === 'agent') {
           return false;
         }
         let url = arangod.endpoint.replace(/tcp/, 'http') + '/_admin/server/id';
         let res = request({method: 'GET', url: url});
         let parsed = JSON.parse(res.body);
-        if (parsed.id === server) {
-          assertTrue(suspendExternal(arangod.pid));
-        }
         return parsed.id === server;
       })[0];
 
@@ -175,13 +177,17 @@ function FoxxmasterSuite() {
       let newEndpoint = instanceInfo.arangods.filter(arangod => {
         return arangod.role === 'coordinator' && arangod.pid !== instance.pid;
       })[0];
+      print("new endpoint: " + JSON.stringify(newEndpoint));
       arango.reconnect(newEndpoint.endpoint, db._name(), 'root', '');
       let waitInterval = 1;
       let waited = 0;
       let ok = false;
       while (waited <= 30) {
+
         document = db._collection('foxxqueuetest').document('test');
         let newServer = document.server;
+        print("newServer: ", newServer);
+        print("server: ", server);
         if (server !== newServer) {
           ok = true;
           break;
@@ -189,7 +195,18 @@ function FoxxmasterSuite() {
         wait(waitInterval);
         waited += waitInterval;
       }
+
+      print(JSON.stringify(db._collection('_jobs').toArray()));
+      print(JSON.stringify(db._collection('_queues').toArray()));
+      print(JSON.stringify(db._collection('_apps').toArray()));
+      print(JSON.stringify(db._collection('_modules').toArray()));
+
       assertTrue(continueExternal(instance.pid));
+
+      // If the coordinator is suspended it will be marked fail
+      // in the agency, and needs time to get back to GOOD.
+      // TODO: This should run in a loop/be a function to wait for the state to become GOOD again
+      wait(25);
       // mop: currently supervision would run every 5s
       // vadim: but that is not guaranteed that a Foxx service will be srarted right after that, so the timeout of expected 'newServer' was raised to 30s
       if (!ok) {
@@ -231,7 +248,7 @@ function FoxxmasterSuite() {
       let waitInterval = 1;
       let waited = 0;
       let ok = false;
-      while (waited <= 30) {
+      while (waited <= 60) {
         document = db._collection('foxxqueuetest').document('test');
         let newServer = document.server;
         if (server !== newServer) {

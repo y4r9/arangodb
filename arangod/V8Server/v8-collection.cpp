@@ -1485,6 +1485,7 @@ static void ModifyVocbaseCol(TRI_voc_document_operation_e operation,
   }
 
   Result res = trx.begin();
+  LOG_DEVEL << "trx res: " << res;
 
   if (!res.ok()) {
     TRI_V8_THROW_EXCEPTION(res);
@@ -1494,11 +1495,15 @@ static void ModifyVocbaseCol(TRI_voc_document_operation_e operation,
   if (operation == TRI_VOC_DOCUMENT_OPERATION_REPLACE) {
     opResult = trx.replace(collectionName, update, options);
   } else {
+    LOG_DEVEL << "operation is update";
     opResult = trx.update(collectionName, update, options);
+    LOG_DEVEL << "and the result was :" << opResult.slice().toJson();
   }
+  LOG_DEVEL << "op finish";
   res = trx.finish(opResult.result);
 
   if (!res.ok()) {
+    LOG_DEVEL << "wasnst ok"  << res;
     TRI_V8_THROW_EXCEPTION(res);
   }
 

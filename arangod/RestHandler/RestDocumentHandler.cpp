@@ -367,6 +367,7 @@ RestStatus RestDocumentHandler::updateDocument() { return modifyDocument(true); 
 ////////////////////////////////////////////////////////////////////////////////
 
 RestStatus RestDocumentHandler::modifyDocument(bool isPatch) {
+  LOG_DEVEL << "modify document";
   std::vector<std::string> const& suffixes = _request->decodedSuffixes();
 
   if (suffixes.size() > 2) {

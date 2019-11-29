@@ -491,10 +491,12 @@ void RestVocbaseBaseHandler::generateTransactionError(std::string const& collect
       if (result.buffer != nullptr && !result.slice().isNone()) {
         // This case happens if we come via the generateTransactionError that
         // has a proper OperationResult with a slice:
+        LOG_DEVEL << " blacondition failed " << result.slice().toJson();
         generatePreconditionFailed(result.slice());
       } else {
         // This case happens if we call this method directly with a dummy
         // OperationResult:
+        LOG_DEVEL << " blacondition failed " << key << rev;
         generatePreconditionFailed(collectionName, key.empty() ? "unknown" : key, rev);
       }
       return;
