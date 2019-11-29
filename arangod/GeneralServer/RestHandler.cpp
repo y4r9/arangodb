@@ -140,8 +140,12 @@ futures::Future<Result> RestHandler::forwardRequest(bool& forwarded) {
 
   std::map<std::string, std::string> headers{_request->headers().begin(),
                                              _request->headers().end()};
-
-  if (headers.find(StaticStrings::Authorization) == headers.end()) {
+    
+  // we never override auth headers for internal requests
+  bool const forwardAuth = serverId.compare(0, 5, "CRDN-") == 0;
+  if (!forwardAuth) {
+    headers.erase(StaticStrings::Authorization);
+  } else if (headers.find(StaticStrings::Authorization) == headers.end()) {
     // No authorization header is set, this is in particular the case if this
     // request is coming in with VelocyStream, where the authentication happens
     // once at the beginning of the connection and not with every request.

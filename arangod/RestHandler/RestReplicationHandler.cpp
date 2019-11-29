@@ -592,24 +592,43 @@ BAD_CALL:
 /// @brief returns the short id of the server which should handle this request
 std::string RestReplicationHandler::forwardingTarget() {
   if (!ServerState::instance()->isCoordinator()) {
-    return "";
+    return StaticStrings::Empty;
   }
 
   auto const& suffixes = _request->suffixes();
   size_t const len = suffixes.size();
-  if (len >= 1) {
-    auto const type = _request->requestType();
-    std::string const& command = suffixes[0];
-    if ((command == Batch) || (command == Inventory && type == rest::RequestType::GET) ||
-        (command == Dump && type == rest::RequestType::GET)) {
-      ServerID const& DBserver = _request->value("DBserver");
-      if (!DBserver.empty()) {
-        return DBserver;
+  if (len < 1) {
+    return StaticStrings::Empty;
+  }
+    
+  auto const type = _request->requestType();
+  std::string const& command = suffixes[0];
+  if ((command == Inventory && type == rest::RequestType::GET) ||
+      (command == Dump && type == rest::RequestType::GET) ||
+      (command == Batch)) {
+    ServerID const& DBserver = _request->value("DBserver");
+    if (DBserver.empty()) {
+      return StaticStrings::Empty;
+    }
+    
+    if (command == Dump) { // check auth here
+      bool found = false;
+      std::string const& shard = _request->value("collection", found);
+      if (found) {
+        auto& ci = server().getFeature<ClusterFeature>().clusterInfo();
+        auto cname = ci.getCollectionNameForShard(shard);
+        auto& exec = ExecContext::current();
+        ExecContextSuperuserScope escope(exec.isAdminUser());
+        if (!exec.canUseCollection(cname, auth::Level::RO)) {
+          return StaticStrings::Empty;
+        }
       }
     }
+    
+    return DBserver;
   }
 
-  return "";
+  return StaticStrings::Empty;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -711,9 +730,16 @@ void RestReplicationHandler::handleCommandClusterInventory() {
     resultBuilder.add(VPackValue(StaticStrings::Properties));
     vocbase->toVelocyPack(resultBuilder);
   }
+  
+  auto& exec = ExecContext::current();
+  ExecContextSuperuserScope escope(exec.isAdminUser());
 
   resultBuilder.add("collections", VPackValue(VPackValueType::Array));
   for (std::shared_ptr<LogicalCollection> const& c : cols) {
+    if (!exec.canUseCollection(vocbase->name(), c->name(), auth::Level::RO)) {
+      continue;
+    }
+    
     // We want to check if the collection is usable and all followers
     // are in sync:
     std::shared_ptr<ShardMap> shardMap = c->shardIds();
