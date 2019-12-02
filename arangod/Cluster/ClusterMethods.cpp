@@ -2093,7 +2093,6 @@ void fetchVerticesFromEngines(
 Future<OperationResult> modifyDocumentOnCoordinator(
     transaction::Methods& trx, LogicalCollection& coll, VPackSlice const& slice,
     arangodb::OperationOptions const& options, bool const isPatch) {
-  LOG_DEVEL << "modify on coordinator";
   // Set a few variables needed for our work:
 
   // First determine the collection ID from the name:

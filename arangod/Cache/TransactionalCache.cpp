@@ -34,7 +34,6 @@
 #include "Cache/Table.h"
 #include "Cache/TransactionalBucket.h"
 #include "Logger/Logger.h"
-#include "Logger/LogMacros.h"
 
 #include <stdint.h>
 #include <atomic>
@@ -127,7 +126,6 @@ Result TransactionalCache::insert(CachedValue* value) {
       }
     }
   } else {
-    LOG_DEVEL << "transactional cache conflict";
     status.reset(TRI_ERROR_ARANGO_CONFLICT);
   }
 

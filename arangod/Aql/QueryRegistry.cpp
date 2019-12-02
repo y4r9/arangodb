@@ -426,16 +426,3 @@ QueryRegistry::QueryInfo::QueryInfo(QueryId id, Query* query, double ttl, bool i
       _rebootGuard(std::move(rebootGuard)) {}
 
 QueryRegistry::QueryInfo::~QueryInfo() { delete _query; }
-
-void QueryRegistry::dumpMeNowPlease(void) {
-  LOG_DEVEL << "dumping query registry";
-
-  for (auto const& v : _queries) {
-    LOG_DEVEL << "database: " << v.first;
-
-    for (auto const& q : v.second) {
-      LOG_DEVEL << "QueryID: " << q.first << " open: " << q.second->_isOpen << " TTL "
-                << q.second->_timeToLive << " EXPIRES " << q.second->_expires;
-    }
-  }
-}

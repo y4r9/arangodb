@@ -40,8 +40,7 @@ class Query;
 
 class QueryRegistry {
  public:
-  explicit QueryRegistry(double defTTL)
-      : _defaultTTL(defTTL), _disallowInserts(false) {}
+  explicit QueryRegistry(double defTTL) : _defaultTTL(defTTL), _disallowInserts(false) {}
 
   TEST_VIRTUAL ~QueryRegistry();
 
@@ -87,11 +86,10 @@ class QueryRegistry {
   /// if the ignoreOpened flag is set, it means the query will be shut down
   /// and removed regardless if it is in use by anything else. this is only
   /// safe to call if the current thread is currently using the query itself
-  TEST_VIRTUAL void destroy(std::string const& vocbase, QueryId id,
-                            int errorCode, bool ignoreOpened);
+  TEST_VIRTUAL void destroy(std::string const& vocbase, QueryId id, int errorCode, bool ignoreOpened);
 
   /// @brief destroy all queries for the specified database. this can be used
-  /// when the database gets dropped
+  /// when the database gets dropped  
   void destroy(std::string const& vocbase);
 
   ResultT<bool> isQueryInUse(TRI_vocbase_t* vocbase, QueryId id);
@@ -111,10 +109,6 @@ class QueryRegistry {
   /// @brief return the default TTL value
   TEST_VIRTUAL double defaultTTL() const { return _defaultTTL; }
 
-  /// TODO: This is a quick-a-hack debugging helper. If you find it
-  ///       make me delete it, delete it yourself, or do it right
-  void dumpMeNowPlease();
-
  private:
   /**
    * @brief Set the thread-local _noLockHeaders variable
@@ -123,7 +117,7 @@ class QueryRegistry {
    *        information.
    */
   void setNoLockHeaders(ExecutionEngine* engine) const;
-
+  
  private:
   /// @brief a struct for all information regarding one query in the registry
   struct QueryInfo {
