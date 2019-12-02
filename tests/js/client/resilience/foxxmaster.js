@@ -161,7 +161,6 @@ function FoxxmasterSuite() {
       assertNotNull(server);
 
       let instance = instanceInfo.arangods.filter(arangod => {
-        print("pid pid: " + arangod.pid);
         if (arangod.role === 'agent') {
           return false;
         }
@@ -177,7 +176,6 @@ function FoxxmasterSuite() {
       let newEndpoint = instanceInfo.arangods.filter(arangod => {
         return arangod.role === 'coordinator' && arangod.pid !== instance.pid;
       })[0];
-      print("new endpoint: " + JSON.stringify(newEndpoint));
       arango.reconnect(newEndpoint.endpoint, db._name(), 'root', '');
       let waitInterval = 1;
       let waited = 0;
@@ -186,8 +184,6 @@ function FoxxmasterSuite() {
 
         document = db._collection('foxxqueuetest').document('test');
         let newServer = document.server;
-        print("newServer: ", newServer);
-        print("server: ", server);
         if (server !== newServer) {
           ok = true;
           break;
@@ -195,11 +191,6 @@ function FoxxmasterSuite() {
         wait(waitInterval);
         waited += waitInterval;
       }
-
-      print(JSON.stringify(db._collection('_jobs').toArray()));
-      print(JSON.stringify(db._collection('_queues').toArray()));
-      print(JSON.stringify(db._collection('_apps').toArray()));
-      print(JSON.stringify(db._collection('_modules').toArray()));
 
       assertTrue(continueExternal(instance.pid));
 

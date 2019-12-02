@@ -54,6 +54,8 @@
 #include "Transaction/ClusterUtils.h"
 #include "VocBase/vocbase.h"
 
+#include "RestServer/QueryRegistryFeature.h"
+
 using namespace arangodb;
 using namespace arangodb::application_features;
 using namespace arangodb::rest;
@@ -383,6 +385,11 @@ void HeartbeatThread::runDBServer() {
   while (!isStopping()) {
     logThreadDeaths();
 
+    auto queryRegistry = QueryRegistryFeature::registry();
+    LOG_DEVEL << "number of registered queries: "
+              << queryRegistry->numberRegisteredQueries();
+    queryRegistry->dumpMeNowPlease();
+
     try {
       auto const start = std::chrono::steady_clock::now();
       // send our state to the agency.
@@ -585,7 +592,8 @@ void HeartbeatThread::runSingleServer() {
         } else {
           if (++_failedVersionUpdates % _maxFailsBeforeWarning == 0) {
             LOG_TOPIC("700c7", WARN, Logger::HEARTBEAT)
-                << "could not increase version number in agency: " << res.errorMessage();
+                << "could not increase version number in agency: "
+                << res.errorMessage();
           }
         }
       }
@@ -771,11 +779,11 @@ void HeartbeatThread::runSingleServer() {
             << "start initial sync from leader";
         config._requireFromPresent = true;
         config._incremental = true;
-        config._idleMinWaitTime = 250 * 1000; // 250ms
-        config._idleMaxWaitTime = 3 * 1000 * 1000; // 3s
+        config._idleMinWaitTime = 250 * 1000;       // 250ms
+        config._idleMaxWaitTime = 3 * 1000 * 1000;  // 3s
         TRI_ASSERT(!config._skipCreateDrop);
-        config._includeFoxxQueues = true; // sync _queues and _jobs
-    
+        config._includeFoxxQueues = true;  // sync _queues and _jobs
+
         if (_server.hasFeature<ReplicationFeature>()) {
           auto& feature = _server.getFeature<ReplicationFeature>();
           config._connectTimeout = feature.checkConnectTimeout(config._connectTimeout);
@@ -1011,7 +1019,6 @@ void HeartbeatThread::runCoordinator() {
             }
           }
 
-
         } else {
           LOG_TOPIC("cd95f", WARN, Logger::HEARTBEAT)
               << "FailedServers is not an object. ignoring for now";
@@ -1148,9 +1155,10 @@ bool HeartbeatThread::handlePlanChangeCoordinator(uint64_t currentPlanVersion) {
       // when loading we allow system database names
       info.allowSystemDB(TRI_vocbase_t::IsSystemName(options.value.get("name").copyString()));
 
-      auto infoResult =  info.load(options.value, VPackSlice::emptyArraySlice());
+      auto infoResult = info.load(options.value, VPackSlice::emptyArraySlice());
       if (infoResult.fail()) {
-        LOG_TOPIC("3fa12", ERR, Logger::HEARTBEAT) << "In agency database plan" << infoResult.errorMessage();
+        LOG_TOPIC("3fa12", ERR, Logger::HEARTBEAT)
+            << "In agency database plan" << infoResult.errorMessage();
         TRI_ASSERT(false);
       }
 

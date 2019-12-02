@@ -78,7 +78,14 @@ var runInDatabase = function () {
             if (isCluster) {
               update.startedBy = coordinatorId;
             }
-            db._jobs.update(job, update);
+            const updateQuery = global.aqlQuery`
+            UPDATE ${job} WITH ${update} IN _jobs
+            `;
+            updateQuery.options = { ttl: 5 };
+
+            db._query(updateQuery);
+            // db._jobs.update(job, update);
+
             tasks.register({
               command: function (cfg) {
                 var db = require('@arangodb').db;
@@ -109,35 +116,35 @@ var runInDatabase = function () {
 
 const resetDeadJobs = function () {
   const queues = require('@arangodb/foxx/queues');
+  var query = global.aqlQuery`
+      FOR doc IN _jobs
+        FILTER doc.status == 'progress'
+          UPDATE doc
+        WITH { status: 'pending' }
+        IN _jobs`;
+  query.options = { ttl: 5 };
 
   const initialDatabase = db._name();
   db._databases().forEach(function (name) {
     try {
       db._useDatabase(name);
-      db._jobs.toArray().filter(function (job) {
-        return job.status === 'progress';
-      }).forEach(function (job) {
-        var ok = false;
-        while(!ok) {
-        try {
-        print(JSON.stringify(job));
-	print("job id: " + job._id);
-        db._jobs.update(job._id, {status: 'pending'},{ ignoreRevs: true});
+      var ok = false;
+      while (!ok) {
+      try {
+        db._query(query);
         ok = true;
-        print("now ok");
-        } catch(e) {
-        print("exception caught while trying to reset job. Lingering transaction?");
+      } catch(e) {
+        print("Exception while resetting dead jobs " + e.message, " retrying in 10s");
         wait(10);
-        }
-        }
-      });
+      }
+      }
       if (!isCluster) {
         queues._updateQueueDelay();
       } else {
         global.KEYSPACE_CREATE('queue-control', 1, true);
       }
     } catch (e) {
-      print("AN EXCEPTION WAS CAUGHT WHILE RESETTING DEAD JOBS " + e.message + " " + JSON.stringify(e));
+      print("Exception while resetting dead jobs " + e.message);
       // noop
     }
   });
@@ -171,10 +178,8 @@ const resetDeadJobsOnFirstRun = function () {
 
 exports.manage = function () {
   if (!global.ArangoServerState.isFoxxmaster()) {
-    print(" " + global.ArangoServerState.id() + " is not a foxxmaster");
     return;
   }
-  print(" " + global.ArangoServerState.id() + " is a foxxmaster");
 
   if (global.ArangoServerState.getFoxxmasterQueueupdate()) {
     if (!isCluster) {
@@ -189,12 +194,11 @@ exports.manage = function () {
       var foxxQueues = require('@arangodb/foxx/queues');
 
       foxxQueues._updateQueueDelay();
-    } 
+    }
     // do not call again immediately
     global.ArangoServerState.setFoxxmasterQueueupdate(false);
   }
 
-  print("initial");
   var initialDatabase = db._name();
   var now = Date.now();
 
@@ -209,16 +213,13 @@ exports.manage = function () {
     global.KEY_SET('queue-control', 'databases-expire', Date.now() + 30 * 1000);
   }
 
-  print(" for each dadurrbez");
   databases.forEach(function (database) {
     try {
       db._useDatabase(database);
       global.KEYSPACE_CREATE('queue-control', 1, true);
       var delayUntil = global.KEY_GET('queue-control', 'delayUntil') || 0;
-      print("delay until: " + delayUntil);
 
       if (delayUntil === -1 || delayUntil > Date.now()) {
-        print("welp");	
         return;
       }
 
@@ -226,16 +227,14 @@ exports.manage = function () {
       var jobs = db._collection('_jobs');
 
       if (!queues || !jobs || !queues.count() || !jobs.count()) {
-	print("no queues no jobs, so nothing to do");
-        print(JSON.stringify(queues.toArray()));
-        print(JSON.stringify(jobs.toArray()));
         global.KEY_SET('queue-control', 'delayUntil', -1);
       } else {
-	print("run in dadurrbez");
         runInDatabase();
       }
     } catch (e) {
-      print(" We ran into an exception while doing some foxx doing: " + e.message + " " + JSON.stringify(e));
+      print("An exception occurred while setting up foxx queue handling in database "
+            + e.message + " "
+            + JSON.stringify(e));
       // noop
     }
   });
