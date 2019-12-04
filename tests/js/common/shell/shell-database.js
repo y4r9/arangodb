@@ -61,31 +61,6 @@ function DatabaseSuite () {
     },
 
 ////////////////////////////////////////////////////////////////////////////////
-/// @brief test _createDatabase function
-////////////////////////////////////////////////////////////////////////////////
-
-    testCreateDatabase : function () {
-      // run this early in the test setup for maximal stress.
-      assertEqual("_system", internal.db._name());
-
-      try {
-        internal.db._dropDatabase("UnitTestsDatabase0");
-      } catch (err1) {
-      }
-
-      try {
-        internal.db._dropDatabase("UnitTestsDatabase1");
-      } catch (err2) {
-      }
-
-      assertTrue(internal.db._createDatabase("UnitTestsDatabase0"));
-      assertTrue(internal.db._createDatabase("UnitTestsDatabase1"));
-
-      assertTrue(internal.db._dropDatabase("UnitTestsDatabase0"));
-      assertTrue(internal.db._dropDatabase("UnitTestsDatabase1"));
-    },
-
-////////////////////////////////////////////////////////////////////////////////
 /// @brief test _name function
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -279,6 +254,30 @@ function DatabaseSuite () {
       }() ) );
 
       internal.db._dropDatabase("UnitTestsDatabase0");
+    },
+
+////////////////////////////////////////////////////////////////////////////////
+/// @brief test _createDatabase function
+////////////////////////////////////////////////////////////////////////////////
+
+    testCreateDatabase : function () {
+      assertEqual("_system", internal.db._name());
+
+      try {
+        internal.db._dropDatabase("UnitTestsDatabase0");
+      } catch (err1) {
+      }
+
+      try {
+        internal.db._dropDatabase("UnitTestsDatabase1");
+      } catch (err2) {
+      }
+
+      assertTrue(internal.db._createDatabase("UnitTestsDatabase0"));
+      assertTrue(internal.db._createDatabase("UnitTestsDatabase1"));
+
+      assertTrue(internal.db._dropDatabase("UnitTestsDatabase0"));
+      assertTrue(internal.db._dropDatabase("UnitTestsDatabase1"));
     },
 
 ////////////////////////////////////////////////////////////////////////////////
