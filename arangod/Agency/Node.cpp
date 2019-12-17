@@ -308,13 +308,12 @@ Node& Node::operator()(std::vector<std::string> const& pv) {
 
   for (std::string const& key : pv) {
 
-    LOG_DEVEL << key << " "
-      << std::chrono::duration<double>(_ttl - std::chrono::system_clock::now()).count();
-
-    //if (current->_ttl != std::chrono::system_clock::time_point() &&
-    //  current->_ttl < std::chrono::system_clock::now()) {
-      removeTimeToLive();
-      //}
+    // Remove TTL for any nodes on the way down, if and only if the noted TTL
+    // is expired.
+    if (current->_ttl != std::chrono::system_clock::time_point() &&
+      current->_ttl < std::chrono::system_clock::now()) {
+      current->removeTimeToLive();
+    }
     
     auto& children = current->_children;
     auto  child = children.find(key);
@@ -444,8 +443,6 @@ bool Node::removeTimeToLive() {
 
   Store* s = getStore();  // We could be in a Node that belongs to a store,
                           // or in one that doesn't.
-  LOG_DEVEL << "remove " << _nodeName;
-                                   
   if (s != nullptr) {
     s->removeTTL(uri());
   }
@@ -593,7 +590,9 @@ ResultT<std::shared_ptr<Node>> Node::handle<ERASE>(VPackSlice const& slice) {
   {
     VPackArrayBuilder t(&tmp);
 
-    if (this->slice().isArray()) {
+    if (this->slice().isArray() &&
+        (_ttl == std::chrono::system_clock::time_point() ||
+         _ttl >= std::chrono::system_clock::now())) {
       if (haveVal) {
         VPackSlice valToErase = slice.get("val");
         for (auto const& old : VPackArrayIterator(this->slice())) {
@@ -639,7 +638,9 @@ ResultT<std::shared_ptr<Node>> Node::handle<REPLACE>(VPackSlice const& slice) {
   Builder tmp;
   {
     VPackArrayBuilder t(&tmp);
-    if (this->slice().isArray()) {
+    if (this->slice().isArray() &&
+        (_ttl == std::chrono::system_clock::time_point() ||
+         _ttl >= std::chrono::system_clock::now())) {
       VPackSlice valToRepl = slice.get("val");
       for (auto const& old : VPackArrayIterator(this->slice())) {
         if (VelocyPackHelper::equal(old, valToRepl, /*useUTF8*/ true)) {
@@ -775,7 +776,6 @@ ResultT<std::shared_ptr<Node>> Node::handle<READ_UNLOCK>(VPackSlice const& slice
     return ResultT<std::shared_ptr<Node>>::success(nullptr);
   }
 
-  LOG_DEVEL << "READ_UNLOCK failed";
   return ResultT<std::shared_ptr<Node>>::error(
     TRI_ERROR_FAILED, "Read unlock failed");
 
@@ -809,7 +809,6 @@ ResultT<std::shared_ptr<Node>> Node::handle<WRITE_UNLOCK>(VPackSlice const& slic
     return deleteMe();
   }
 
-  LOG_DEVEL << "WRITE_UNLOCK failed";
   return ResultT<std::shared_ptr<Node>>::error(
     TRI_ERROR_FAILED, "Write unlock failed");
 }
