@@ -308,6 +308,14 @@ Node& Node::operator()(std::vector<std::string> const& pv) {
 
   for (std::string const& key : pv) {
 
+    LOG_DEVEL << key << " "
+      << std::chrono::duration<double>(_ttl - std::chrono::system_clock::now()).count();
+
+    //if (current->_ttl != std::chrono::system_clock::time_point() &&
+    //  current->_ttl < std::chrono::system_clock::now()) {
+      removeTimeToLive();
+      //}
+    
     auto& children = current->_children;
     auto  child = children.find(key);
 
@@ -436,6 +444,8 @@ bool Node::removeTimeToLive() {
 
   Store* s = getStore();  // We could be in a Node that belongs to a store,
                           // or in one that doesn't.
+  LOG_DEVEL << "remove " << _nodeName;
+                                   
   if (s != nullptr) {
     s->removeTTL(uri());
   }
@@ -495,11 +505,18 @@ ResultT<std::shared_ptr<Node>> Node::handle<INCREMENT>(VPackSlice const& slice) 
   size_t inc = (slice.hasKey("step") && slice.get("step").isUInt())
                    ? slice.get("step").getUInt() : 1;
   Builder tmp;
+  bool applied = false;
   {
     VPackObjectBuilder t(&tmp);
     try {
-      tmp.add("tmp", Value(this->slice().getInt() + inc));
-    } catch (std::exception const&) {
+      if (_ttl == std::chrono::system_clock::time_point() ||
+          _ttl >= std::chrono::system_clock::now()) {
+        tmp.add("tmp", Value(this->slice().getInt() + inc));
+        applied = true;
+      }
+    } catch (...) {}
+    
+    if (!applied) {
       tmp.add("tmp", Value(1));
     }
   }
@@ -511,11 +528,18 @@ ResultT<std::shared_ptr<Node>> Node::handle<INCREMENT>(VPackSlice const& slice) 
 template <>
 ResultT<std::shared_ptr<Node>> Node::handle<DECREMENT>(VPackSlice const& slice) {
   Builder tmp;
+  bool applied = false;
   {
     VPackObjectBuilder t(&tmp);
     try {
-      tmp.add("tmp", Value(this->slice().getInt() - 1));
-    } catch (std::exception const&) {
+      if (_ttl == std::chrono::system_clock::time_point() ||
+          _ttl >= std::chrono::system_clock::now()) {
+        tmp.add("tmp", Value(this->slice().getInt() - 1));
+        applied = true;
+      }
+    } catch (...) {}
+    
+    if (!applied) {
       tmp.add("tmp", Value(-1));
     }
   }
@@ -534,7 +558,9 @@ ResultT<std::shared_ptr<Node>> Node::handle<PUSH>(VPackSlice const& slice) {
   Builder tmp;
   {
     VPackArrayBuilder t(&tmp);
-    if (this->slice().isArray()) {
+    if (this->slice().isArray() &&
+        (_ttl == std::chrono::system_clock::time_point() ||
+         _ttl >= std::chrono::system_clock::now())) {
       for (auto const& old : VPackArrayIterator(this->slice())) tmp.add(old);
     }
     tmp.add(slice.get("new"));
@@ -634,7 +660,9 @@ ResultT<std::shared_ptr<Node>> Node::handle<POP>(VPackSlice const& slice) {
   Builder tmp;
   {
     VPackArrayBuilder t(&tmp);
-    if (this->slice().isArray()) {
+    if (this->slice().isArray() &&
+        (_ttl == std::chrono::system_clock::time_point() ||
+         _ttl >= std::chrono::system_clock::now())) {
       VPackArrayIterator it(this->slice());
       if (it.size() > 1) {
         size_t j = it.size() - 1;
@@ -661,7 +689,9 @@ ResultT<std::shared_ptr<Node>> Node::handle<PREPEND>(VPackSlice const& slice) {
   {
     VPackArrayBuilder t(&tmp);
     tmp.add(slice.get("new"));
-    if (this->slice().isArray()) {
+    if (this->slice().isArray() &&
+        (_ttl == std::chrono::system_clock::time_point() ||
+         _ttl >= std::chrono::system_clock::now())) {
       for (auto const& old : VPackArrayIterator(this->slice())) tmp.add(old);
     }
   }
@@ -675,7 +705,9 @@ ResultT<std::shared_ptr<Node>> Node::handle<SHIFT>(VPackSlice const& slice) {
   Builder tmp;
   {
     VPackArrayBuilder t(&tmp);
-    if (this->slice().isArray()) {  // If a
+    if (this->slice().isArray() &&
+        (_ttl == std::chrono::system_clock::time_point() ||
+         _ttl >= std::chrono::system_clock::now())) {  // If a
       VPackArrayIterator it(this->slice());
       bool first = true;
       for (auto const& old : it) {
