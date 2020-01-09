@@ -43,7 +43,7 @@ class VstCommTask final : public GeneralCommTask<T> {
               ConnectionInfo,
               std::unique_ptr<AsioSocket<T>> socket,
               fuerte::vst::VSTVersion v);
-  ~VstCommTask();
+  ~VstCommTask() noexcept;
 
  protected:
 
@@ -71,7 +71,7 @@ class VstCommTask final : public GeneralCommTask<T> {
   void doWrite();
   
   // process the VST 1000 request type
-  void handleAuthHeader(velocypack::Slice header, uint64_t messageId);
+  void handleVstAuthRequest(velocypack::Slice header, uint64_t messageId);
 
  private:
   using MessageID = uint64_t;
@@ -112,8 +112,9 @@ class VstCommTask final : public GeneralCommTask<T> {
   boost::lockfree::queue<ResponseItem*, boost::lockfree::capacity<512>> _writeQueue;
   std::atomic<bool> _writing; /// is writing
   
-  /// Is the current user authorized
-  bool _authorized;
+  /// Is the current user authenticated (not authorized)
+  auth::TokenCache::Entry _authToken;
+  bool _authenticated;
   rest::AuthenticationMethod _authMethod;
   fuerte::vst::VSTVersion _vstVersion;
 };

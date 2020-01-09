@@ -27,6 +27,7 @@
 #include "Endpoint/ConnectionInfo.h"
 #include "Endpoint/EndpointIp.h"
 #include "GeneralServer/GeneralServer.h"
+#include "GeneralServer/H2CommTask.h"
 #include "GeneralServer/HttpCommTask.h"
 #include "Logger/LogMacros.h"
 #include "Logger/Logger.h"
@@ -180,6 +181,34 @@ void AcceptorTcp<SocketType::Tcp>::performHandshake(std::unique_ptr<AsioSocket<S
   TRI_ASSERT(false);  // MSVC requires the implementation to exist
 }
 
+namespace {
+bool tls_h2_negotiated(SSL* ssl) {
+
+  const unsigned char *next_proto = nullptr;
+  unsigned int next_proto_len = 0;
+
+#ifndef OPENSSL_NO_NEXTPROTONEG
+  SSL_get0_next_proto_negotiated(ssl, &next_proto, &next_proto_len);
+#endif // !OPENSSL_NO_NEXTPROTONEG
+#if OPENSSL_VERSION_NUMBER >= 0x10002000L
+  if (next_proto == nullptr) {
+    SSL_get0_alpn_selected(ssl, &next_proto, &next_proto_len);
+  }
+#endif // OPENSSL_VERSION_NUMBER >= 0x10002000L
+
+  // allowed value is "h2"
+  // http://www.iana.org/assignments/tls-extensiontype-values/tls-extensiontype-values.xhtml
+  if (next_proto != nullptr && next_proto_len == 2 &&
+      memcmp(next_proto, "h2", 2) == 0) {
+    LOG_DEVEL << "ALPN indicates HTTP2";
+    return true;
+  }
+  LOG_DEVEL << "ALPN does not indicate HTTP2";
+  return false;
+}
+}
+
+
 template <>
 void AcceptorTcp<SocketType::Ssl>::performHandshake(std::unique_ptr<AsioSocket<SocketType::Ssl>> proto) {
   // io_context is single-threaded, no sync needed
@@ -213,11 +242,15 @@ void AcceptorTcp<SocketType::Ssl>::performHandshake(std::unique_ptr<AsioSocket<S
 
     info.clientAddress = as->peer.address().to_string();
     info.clientPort = as->peer.port();
-
-    auto commTask =
-        std::make_unique<HttpCommTask<SocketType::Ssl>>(_server, std::move(info),
-                                                        std::move(as));
-    _server.registerTask(std::move(commTask));
+    
+    std::shared_ptr<CommTask> task;
+    if (tls_h2_negotiated(as->socket.native_handle())) {
+      task = std::make_shared<H2CommTask<SocketType::Ssl>>(_server, std::move(info), std::move(as));
+    } else {
+      task = std::make_shared<HttpCommTask<SocketType::Ssl>>(_server, std::move(info), std::move(as));
+    }
+    
+    _server.registerTask(std::move(task));
   };
   ptr->handshake(std::move(cb));
 }

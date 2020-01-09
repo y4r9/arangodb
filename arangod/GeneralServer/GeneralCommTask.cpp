@@ -35,33 +35,35 @@ using namespace arangodb::rest;
 // -----------------------------------------------------------------------------
 
 template <SocketType T>
-GeneralCommTask<T>::GeneralCommTask(GeneralServer& server, char const* name,
+GeneralCommTask<T>::GeneralCommTask(GeneralServer& server,
                                     ConnectionInfo info,
                                     std::unique_ptr<AsioSocket<T>> socket)
-    : CommTask(server, name, std::move(info)), _protocol(std::move(socket)) {}
-
-template <SocketType T>
-GeneralCommTask<T>::~GeneralCommTask() = default;
+    : CommTask(server, std::move(info)), _protocol(std::move(socket)) {}
 
 template <SocketType T>
 void GeneralCommTask<T>::start() {
   asio_ns::post(_protocol->context.io_context, [self = shared_from_this()] {
-    auto* thisPtr = static_cast<GeneralCommTask<T>*>(self.get());
-    if (thisPtr->_protocol->supportsMixedIO()) {
-      thisPtr->_protocol->setNonBlocking(true);
+    auto* me = static_cast<GeneralCommTask<T>*>(self.get());
+    if (AsioSocket<T>::supportsMixedIO()) {
+      me->_protocol->setNonBlocking(true);
     }
-    thisPtr->asyncReadSome();
+    me->asyncReadSome();
   });
 }
 
 template <SocketType T>
-void GeneralCommTask<T>::close() {
+void GeneralCommTask<T>::close(asio_ns::error_code const& err) {
+  if (err && err != asio_ns::error::misc_errors::eof) {
+    LOG_TOPIC("2b6b3", ERR, arangodb::Logger::REQUESTS)
+    << "asio error: '" << err.message() << "'";
+  }
+  
   if (_protocol) {
     _protocol->timer.cancel();
     asio_ns::error_code ec;
     _protocol->shutdown(ec);
     if (ec) {
-      LOG_TOPIC("2c6b4", DEBUG, arangodb::Logger::REQUESTS)
+      LOG_TOPIC("2c6b4", ERR, arangodb::Logger::REQUESTS)
           << "error shutting down asio socket: '" << ec.message() << "'";
     }
   }
@@ -72,7 +74,7 @@ template <SocketType T>
 void GeneralCommTask<T>::asyncReadSome() try {
   asio_ns::error_code ec;
   // first try a sync read for performance
-  if (_protocol->supportsMixedIO()) {
+  if (AsioSocket<T>::supportsMixedIO()) {
     std::size_t available = _protocol->available(ec);
 
     while (!ec && available > 8) {
@@ -100,18 +102,18 @@ void GeneralCommTask<T>::asyncReadSome() try {
 
   auto mutableBuff = _protocol->buffer.prepare(ReadBlockSize);
   _protocol->socket.async_read_some(
-      mutableBuff, [self = shared_from_this()](asio_ns::error_code const& ec, size_t transferred) {
-        auto* thisPtr = static_cast<GeneralCommTask<T>*>(self.get());
-        thisPtr->_protocol->buffer.commit(transferred);
+      mutableBuff, [self = shared_from_this()](asio_ns::error_code const& ec, size_t nread) {
+        auto* me = static_cast<GeneralCommTask<T>*>(self.get());
+        me->_protocol->buffer.commit(nread);
 
         try {
-          if (thisPtr->readCallback(ec)) {
-            thisPtr->asyncReadSome();
+          if (me->readCallback(ec)) {
+            me->asyncReadSome();
           }
         } catch (...) {
           LOG_TOPIC("2c6b6", ERR, arangodb::Logger::REQUESTS)
               << "unhandled protocol exception, closing connection";
-          thisPtr->close();
+          me->close(ec);
         }
       });
 } catch (...) {

@@ -36,13 +36,13 @@ class GeneralCommTask : public CommTask {
   GeneralCommTask const& operator=(GeneralCommTask const&) = delete;
 
  public:
-  GeneralCommTask(GeneralServer& server, char const* name, ConnectionInfo,
+  GeneralCommTask(GeneralServer& server, ConnectionInfo,
                   std::unique_ptr<AsioSocket<T>>);
 
-  virtual ~GeneralCommTask();
+  virtual ~GeneralCommTask() = default;
 
   void start() override;
-  void close() override final;
+  void close(asio_ns::error_code const& err = asio_ns::error_code());
 
  protected:
   /// read from socket
