@@ -282,13 +282,36 @@ CommTask::Flow CommTask::prepareExecution(auth::TokenCache::Entry const& authTok
 }
 
 /// Must be called from sendResponse, before response is rendered
-void CommTask::finishExecution(GeneralResponse& res) const {
+void CommTask::finishExecution(GeneralResponse& res,
+                               std::string const& corsOrigin) const {
   ServerState::Mode mode = ServerState::mode();
   if (mode == ServerState::Mode::REDIRECT || mode == ServerState::Mode::TRYAGAIN) {
     ReplicationFeature::setEndpointHeader(&res, mode);
   }
   if (mode == ServerState::Mode::REDIRECT) {
     res.setHeaderNC(StaticStrings::PotentialDirtyRead, "true");
+  }
+  
+  // CORS response handling
+  if (!corsOrigin.empty()) {
+    // the request contained an Origin header. We have to send back the
+    // access-control-allow-origin header now
+    LOG_TOPIC("be603", DEBUG, arangodb::Logger::REQUESTS)
+        << "handling CORS response";
+
+    // send back original value of "Origin" header
+    res.setHeaderNCIfNotSet(StaticStrings::AccessControlAllowOrigin, corsOrigin);
+
+    // send back "Access-Control-Allow-Credentials" header
+    res.setHeaderNCIfNotSet(StaticStrings::AccessControlAllowCredentials,
+                                 (allowCorsCredentials(corsOrigin)
+                                      ? "true"
+                                      : "false"));
+
+    // use "IfNotSet" here because we should not override HTTP headers set
+    // by Foxx applications
+    res.setHeaderNCIfNotSet(StaticStrings::AccessControlExposeHeaders,
+                            StaticStrings::ExposedCorsHeaders);
   }
 }
 
@@ -434,22 +457,41 @@ RequestStatistics* CommTask::stealStatistics(uint64_t id) {
   return stat;
 }
 
-/// @brief send response including error response body
+/// @brief send error response including response body
+void CommTask::addSimpleResponse(rest::ResponseCode code,
+                                 rest::ContentType respType, uint64_t mid,
+                                 velocypack::Buffer<uint8_t>&& buffer) {
+  try {
+    auto resp = createResponse(code, mid);
+    resp->setContentType(respType);
+    if (!buffer.empty()) {
+      resp->setPayload(std::move(buffer), true, VPackOptions::Defaults);
+    }
+    sendResponse(std::move(resp), this->stealStatistics(1UL));
+  } catch (...) {
+    LOG_TOPIC("fc831", WARN, Logger::REQUESTS)
+        << "addSimpleResponse received an exception, closing connection";
+    stop();
+  }
+}
 
+/// @brief send response including error response body
 void CommTask::addErrorResponse(rest::ResponseCode code,
                                 rest::ContentType respType, uint64_t messageId,
                                 int errorNum, char const* errorMessage /* = nullptr */) {
-  if (errorMessage == nullptr) {
-    errorMessage = TRI_errno_string(errorNum);
-  }
-  TRI_ASSERT(errorMessage != nullptr);
 
   VPackBuffer<uint8_t> buffer;
   VPackBuilder builder(buffer);
   builder.openObject();
   builder.add(StaticStrings::Error, VPackValue(errorNum != TRI_ERROR_NO_ERROR));
   builder.add(StaticStrings::ErrorNum, VPackValue(errorNum));
-  builder.add(StaticStrings::ErrorMessage, VPackValue(errorMessage));
+  if (errorNum != TRI_ERROR_NO_ERROR) {
+    if (errorMessage == nullptr) {
+      errorMessage = TRI_errno_string(errorNum);
+    }
+    TRI_ASSERT(errorMessage != nullptr);
+    builder.add(StaticStrings::ErrorMessage, VPackValue(errorMessage));
+  }
   builder.add(StaticStrings::Code, VPackValue(static_cast<int>(code)));
   builder.close();
 
@@ -477,8 +519,14 @@ bool CommTask::handleRequestSync(std::shared_ptr<RestHandler> handler) {
   auto cb = [self = shared_from_this(), handler = std::move(handler)]() mutable {
     RequestStatistics::SET_QUEUE_END(handler->statistics());
     handler->runHandler([self = std::move(self)](rest::RestHandler* handler) {
-      // Pass the response the io context
-      self->sendResponse(handler->stealResponse(), handler->stealStatistics());
+      try {
+        // Pass the response to the io context
+        self->sendResponse(handler->stealResponse(), handler->stealStatistics());
+      } catch (...) {
+        LOG_TOPIC("fc834", WARN, Logger::REQUESTS)
+            << "got an exception while sending response, closing connection";
+        self->stop();
+      }
     });
   };
   bool ok = SchedulerFeature::SCHEDULER->queue(lane, std::move(cb));
@@ -613,7 +661,7 @@ CommTask::Flow CommTask::canAccessPath(auth::TokenCache::Entry const& token,
 }
 
 /// deny credentialed requests or not (only CORS)
-bool CommTask::allowCorsCredentials(std::string const& origin) {
+bool CommTask::allowCorsCredentials(std::string const& origin) const {
   // default is to allow nothing
   bool allowCredentials = false;
   if (origin.empty()) {

@@ -49,11 +49,6 @@ class VstCommTask final : public GeneralCommTask<T> {
 
   std::unique_ptr<GeneralResponse> createResponse(rest::ResponseCode,
                                                   uint64_t messageId) override final;
-
-  // @brief send simple response including response body
-  void addSimpleResponse(rest::ResponseCode, rest::ContentType, uint64_t messageId,
-                         velocypack::Buffer<uint8_t>&&) override;
-
   // convert from GeneralResponse to VstResponse ad dispatch request to class
   // internal addResponse
   void sendResponse(std::unique_ptr<GeneralResponse>, RequestStatistics*) override;
@@ -98,10 +93,10 @@ class VstCommTask final : public GeneralCommTask<T> {
   };
   
   struct ResponseItem {
-    RequestStatistics* stat;
     velocypack::Buffer<uint8_t> metadata;
-    std::unique_ptr<GeneralResponse> response;
     std::vector<asio_ns::const_buffer> buffers;
+    std::unique_ptr<GeneralResponse> response;
+    RequestStatistics* stat;
   };
   /// default max chunksize is 30kb in arangodb in all versions
   static constexpr size_t maxChunkSize = 30 * 1024;

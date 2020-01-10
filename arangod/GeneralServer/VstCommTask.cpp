@@ -71,25 +71,6 @@ VstCommTask<T>::~VstCommTask() noexcept try {
   }
 } catch(...) {}
 
-/// @brief send simple response including response body
-template<SocketType T>
-void VstCommTask<T>::addSimpleResponse(rest::ResponseCode code,
-                                       rest::ContentType respType, uint64_t messageId,
-                                       velocypack::Buffer<uint8_t>&& buffer) {
-  auto resp = std::make_unique<VstResponse>(code, messageId);
-  TRI_ASSERT(respType == rest::ContentType::VPACK);  // or not ?
-  resp->setContentType(respType);
-
-  try {
-    if (!buffer.empty()) {
-      resp->setPayload(std::move(buffer), true, VPackOptions::Defaults);
-    }
-    sendResponse(std::move(resp), this->stealStatistics(messageId));
-  } catch (...) {
-    this->close();
-  }
-}
-
 template <SocketType T>
 bool VstCommTask<T>::readCallback(asio_ns::error_code ec) {
   using namespace fuerte;
@@ -271,8 +252,8 @@ bool VstCommTask<T>::processMessage(velocypack::Buffer<uint8_t> buffer,
     LOG_TOPIC("b5073", ERR, Logger::REQUESTS)
     << "\"vst-request-header\",\"" << (void*)this << "/"
     << messageId << "\"" << " is unsupported";
-    addSimpleResponse(rest::ResponseCode::BAD, rest::ContentType::VPACK,
-                      messageId, VPackBuffer<uint8_t>());
+    this->addSimpleResponse(rest::ResponseCode::BAD, rest::ContentType::VPACK,
+                            messageId, VPackBuffer<uint8_t>());
   }
   return true;
 }
@@ -288,13 +269,14 @@ void VstCommTask<T>::sendResponse(std::unique_ptr<GeneralResponse> baseRes, Requ
   VstResponse& response = static_cast<VstResponse&>(*baseRes);
 #endif
 
-  this->finishExecution(*baseRes);
+  this->finishExecution(*baseRes, /*cors*/StaticStrings::Empty);
 
   auto resItem = std::make_unique<ResponseItem>();
   response.writeMessageHeader(resItem->metadata);
   resItem->response = std::move(baseRes);
-  RequestStatistics::SET_WRITE_START(stat);
   resItem->stat = stat;
+  
+  RequestStatistics::SET_WRITE_START(stat);
 
   asio_ns::const_buffer payload;
   if (response.generateBody()) {

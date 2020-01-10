@@ -52,10 +52,17 @@ void GeneralCommTask<T>::start() {
 }
 
 template <SocketType T>
+void GeneralCommTask<T>::stop() {
+  asio_ns::post(_protocol->context.io_context, [self = shared_from_this()] {
+    static_cast<GeneralCommTask<T>&>(*self).close(asio_ns::error_code());
+  });
+}
+
+template <SocketType T>
 void GeneralCommTask<T>::close(asio_ns::error_code const& err) {
   if (err && err != asio_ns::error::misc_errors::eof) {
-    LOG_TOPIC("2b6b3", ERR, arangodb::Logger::REQUESTS)
-    << "asio error: '" << err.message() << "'";
+    LOG_TOPIC("2b6b3", WARN, arangodb::Logger::REQUESTS)
+    << "asio IO error: '" << err.message() << "'";
   }
   
   if (_protocol) {
@@ -68,6 +75,22 @@ void GeneralCommTask<T>::close(asio_ns::error_code const& err) {
     }
   }
   _server.unregisterTask(this);  // will delete us
+}
+
+/// set / reset connection timeout
+template <SocketType T>
+void GeneralCommTask<T>::setTimeout(double secs) {
+  int64_t millis = static_cast<int64_t>(secs * 1000);
+  this->_protocol->timer.expires_after(std::chrono::milliseconds(millis));
+  this->_protocol->timer.async_wait([self = CommTask::weak_from_this()](asio_ns::error_code ec) {
+    std::shared_ptr<CommTask> s;
+    if (ec || !(s = self.lock())) {  // was canceled / deallocated
+      return;
+    }
+    LOG_TOPIC("5c1e0", INFO, Logger::REQUESTS)
+        << "keep alive timeout, closing stream!";
+    static_cast<GeneralCommTask<T>&>(*s).close(ec);
+  });
 }
 
 template <SocketType T>

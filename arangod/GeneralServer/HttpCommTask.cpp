@@ -23,23 +23,20 @@
 
 #include "HttpCommTask.h"
 
+#include "Basics/ScopeGuard.h"
 #include "Basics/asio_ns.h"
 #include "Cluster/ServerState.h"
-#include "GeneralServer/AuthenticationFeature.h"
 #include "GeneralServer/GeneralServer.h"
 #include "GeneralServer/GeneralServerFeature.h"
 #include "GeneralServer/H2CommTask.h"
-#include "GeneralServer/RestHandler.h"
-#include "GeneralServer/RestHandlerFactory.h"
 #include "GeneralServer/VstCommTask.h"
 #include "Logger/LogMacros.h"
-#include "Meta/conversion.h"
 #include "Rest/HttpRequest.h"
 #include "Rest/HttpResponse.h"
 #include "Statistics/ConnectionStatistics.h"
 #include "Statistics/RequestStatistics.h"
-#include "Utils/Events.h"
 
+#include <velocypack/velocypack-aliases.h>
 #include <cstring>
 
 using namespace arangodb;
@@ -78,7 +75,7 @@ int HttpCommTask<T>::on_message_began(llhttp_t* p) {
   me->_lastHeaderField.clear();
   me->_lastHeaderValue.clear();
   me->_origin.clear();
-  me->_request = std::make_unique<HttpRequest>(me->_connectionInfo, /*messageId*/1,
+  me->_request = std::make_unique<HttpRequest>(me->_connectionInfo, /*messageId*/ 1,
                                                me->_allowMethodOverride);
   me->_response.reset();
   me->_lastHeaderWasValue = false;
@@ -160,11 +157,6 @@ int HttpCommTask<T>::on_header_complete(llhttp_t* p) {
                           rest::ContentType::UNSET, 1, VPackBuffer<uint8_t>());
     return HPE_USER;
   }
-  if (p->content_length > 0) {
-    // lets not reserve more than 64MB at once
-    uint64_t maxReserve = std::min<uint64_t>(2 << 26, p->content_length);
-    me->_request->body().reserve(maxReserve + 1);
-  }
   me->_shouldKeepAlive = llhttp_should_keep_alive(p);
 
   bool found;
@@ -245,25 +237,6 @@ void HttpCommTask<T>::start() {
     }
     me->checkVSTPrefix();
   });
-}
-
-/// @brief send error response including response body
-template <SocketType T>
-void HttpCommTask<T>::addSimpleResponse(rest::ResponseCode code,
-                                        rest::ContentType respType, uint64_t mid,
-                                        velocypack::Buffer<uint8_t>&& buffer) {
-  try {
-    auto resp = std::make_unique<HttpResponse>(code, mid);
-    resp->setContentType(respType);
-    if (!buffer.empty()) {
-      resp->setPayload(std::move(buffer), true, VPackOptions::Defaults);
-    }
-    sendResponse(std::move(resp), this->stealStatistics(1UL));
-  } catch (...) {
-    LOG_TOPIC("fc831", WARN, Logger::REQUESTS)
-        << "addSimpleResponse received an exception, closing connection";
-    this->close();
-  }
 }
 
 template <SocketType T>
@@ -371,6 +344,7 @@ bool HttpCommTask<T>::checkHttpUpgrade() {
 template <SocketType T>
 void HttpCommTask<T>::processRequest() {
   TRI_ASSERT(_request);
+  this->_protocol->timer.cancel();
 
   // we may have gotten an Upgrade request
   if (_parser.upgrade) {
@@ -390,7 +364,6 @@ void HttpCommTask<T>::processRequest() {
   // C functions like strchr that except a C string as input
   _request->body().push_back('\0');
   _request->body().resetTo(_request->body().size() - 1);
-  this->_protocol->timer.cancel();
 
   {
     LOG_TOPIC("6e770", INFO, Logger::REQUESTS)
@@ -409,7 +382,7 @@ void HttpCommTask<T>::processRequest() {
           << StringUtils::escapeUnicode(body.toString()) << "\"";
     }
   }
-  
+
   // store origin header for later use
   _origin = _request->header(StaticStrings::Origin);
 
@@ -457,27 +430,8 @@ void HttpCommTask<T>::sendResponse(std::unique_ptr<GeneralResponse> baseRes,
   HttpResponse& response = static_cast<HttpResponse&>(*baseRes);
 #endif
 
-  this->finishExecution(*baseRes);
-
-  // CORS response handling
-  if (!_origin.empty()) {
-    // the request contained an Origin header. We have to send back the
-    // access-control-allow-origin header now
-    LOG_TOPIC("ae603", DEBUG, arangodb::Logger::REQUESTS)
-        << "handling CORS response";
-
-    // send back original value of "Origin" header
-    response.setHeaderNCIfNotSet(StaticStrings::AccessControlAllowOrigin, _origin);
-
-    // send back "Access-Control-Allow-Credentials" header
-    response.setHeaderNCIfNotSet(StaticStrings::AccessControlAllowCredentials,
-                                 (this->allowCorsCredentials(_origin) ? "true" : "false"));
-
-    // use "IfNotSet" here because we should not override HTTP headers set
-    // by Foxx applications
-    response.setHeaderNCIfNotSet(StaticStrings::AccessControlExposeHeaders,
-                                 StaticStrings::ExposedCorsHeaders);
-  }
+  // will add CORS headers if necessary
+  this->finishExecution(*baseRes, _origin);
 
   if (!ServerState::instance()->isDBServer()) {
     // DB server is not user-facing, and does not need to set this header
@@ -546,23 +500,12 @@ void HttpCommTask<T>::sendResponse(std::unique_ptr<GeneralResponse> baseRes,
   // turn on the keepAlive timer
   double secs = GeneralServerFeature::keepAliveTimeout();
   if (_shouldKeepAlive && secs > 0) {
-    int64_t millis = static_cast<int64_t>(secs * 1000);
-    this->_protocol->timer.expires_after(std::chrono::milliseconds(millis));
-    this->_protocol->timer.async_wait([self = CommTask::weak_from_this()](asio_ns::error_code ec) {
-      std::shared_ptr<CommTask> s;
-      if (ec || !(s = self.lock())) {  // was canceled / deallocated
-        return;
-      }
-      LOG_TOPIC("5c1e0", INFO, Logger::REQUESTS)
-          << "keep alive timeout, closing stream!";
-      static_cast<HttpCommTask<T>*>(s.get())->close(ec);
-    });
-
+    this->setTimeout(secs);
     _header.append(TRI_CHAR_LENGTH_PAIR("Connection: Keep-Alive\r\n"));
   } else {
     _header.append(TRI_CHAR_LENGTH_PAIR("Connection: Close\r\n"));
   }
-  
+
   if (response.contentType() != ContentType::CUSTOM) {
     _header.append("Content-Type: ");
     _header.append(rest::contentTypeToString(response.contentType()));
@@ -641,7 +584,8 @@ void HttpCommTask<T>::writeResponse(RequestStatistics* stat) {
 }
 
 template <SocketType T>
-std::unique_ptr<GeneralResponse> HttpCommTask<T>::createResponse(rest::ResponseCode responseCode, uint64_t mid) {
+std::unique_ptr<GeneralResponse> HttpCommTask<T>::createResponse(rest::ResponseCode responseCode,
+                                                                 uint64_t mid) {
   TRI_ASSERT(mid == 1);
   return std::make_unique<HttpResponse>(responseCode, mid);
 }

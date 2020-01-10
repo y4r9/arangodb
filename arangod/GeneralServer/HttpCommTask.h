@@ -47,10 +47,6 @@ class HttpCommTask final : public GeneralCommTask<T> {
   void start() override;
 
  protected:
-  /// @brief send error response including response body
-  void addSimpleResponse(rest::ResponseCode, rest::ContentType, uint64_t messageId,
-                         velocypack::Buffer<uint8_t>&&) override;
-
   bool readCallback(asio_ns::error_code ec) override;
 
   void sendResponse(std::unique_ptr<GeneralResponse> response, RequestStatistics* stat) override;

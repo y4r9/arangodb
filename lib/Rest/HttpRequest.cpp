@@ -548,8 +548,7 @@ void HttpRequest::setHeaderV2(std::string&& key, std::string&& value) {
              (memcmp(value.c_str(),
                      StaticStrings::MimeTypeJsonNoEncoding.c_str(),
                      StaticStrings::MimeTypeJsonNoEncoding.length()) == 0)) {
-      // ignore encoding etc.
-      _contentType = ContentType::JSON;
+      _contentType = ContentType::JSON; // don't insert this header!!
       return;
     }
   } else if (key == StaticStrings::AcceptEncoding) {

@@ -23,22 +23,18 @@
 #include "H2CommTask.h"
 
 #include "Basics/Exceptions.h"
+#include "Basics/ScopeGuard.h"
 #include "Basics/asio_ns.h"
 #include "Cluster/ServerState.h"
-#include "GeneralServer/AuthenticationFeature.h"
 #include "GeneralServer/GeneralServer.h"
 #include "GeneralServer/GeneralServerFeature.h"
-#include "GeneralServer/RestHandler.h"
-#include "GeneralServer/RestHandlerFactory.h"
-#include "GeneralServer/VstCommTask.h"
 #include "Logger/LogMacros.h"
-#include "Meta/conversion.h"
 #include "Rest/HttpRequest.h"
 #include "Rest/HttpResponse.h"
 #include "Statistics/ConnectionStatistics.h"
 #include "Statistics/RequestStatistics.h"
-#include "Utils/Events.h"
 
+#include <velocypack/velocypack-aliases.h>
 #include <cstring>
 
 using namespace arangodb;
@@ -96,20 +92,7 @@ template <SocketType T>
     strm->request->setHeaderV2(field.toString(),
                                std::string(reinterpret_cast<const char*>(value), valuelen));
 
-    // TODO reserve content-size
-
     // TODO limit max header size ??
-
-    //    if (req.header_buffer_size() + namelen + valuelen > 64_k) {
-    //      nghttp2_submit_rst_stream(session, NGHTTP2_FLAG_NONE, frame->hd.stream_id,
-    //                                NGHTTP2_INTERNAL_ERROR);
-    //      break;
-    //    }
-    //    req.update_header_buffer_size(namelen + valuelen);
-    //
-    //    req.header().emplace(std::string(name, name + namelen),
-    //                         header_value{std::string(value, value + valuelen),
-    //                                      (flags & NGHTTP2_NV_FLAG_NO_INDEX) != 0});
   }
 
   return 0;
@@ -119,34 +102,18 @@ template <SocketType T>
 int H2CommTask<T>::on_frame_recv(nghttp2_session* session,
                                  const nghttp2_frame* frame, void* user_data) {
   H2CommTask<T>* me = static_cast<H2CommTask<T>*>(user_data);
-  int32_t stream_id = frame->hd.stream_id;
-  Stream* strm = me->findStream(stream_id);
 
   switch (frame->hd.type) {
     case NGHTTP2_DATA:
-      if (!strm) {
-        break;
-      }
-
-      //    if (frame->hd.flags & NGHTTP2_FLAG_END_STREAM) {
-      //      strm->request().impl().call_on_data(nullptr, 0);
-      //    }
-
-      break;
     case NGHTTP2_HEADERS: {
-      if (!strm || frame->headers.cat != NGHTTP2_HCAT_REQUEST) {
-        break;
+      if (frame->hd.flags & NGHTTP2_FLAG_END_STREAM) {
+        int32_t stream_id = frame->hd.stream_id;
+        Stream* strm = me->findStream(stream_id);
+
+        if (strm) {
+          me->processStream(strm);
+        }
       }
-
-      //    auto &req = strm->request().impl();
-      //    req.remote_endpoint(handler->remote_endpoint());
-
-      me->processStream(strm);
-
-      //    if (frame->hd.flags & NGHTTP2_FLAG_END_STREAM) {
-      //      strm->request().impl().call_on_data(nullptr, 0);
-      //    }
-
       break;
     }
   }
@@ -171,7 +138,6 @@ template <SocketType T>
 /*static*/ int H2CommTask<T>::on_stream_close(nghttp2_session* session, int32_t stream_id,
                                               uint32_t error_code, void* user_data) {
   H2CommTask<T>* me = static_cast<H2CommTask<T>*>(user_data);
-  LOG_DEVEL << "erasing stream " << stream_id;
   me->_streams.erase(stream_id);
   return 0;
 }
@@ -210,6 +176,10 @@ template <SocketType T>
 H2CommTask<T>::~H2CommTask() noexcept {
   nghttp2_session_del(_session);
   _session = nullptr;
+  if (!_streams.empty()) {
+    LOG_TOPIC("924cf", WARN, Logger::REQUESTS) << "got "
+      << _streams.size() << " remaining H2 streams";
+  }
 }
 
 /// init h2 session
@@ -307,33 +277,12 @@ void H2CommTask<T>::start() {
   });
 }
 
-/// @brief send error response including response body
-template <SocketType T>
-void H2CommTask<T>::addSimpleResponse(rest::ResponseCode code,
-                                      rest::ContentType respType, uint64_t mid,
-                                      velocypack::Buffer<uint8_t>&& buffer) {
-  try {
-    auto resp = this->createResponse(code, mid);
-    resp->setContentType(respType);
-    if (!buffer.empty()) {
-      resp->setPayload(std::move(buffer), true, VPackOptions::Defaults);
-    }
-    sendResponse(std::move(resp), this->stealStatistics(mid));
-  } catch (...) {
-    LOG_TOPIC("fc831", WARN, Logger::REQUESTS)
-        << "addSimpleResponse received an exception, closing connection";
-    this->close();
-  }
-}
-
 template <SocketType T>
 bool H2CommTask<T>::readCallback(asio_ns::error_code ec) {
   if (ec) {
     this->close(ec);
     return false;  // stop read loop
   }
-
-  LOG_DEVEL << "H2CommTask<T>::readCallback(";
 
   size_t parsedBytes = 0;
   for (auto const& buffer : this->_protocol->buffer.data()) {
@@ -376,7 +325,7 @@ void H2CommTask<T>::processStream(H2CommTask<T>::Stream* stream) {
   this->_protocol->timer.cancel();
 
   {
-    LOG_TOPIC("6e770", INFO, Logger::REQUESTS)
+    LOG_TOPIC("924ce", INFO, Logger::REQUESTS)
         << "\"http2-request-begin\",\"" << (void*)this << "\",\""
         << this->_connectionInfo.clientAddress << "\",\""
         << HttpRequest::translateMethod(req->requestType()) << "\",\""
@@ -387,7 +336,7 @@ void H2CommTask<T>::processStream(H2CommTask<T>::Stream* stream) {
     VPackStringRef body = req->rawPayload();
     if (!body.empty() && Logger::isEnabled(LogLevel::TRACE, Logger::REQUESTS) &&
         Logger::logRequestParameters()) {
-      LOG_TOPIC("b9e76", TRACE, Logger::REQUESTS)
+      LOG_TOPIC("b6dc3", TRACE, Logger::REQUESTS)
           << "\"http2-request-body\",\"" << (void*)this << "\",\""
           << StringUtils::escapeUnicode(body.toString()) << "\"";
     }
@@ -433,20 +382,9 @@ void H2CommTask<T>::processStream(H2CommTask<T>::Stream* stream) {
 }
 
 namespace {
-// Create nghttp2_nv from string literal |name| and |value|.
-template <size_t N, size_t M>
-constexpr nghttp2_nv make_nv_ll(const char (&name)[N], const char (&value)[M]) {
-  return {(uint8_t*)name, (uint8_t*)value, N - 1, M - 1,
-          NGHTTP2_NV_FLAG_NO_COPY_NAME | NGHTTP2_NV_FLAG_NO_COPY_VALUE};
-}
-
-bool expect_response_body(int status_code) {
+bool expectResponseBody(int status_code) {
   return status_code == 101 ||
          (status_code / 100 != 1 && status_code != 304 && status_code != 204);
-}
-
-bool expect_response_body(rest::RequestType method, int status_code) {
-  return method != rest::RequestType::HEAD && expect_response_body(status_code);
 }
 }  // namespace
 
@@ -459,38 +397,16 @@ void H2CommTask<T>::sendResponse(std::unique_ptr<GeneralResponse> baseRes,
   HttpResponse& response = static_cast<HttpResponse&>(*baseRes);
 #endif
 
-  this->finishExecution(*baseRes);
-
   const uint32_t streamId = response.messageId();
   Stream* strm = findStream(streamId);
   if (strm == nullptr) {
-    LOG_TOPIC("be602", ERR, Logger::REQUESTS)
+    LOG_TOPIC("9912b", ERR, Logger::REQUESTS)
         << "response with message id " << response.messageId() << "has not H2 stream";
     TRI_ASSERT(false);
     return;
   }
 
-  // CORS response handling
-  if (!strm->origin.empty()) {
-    // the request contained an Origin header. We have to send back the
-    // access-control-allow-origin header now
-    LOG_TOPIC("be603", DEBUG, arangodb::Logger::REQUESTS)
-        << "handling CORS response";
-
-    // send back original value of "Origin" header
-    response.setHeaderNCIfNotSet(StaticStrings::AccessControlAllowOrigin, strm->origin);
-
-    // send back "Access-Control-Allow-Credentials" header
-    response.setHeaderNCIfNotSet(StaticStrings::AccessControlAllowCredentials,
-                                 (this->allowCorsCredentials(strm->origin)
-                                      ? "true"
-                                      : "false"));
-
-    // use "IfNotSet" here because we should not override HTTP headers set
-    // by Foxx applications
-    response.setHeaderNCIfNotSet(StaticStrings::AccessControlExposeHeaders,
-                                 StaticStrings::ExposedCorsHeaders);
-  }
+  this->finishExecution(*baseRes, strm->origin);
 
   if (!ServerState::instance()->isDBServer()) {
     // DB server is not user-facing, and does not need to set this header
@@ -502,8 +418,8 @@ void H2CommTask<T>::sendResponse(std::unique_ptr<GeneralResponse> baseRes,
   double const totalTime = RequestStatistics::ELAPSED_SINCE_READ_START(stat);
 
   // and give some request information
-  LOG_TOPIC("8f555", DEBUG, Logger::REQUESTS)
-      << "\"http-request-end\",\"" << (void*)this << "\",\""
+  LOG_TOPIC("924cc", DEBUG, Logger::REQUESTS)
+      << "\"h2-request-end\",\"" << (void*)this << "\",\""
       << this->_connectionInfo.clientAddress
       << "\",\""
       //      << GeneralRequest::translateMethod(::llhttpToRequestType(&_parser))
@@ -527,7 +443,7 @@ void H2CommTask<T>::queueHttp2Responses() {
   while (_waitingResponses.pop(streamId)) {
     Stream* strm = findStream(streamId);
     if (strm == nullptr) {
-      LOG_TOPIC("be602", ERR, Logger::REQUESTS)
+      LOG_TOPIC("e2773", ERR, Logger::REQUESTS)
           << "response with message id " << streamId << "has not H2 stream";
       TRI_ASSERT(false);
       return;
@@ -537,7 +453,7 @@ void H2CommTask<T>::queueHttp2Responses() {
 
     // we need a continous block of memory for headers
     std::vector<nghttp2_nv> nva;
-    nva.reserve(3 + res.headers().size());
+    nva.reserve(4 + res.headers().size());
 
     std::string status = std::to_string(static_cast<int>(res.responseCode()));
     nva.push_back({(uint8_t*)":status", (uint8_t*)status.data(), 7,
@@ -569,29 +485,30 @@ void H2CommTask<T>::queueHttp2Responses() {
                      NGHTTP2_NV_FLAG_NO_COPY_NAME | NGHTTP2_NV_FLAG_NO_COPY_VALUE});
     }
 
+    for (std::string const& cookie : res.cookies()) {
+      nva.push_back({(uint8_t*)"set-cookie", (uint8_t*)cookie.c_str(), 10,
+                     cookie.length(),
+                     NGHTTP2_NV_FLAG_NO_COPY_NAME | NGHTTP2_NV_FLAG_NO_COPY_VALUE});
+    }
+
     std::string type;
     if (res.contentType() != ContentType::CUSTOM) {
       type = rest::contentTypeToString(res.contentType());
-      nva.push_back({(uint8_t*)"content-type", (uint8_t*)type.c_str(),
-                     12, type.length(), NGHTTP2_NV_FLAG_NO_COPY_NAME});
+      nva.push_back({(uint8_t*)"content-type", (uint8_t*)type.c_str(), 12,
+                     type.length(), NGHTTP2_NV_FLAG_NO_COPY_NAME});
     }
-    
-    std::string len = std::to_string(res.bodySize());
-    nva.push_back({(uint8_t*)"content-length", (uint8_t*)len.c_str(),
-                    14, len.length(), NGHTTP2_NV_FLAG_NO_COPY_NAME});
-
-    for (std::string const& cookie : res.cookies()) {
-      nva.push_back({(uint8_t*)"set-cookie", (uint8_t*)cookie.c_str(), 10, cookie.length(),
-                      NGHTTP2_NV_FLAG_NO_COPY_NAME | NGHTTP2_NV_FLAG_NO_COPY_VALUE});
-    }
-    
-
-    // queue response frames
 
     nghttp2_data_provider *prd_ptr = nullptr, prd;
+    
+    std::string len;
+    if (!res.isHeadResponse() &&
+        ::expectResponseBody(static_cast<int>(res.responseCode())) &&
+        !res.isResponseEmpty()) {
+      
+      len = std::to_string(res.bodySize());
+      nva.push_back({(uint8_t*)"content-length", (uint8_t*)len.c_str(), 14,
+                     len.length(), NGHTTP2_NV_FLAG_NO_COPY_NAME});
 
-#warning TODO properly check whether a response body is expected
-    if (!strm->response->isResponseEmpty()) {
       prd.source.ptr = strm;
       prd.read_callback = [](nghttp2_session* session, int32_t stream_id,
                              uint8_t* buf, size_t length, uint32_t* data_flags,
@@ -669,11 +586,9 @@ void H2CommTask<T>::doWrite() {
     return;
   }
 
-  // Reset read deadline here, because normally client is sending
+  // Reset read timer here, because normally client is sending
   // something, it does not expect timeout while doing it.
-
-#warning TODO figure out timeouts
-  // this->_protocol->timer.expires_after(std::chrono::milliseconds(millis));
+  this->setTimeout(/*secs*/60.0);
 
   asio_ns::async_write(this->_protocol->socket, outBuffers,
                        [self = this->shared_from_this()](const asio_ns::error_code& ec,
@@ -698,7 +613,7 @@ std::unique_ptr<GeneralResponse> H2CommTask<T>::createResponse(rest::ResponseCod
 template <SocketType T>
 typename H2CommTask<T>::Stream* H2CommTask<T>::createStream(int32_t sid,
                                                             std::unique_ptr<HttpRequest> req) {
-  TRI_ASSERT(req->messageId() == sid);
+  TRI_ASSERT(static_cast<uint64_t>(sid) == req->messageId());
   auto stream = std::make_unique<Stream>(std::move(req));
   auto [it, inserted] = _streams.emplace(sid, std::move(stream));
   return it->second.get();

@@ -200,10 +200,8 @@ bool tls_h2_negotiated(SSL* ssl) {
   // http://www.iana.org/assignments/tls-extensiontype-values/tls-extensiontype-values.xhtml
   if (next_proto != nullptr && next_proto_len == 2 &&
       memcmp(next_proto, "h2", 2) == 0) {
-    LOG_DEVEL << "ALPN indicates HTTP2";
     return true;
   }
-  LOG_DEVEL << "ALPN does not indicate HTTP2";
   return false;
 }
 }
