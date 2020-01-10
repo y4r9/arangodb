@@ -184,12 +184,6 @@ int HttpCommTask<T>::on_header_complete(llhttp_t* p) {
     return HPE_OK;
   }
 
-  if (p->upgrade) {
-    std::string const& upgrade = me->_request->header("upgrade", found);
-    if (found && upgrade == "h2c") {
-      return 2;  // 2 defined by parser to turn into HPE_PAUSED_UPGRADE
-    }
-  }
   if (me->_request->requestType() == RequestType::HEAD) {
     // Assume that request/response has no body, proceed parsing next message
     return 1;  // 1 is defined by parser
@@ -415,15 +409,15 @@ void HttpCommTask<T>::processRequest() {
           << StringUtils::escapeUnicode(body.toString()) << "\"";
     }
   }
+  
+  // store origin header for later use
+  _origin = _request->header(StaticStrings::Origin);
 
   // OPTIONS requests currently go unauthenticated
   if (_request->requestType() == rest::RequestType::OPTIONS) {
     this->processCorsOptions(std::move(_request));
     return;
   }
-  
-  // store origin header for later use
-  _origin = _request->header(StaticStrings::Origin);
 
   // scrape the auth headers to determine and authenticate the user
   auto authToken = this->checkAuthHeader(*_request);
@@ -569,9 +563,11 @@ void HttpCommTask<T>::sendResponse(std::unique_ptr<GeneralResponse> baseRes,
     _header.append(TRI_CHAR_LENGTH_PAIR("Connection: Close\r\n"));
   }
   
-  _header.append("Content-Type: ");
-  _header.append(rest::contentTypeToString(response.contentType()));
-  _header.append("\r\n");
+  if (response.contentType() != ContentType::CUSTOM) {
+    _header.append("Content-Type: ");
+    _header.append(rest::contentTypeToString(response.contentType()));
+    _header.append("\r\n");
+  }
 
   for (auto const& it : response.cookies()) {
     _header.append(TRI_CHAR_LENGTH_PAIR("Set-Cookie: "));

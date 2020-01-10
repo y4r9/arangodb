@@ -28,7 +28,6 @@
 #include "Basics/Result.h"
 #include "Basics/ScopeGuard.h"
 #include "Basics/VelocyPackHelper.h"
-#include "Basics/cpu-relax.h"
 #include "Basics/tryEmplaceHelper.h"
 #include "Cluster/ServerState.h"
 #include "GeneralServer/AuthenticationFeature.h"
@@ -326,11 +325,11 @@ void VstCommTask<T>::sendResponse(std::unique_ptr<GeneralResponse> baseRes, Requ
     if (_writeQueue.push(resItem.get())) {
       break;
     }
-    cpu_relax();
+    std::this_thread::yield();
   }
   resItem.release();
 
-  // start writing
+  // start writing if necessary
   bool expected = _writing.load();
   if (false == expected) {
     if (_writing.compare_exchange_strong(expected, true)) {

@@ -26,9 +26,10 @@
 #include "GeneralServer/AsioSocket.h"
 #include "GeneralServer/GeneralCommTask.h"
 
-#include <velocypack/StringRef.h>
-#include <memory>
 #include <nghttp2/nghttp2.h>
+#include <velocypack/StringRef.h>
+#include <boost/lockfree/queue.hpp>
+#include <memory>
 
 namespace arangodb {
 class HttpRequest;
@@ -82,8 +83,7 @@ class H2CommTask final : public GeneralCommTask<T> {
  private:
   // ongoing Http2 stream
   struct Stream {
-    Stream(std::unique_ptr<HttpRequest> req)
-        : request(std::move(req)) {}
+    Stream(std::unique_ptr<HttpRequest> req) : request(std::move(req)) {}
 
     std::string origin;
     std::unique_ptr<HttpRequest> request;
@@ -94,42 +94,36 @@ class H2CommTask final : public GeneralCommTask<T> {
 
   /// init h2 session
   void initNgHttp2Session();
-  
-  Stream* createStream(int32_t sid, std::unique_ptr<HttpRequest> );
-  Stream* findStream(int32_t sid) const;
-  void eraseStream(int32_t sid);
+
+  void processStream(Stream* strm);
 
   /// should close connection
   bool shouldStop() const;
-  
+
   // may be used to signal a write from sendResponse
   void signalWrite();
+
+  // queue the response onto the session, call only on IO thread
+  void queueHttp2Responses();
 
   /// actually perform writing
   void doWrite();
 
-  void processStream(Stream* strm);
-  
+  Stream* createStream(int32_t sid, std::unique_ptr<HttpRequest>);
+  Stream* findStream(int32_t sid) const;
+
  private:
   static constexpr size_t kOutBufferLen = 32 * 1024 * 1024;
   std::array<uint8_t, kOutBufferLen> _outbuffer;
-  
-  mutable std::mutex _streamsMutex;
+
+  boost::lockfree::queue<uint32_t, boost::lockfree::capacity<512>> _waitingResponses;
+
   std::map<int32_t, std::unique_ptr<Stream>> _streams;
 
   nghttp2_session* _session = nullptr;
   bool _writing = false;
-  
-  std::atomic<bool> _signaledWrite = false;
 
-  //  const uint8_t *buf_;
-  //
-  //  bool inside_callback_;
-  //  // true if we have pending on_write call.  This avoids repeated call
-  //  // of io_service::post.
-  //  bool write_signaled_;
-  //  time_t tstamp_cached_;
-  //  std::string formatted_date_;
+  std::atomic<bool> _signaledWrite = false;
 };
 }  // namespace rest
 }  // namespace arangodb
