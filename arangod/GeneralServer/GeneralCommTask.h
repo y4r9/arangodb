@@ -49,17 +49,26 @@ class GeneralCommTask : public CommTask {
  protected:
   
   /// set / reset connection timeout
-  void setTimeout(double secs);
+  void setTimeout(std::chrono::milliseconds millis);
   
   /// read from socket
   void asyncReadSome();
+  
+  protected:
+  
+  // set a read timeout in asyncReadSome
+  virtual bool enableReadTimeout() const = 0;
+  
   /// called to process data in _readBuffer, return false to stop
   virtual bool readCallback(asio_ns::error_code ec) = 0;
+
+ protected:
   
   /// default max chunksize is 30kb in arangodb (each read fits)
   static constexpr size_t ReadBlockSize = 1024 * 32;
-
- protected:
+  
+  static constexpr std::chrono::seconds DefaultTimeout{120};
+  
   std::unique_ptr<AsioSocket<T>> _protocol;
 };
 }  // namespace rest

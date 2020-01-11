@@ -46,15 +46,20 @@ class VstCommTask final : public GeneralCommTask<T> {
   ~VstCommTask() noexcept;
 
  protected:
+  
+  // set a read timeout in asyncReadSome
+  bool enableReadTimeout() const override {
+    return true;
+  }
 
-  std::unique_ptr<GeneralResponse> createResponse(rest::ResponseCode,
-                                                  uint64_t messageId) override final;
   // convert from GeneralResponse to VstResponse ad dispatch request to class
   // internal addResponse
   void sendResponse(std::unique_ptr<GeneralResponse>, RequestStatistics*) override;
 
   bool readCallback(asio_ns::error_code ec) override;
   
+  std::unique_ptr<GeneralResponse> createResponse(rest::ResponseCode,
+                                                  uint64_t messageId) override;
 
  private:
   

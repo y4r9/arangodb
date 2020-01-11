@@ -326,7 +326,7 @@ void H2CommTask<T>::processStream(H2CommTask<T>::Stream* stream) {
 
   {
     LOG_TOPIC("924ce", INFO, Logger::REQUESTS)
-        << "\"http2-request-begin\",\"" << (void*)this << "\",\""
+        << "\"h2-request-begin\",\"" << (void*)this << "\",\""
         << this->_connectionInfo.clientAddress << "\",\""
         << HttpRequest::translateMethod(req->requestType()) << "\",\""
         << (req->databaseName().empty() ? "" : "/_db/" + req->databaseName())
@@ -337,7 +337,7 @@ void H2CommTask<T>::processStream(H2CommTask<T>::Stream* stream) {
     if (!body.empty() && Logger::isEnabled(LogLevel::TRACE, Logger::REQUESTS) &&
         Logger::logRequestParameters()) {
       LOG_TOPIC("b6dc3", TRACE, Logger::REQUESTS)
-          << "\"http2-request-body\",\"" << (void*)this << "\",\""
+          << "\"h2-request-body\",\"" << (void*)this << "\",\""
           << StringUtils::escapeUnicode(body.toString()) << "\"";
     }
   }
@@ -588,7 +588,7 @@ void H2CommTask<T>::doWrite() {
 
   // Reset read timer here, because normally client is sending
   // something, it does not expect timeout while doing it.
-  this->setTimeout(/*secs*/60.0);
+  this->setTimeout(this->DefaultTimeout);
 
   asio_ns::async_write(this->_protocol->socket, outBuffers,
                        [self = this->shared_from_this()](const asio_ns::error_code& ec,

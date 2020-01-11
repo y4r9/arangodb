@@ -79,9 +79,8 @@ void GeneralCommTask<T>::close(asio_ns::error_code const& err) {
 
 /// set / reset connection timeout
 template <SocketType T>
-void GeneralCommTask<T>::setTimeout(double secs) {
-  int64_t millis = static_cast<int64_t>(secs * 1000);
-  this->_protocol->timer.expires_after(std::chrono::milliseconds(millis));
+void GeneralCommTask<T>::setTimeout(std::chrono::milliseconds millis) {
+  this->_protocol->timer.expires_after(millis);
   this->_protocol->timer.async_wait([self = CommTask::weak_from_this()](asio_ns::error_code ec) {
     std::shared_ptr<CommTask> s;
     if (ec || !(s = self.lock())) {  // was canceled / deallocated
@@ -122,21 +121,30 @@ void GeneralCommTask<T>::asyncReadSome() try {
   if (_protocol->buffer.size() > 0 && !readCallback(ec)) {
     return;
   }
+  
+  // VST and H2 get a simple timeout here
+  if (enableReadTimeout()) {
+    setTimeout(DefaultTimeout);
+  }
 
   auto mutableBuff = _protocol->buffer.prepare(ReadBlockSize);
   _protocol->socket.async_read_some(
       mutableBuff, [self = shared_from_this()](asio_ns::error_code const& ec, size_t nread) {
-        auto* me = static_cast<GeneralCommTask<T>*>(self.get());
-        me->_protocol->buffer.commit(nread);
+        auto& me = static_cast<GeneralCommTask<T>&>(*self);
+        me._protocol->buffer.commit(nread);
+  
+        if (me.enableReadTimeout()) {
+          me._protocol->timer.cancel();
+        }
 
         try {
-          if (me->readCallback(ec)) {
-            me->asyncReadSome();
+          if (me.readCallback(ec)) {
+            me.asyncReadSome();
           }
         } catch (...) {
           LOG_TOPIC("2c6b6", ERR, arangodb::Logger::REQUESTS)
               << "unhandled protocol exception, closing connection";
-          me->close(ec);
+          me.close(ec);
         }
       });
 } catch (...) {

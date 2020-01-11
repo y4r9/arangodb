@@ -352,7 +352,6 @@ void HttpCommTask<T>::processRequest() {
     std::string const& h2 = _request->header("upgrade");
     std::string const& settings = _request->header("http2-settings", found);
     if (h2 == "h2c" && found && !settings.empty()) {
-      LOG_DEVEL << "H2 upgrade";
       auto task = std::make_shared<H2CommTask<T>>(this->_server, this->_connectionInfo,
                                                   std::move(this->_protocol));
       task->upgrade(std::move(_request));
@@ -500,7 +499,8 @@ void HttpCommTask<T>::sendResponse(std::unique_ptr<GeneralResponse> baseRes,
   // turn on the keepAlive timer
   double secs = GeneralServerFeature::keepAliveTimeout();
   if (_shouldKeepAlive && secs > 0) {
-    this->setTimeout(secs);
+    auto millis = std::chrono::milliseconds(static_cast<int64_t>(secs * 1000));
+    this->setTimeout(millis);
     _header.append(TRI_CHAR_LENGTH_PAIR("Connection: Keep-Alive\r\n"));
   } else {
     _header.append(TRI_CHAR_LENGTH_PAIR("Connection: Close\r\n"));
