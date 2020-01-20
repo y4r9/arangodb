@@ -219,6 +219,9 @@ ConnectionPtr ConnectionPool::selectConnection(std::string const& endpoint,
     } else if (_config.protocol == fuerte::ProtocolType::Vst && num <= 4) {
       c.leased = std::chrono::steady_clock::now();
       return c.fuerte; // TODO: make (num <= 4) configurable ?
+    } else if (_config.protocol == fuerte::ProtocolType::Http2 && num <= 4) {
+      c.leased = std::chrono::steady_clock::now();
+      return c.fuerte; // TODO: make (num <= 4) configurable ?
     }
   }
 
