@@ -89,14 +89,16 @@ struct Socket<SocketType::Tcp> {
   template <typename F>
   void shutdown(F&& cb) {
     asio_ns::error_code ec;  // prevents exceptions
+    try {
 #ifndef _WIN33
-    socket.cancel(ec);
+      socket.cancel(ec);
 #endif
-    if (socket.is_open()) {
-      socket.shutdown(asio_ns::ip::tcp::socket::shutdown_both, ec);
-      ec.clear();
-      socket.close(ec);
-    }
+      if (socket.is_open()) {
+        socket.shutdown(asio_ns::ip::tcp::socket::shutdown_both, ec);
+        ec.clear();
+        socket.close(ec);
+      }
+    } catch(...) {}
     std::forward<F>(cb)(ec);
   }
 
@@ -154,27 +156,27 @@ struct Socket<fuerte::SocketType::Ssl> {
   void shutdown(F&& cb) {
     asio_ns::error_code ec;  // prevents exceptions
     socket.lowest_layer().cancel(ec);
-    if (socket.lowest_layer().is_open()) {
-      timer.expires_from_now(std::chrono::seconds(3));
-      timer.async_wait([this](asio_ns::error_code ec) {
-        if (!ec) {
-          socket.lowest_layer().close(ec);
-        }
-      });
-      socket.async_shutdown([cb(std::forward<F>(cb)), this](auto const& ec) {
-        timer.cancel();
-#ifndef _WIN32
-        if (!ec || ec == asio_ns::error::basic_errors::not_connected) {
-          asio_ns::error_code ec2;
-          socket.lowest_layer().close(ec2);
-        }
-#endif
-        cb(ec);
-      });
-    } else {
+    if (!socket.lowest_layer().is_open()) {
       timer.cancel(ec);
       std::forward<F>(cb)(ec);
+      return;
     }
+    timer.expires_from_now(std::chrono::seconds(3));
+    timer.async_wait([this](asio_ns::error_code ec) {
+      if (!ec) {
+        socket.lowest_layer().close(ec);
+      }
+    });
+    socket.async_shutdown([cb(std::forward<F>(cb)), this](auto const& ec) {
+      timer.cancel();
+#ifndef _WIN32
+      if (!ec || ec == asio_ns::error::basic_errors::not_connected) {
+        asio_ns::error_code ec2;
+        socket.lowest_layer().close(ec2);
+      }
+#endif
+      cb(ec);
+    });
   }
 
   asio_ns::ip::tcp::resolver resolver;

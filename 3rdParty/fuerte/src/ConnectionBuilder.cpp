@@ -175,7 +175,7 @@ ConnectionBuilder& ConnectionBuilder::endpoint(std::string const& spec) {
   std::string::size_type pos = spec.find("://");
   if (std::string::npos != pos) {
     std::string schema = spec.substr(0, pos);
-    boost::algorithm::to_lower(schema);  // in-place
+    toLowerInPlace(schema);  // in-place
     parseSchema(schema, _conf);
   }
 
