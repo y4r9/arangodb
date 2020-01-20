@@ -36,6 +36,11 @@
 #include <functional>
 #include <type_traits>
 
+#if __cplusplus >= 201703L
+#include <string_view>
+#define VELOCYPACK_HAS_STRING_VIEW 1
+#endif
+
 #include "velocypack/velocypack-common.h"
 #include "velocypack/Exception.h"
 #include "velocypack/Options.h"
@@ -463,6 +468,10 @@ class Slice {
   // returns a Slice(ValueType::None) if not found
   Slice get(StringRef const& attribute) const;
 
+  Slice get(std::string_view attribute) const {
+    return get(StringRef(attribute.data(), attribute.length()));
+  }
+
   Slice get(std::string const& attribute) const {
     return get(StringRef(attribute.data(), attribute.size()));
   }
@@ -477,6 +486,10 @@ class Slice {
   
   Slice operator[](StringRef const& attribute) const {
     return get(attribute);
+  }
+
+  Slice operator[](std::string_view attribute) const {
+    return get(StringRef(attribute.data(), attribute.length()));
   }
 
   Slice operator[](std::string const& attribute) const {
@@ -710,6 +723,12 @@ class Slice {
 
     throw Exception(Exception::InvalidValueType, "Expecting type String");
   }
+#ifdef VELOCYPACK_HAS_STRING_VIEW
+  std::string_view stringView() const {
+    StringRef ref  = this->stringRef();
+    return std::string_view(ref.data(), ref.size());
+  }
+#endif
 
   // return the value for a Binary object
   uint8_t const* getBinary(ValueLength& length) const {

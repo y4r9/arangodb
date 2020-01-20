@@ -20,11 +20,13 @@ set(ARANGODB_TESTS_SOURCES
   Agency/FailedLeaderTest.cpp
   Agency/FailedServerTest.cpp
   Agency/MoveShardTest.cpp
+  Agency/NodeTest.cpp
   Agency/RemoveFollowerTest.cpp
   Agency/StoreTest.cpp
   Agency/SupervisionTest.cpp
   Aql/AllRowsFetcherTest.cpp
   Aql/AqlHelper.cpp
+  Aql/AqlItemBlockInputRangeTest.cpp
   Aql/AqlItemBlockTest.cpp
   Aql/AqlItemRowPrinter.cpp
   Aql/AqlItemRowTest.cpp
@@ -44,6 +46,7 @@ set(ARANGODB_TESTS_SOURCES
   Aql/FilterExecutorTest.cpp
   Aql/HashedCollectExecutorTest.cpp
   Aql/IdExecutorTest.cpp
+  Aql/IndexNodeTest.cpp
   Aql/InsertExecutorTest.cpp
   Aql/KShortestPathsExecutorTest.cpp
   Aql/LimitExecutorTest.cpp
@@ -79,11 +82,12 @@ set(ARANGODB_TESTS_SOURCES
   Basics/hashes-test.cpp
   Basics/icu-helper.cpp
   Basics/json-test.cpp
+  Basics/overload-test.cpp
   Basics/priorityqueue-test.cpp
   Basics/string-buffer-test.cpp
+  Basics/string-test.cpp
   Basics/string-utf8-normalize-test.cpp
   Basics/string-utf8-test.cpp
-  Basics/string-test.cpp
   Basics/structure-size-test.cpp
   Basics/vector-test.cpp
   Basics/ApplicationServerTest.cpp
@@ -165,13 +169,16 @@ set(ARANGODB_TESTS_SOURCES
   IResearch/IResearchQueryIn-test.cpp
   IResearch/IResearchQueryInRange-test.cpp
   IResearch/IResearchQueryJoin-test.cpp
+  IResearch/IResearchQueryLateMaterialization-test.cpp
   IResearch/IResearchQueryMinMatch-test.cpp
+  IResearch/IResearchQueryNoMaterialization-test.cpp
   IResearch/IResearchQueryNullTerm-test.cpp
   IResearch/IResearchQueryNumericTerm-test.cpp
   IResearch/IResearchQueryOptimization-test.cpp
   IResearch/IResearchQueryOptions-test.cpp
   IResearch/IResearchQueryOr-test.cpp
   IResearch/IResearchQueryPhrase-test.cpp
+  IResearch/IResearchQueryWildcard-test.cpp
   IResearch/IResearchQueryScorer-test.cpp
   IResearch/IResearchQuerySelectAll-test.cpp
   IResearch/IResearchQueryStartsWith-test.cpp
@@ -192,6 +199,7 @@ set(ARANGODB_TESTS_SOURCES
   Maintenance/MaintenanceRestHandlerTest.cpp
   Maintenance/MaintenanceTest.cpp
   ${RCFILE}
+  Metrics/MetricsTest.cpp
   Mocks/LogLevels.cpp
   Mocks/StorageEngineMock.cpp
   Mocks/Servers.cpp
@@ -279,7 +287,7 @@ endif()
 
 if (DARWIN AND FAIL_ON_WARNINGS)
   # Missing Braces is broken in older CLangs - disable them here.
-  target_compile_options(arangodbtests PRIVATE -Werror -Wno-missing-braces)
+  target_compile_options(arangodbtests PRIVATE -Werror -Wno-error=deprecated-declarations -Wno-missing-braces)
 endif()
 
 # add these includes as system includes because otherwise

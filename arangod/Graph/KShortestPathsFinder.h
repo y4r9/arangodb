@@ -33,6 +33,7 @@
 #include <velocypack/StringRef.h>
 
 #include <list>
+#include <optional>
 
 namespace arangodb {
 
@@ -154,10 +155,13 @@ class KShortestPathsFinder : public ShortestPathFinder {
     VertexRef _centre;
     Direction _direction;
     Frontier _frontier;
+    // The distance of the last node that has been fully expanded
+    // from _centre
+    double _closest;
 
     Ball() {}
     Ball(VertexRef const& centre, Direction direction)
-        : _centre(centre), _direction(direction) {
+        : _centre(centre), _direction(direction), _closest(0) {
       _frontier.insert(centre, std::make_unique<DijkstraInfo>(centre));
     }
     ~Ball() = default;
@@ -246,9 +250,10 @@ class KShortestPathsFinder : public ShortestPathFinder {
   void computeNeighbourhoodOfVertex(VertexRef vertex, Direction direction,
                                     std::vector<Step>& steps);
 
-  bool advanceFrontier(Ball& source, Ball const& target,
+  void advanceFrontier(Ball& source, Ball const& target,
                        std::unordered_set<VertexRef> const& forbiddenVertices,
-                       std::unordered_set<Edge> const& forbiddenEdges, VertexRef& join);
+                       std::unordered_set<Edge> const& forbiddenEdges,
+                       VertexRef& join, std::optional<double>& currentBest);
 
  private:
   bool _pathAvailable;

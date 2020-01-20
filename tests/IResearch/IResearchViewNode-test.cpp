@@ -889,6 +889,102 @@ TEST_F(IResearchViewNodeTest, constructFromVPackSingleServer) {
       EXPECT_TRUE(false);
     }
   }
+  // with invalid late materialization (invalid view values vars)
+  {
+    auto json = arangodb::velocypack::Parser::fromJson(
+        "{ \"id\":42, \"depth\":0, \"totalNrRegs\":0, \"varInfoList\":[], "
+        "\"nrRegs\":[], \"nrRegsHere\":[], \"regsToClear\":[], "
+        "\"varsUsedLater\":[], \"varsValid\":[], \"outVariable\": { "
+        "\"name\":\"variable\", \"id\":0 }, \"outNmColPtr\": { \"name\":\"variable100\", \"id\":100 }, "
+        "\"outNmDocId\": { \"name\":\"variable100\", \"id\":100 }, "
+        "\"viewValuesVars\":{\"fieldNumber\":0, \"id\":101}, "
+        "\"noMaterialization\":false, "
+        "\"options\": { \"waitForSync\" : "
+        "true, \"collection\":null }, \"viewId\": \"" +
+        std::to_string(logicalView->id()) + "\" }");
+
+    try {
+      arangodb::iresearch::IResearchViewNode node(*query.plan(),  // plan
+                                                  json->slice());
+      EXPECT_TRUE(false);
+    } catch (arangodb::basics::Exception const& e) {
+      EXPECT_EQ(TRI_ERROR_BAD_PARAMETER, e.code());
+    } catch (...) {
+      EXPECT_TRUE(false);
+    }
+  }
+  // with invalid late materialization (invalid field number)
+  {
+    auto json = arangodb::velocypack::Parser::fromJson(
+        "{ \"id\":42, \"depth\":0, \"totalNrRegs\":0, \"varInfoList\":[], "
+        "\"nrRegs\":[], \"nrRegsHere\":[], \"regsToClear\":[], "
+        "\"varsUsedLater\":[], \"varsValid\":[], \"outVariable\": { "
+        "\"name\":\"variable\", \"id\":0 }, \"outNmColPtr\": { \"name\":\"variable100\", \"id\":100 }, "
+        "\"outNmDocId\": { \"name\":\"variable100\", \"id\":100 }, "
+        "\"viewValuesVars\":[{\"fieldNumber\":\"0\", \"id\":101}], "
+        "\"noMaterialization\":false, "
+        "\"options\": { \"waitForSync\" : "
+        "true, \"collection\":null }, \"viewId\": \"" +
+        std::to_string(logicalView->id()) + "\" }");
+
+    try {
+      arangodb::iresearch::IResearchViewNode node(*query.plan(),  // plan
+                                                  json->slice());
+      EXPECT_TRUE(false);
+    } catch (arangodb::basics::Exception const& e) {
+      EXPECT_EQ(TRI_ERROR_BAD_PARAMETER, e.code());
+    } catch (...) {
+      EXPECT_TRUE(false);
+    }
+  }
+  // with invalid late materialization (invalid variable id)
+  {
+    auto json = arangodb::velocypack::Parser::fromJson(
+        "{ \"id\":42, \"depth\":0, \"totalNrRegs\":0, \"varInfoList\":[], "
+        "\"nrRegs\":[], \"nrRegsHere\":[], \"regsToClear\":[], "
+        "\"varsUsedLater\":[], \"varsValid\":[], \"outVariable\": { "
+        "\"name\":\"variable\", \"id\":0 }, \"outNmColPtr\": { \"name\":\"variable100\", \"id\":100 }, "
+        "\"outNmDocId\": { \"name\":\"variable100\", \"id\":100 }, "
+        "\"viewValuesVars\":[{\"fieldNumber\":0, \"id\":\"101\"}], "
+        "\"noMaterialization\":false, "
+        "\"options\": { \"waitForSync\" : "
+        "true, \"collection\":null }, \"viewId\": \"" +
+        std::to_string(logicalView->id()) + "\" }");
+
+    try {
+      arangodb::iresearch::IResearchViewNode node(*query.plan(),  // plan
+                                                  json->slice());
+      EXPECT_TRUE(false);
+    } catch (arangodb::basics::Exception const& e) {
+      EXPECT_EQ(TRI_ERROR_BAD_PARAMETER, e.code());
+    } catch (...) {
+      EXPECT_TRUE(false);
+    }
+  }
+  // with invalid no materialization (invalid noMaterialization)
+  {
+    auto json = arangodb::velocypack::Parser::fromJson(
+        "{ \"id\":42, \"depth\":0, \"totalNrRegs\":0, \"varInfoList\":[], "
+        "\"nrRegs\":[], \"nrRegsHere\":[], \"regsToClear\":[], "
+        "\"varsUsedLater\":[], \"varsValid\":[], \"outVariable\": { "
+        "\"name\":\"variable\", \"id\":0 }, \"outNmColPtr\": { \"name\":\"variable100\", \"id\":100 }, "
+        "\"outNmDocId\": { \"name\":\"variable100\", \"id\":100 }, "
+        "\"viewValuesVars\":[{\"fieldNumber\":0, \"id\":101}], "
+        "\"noMaterialization\":1, "
+        "\"options\": { \"waitForSync\" : "
+        "true, \"collection\":null }, \"viewId\": \"" +
+        std::to_string(logicalView->id()) + "\" }");
+
+    try {
+      arangodb::iresearch::IResearchViewNode node(*query.plan(),  // plan
+                                                  json->slice());
+      EXPECT_TRUE(false);
+    } catch (arangodb::basics::Exception const& e) {
+      EXPECT_EQ(TRI_ERROR_BAD_PARAMETER, e.code());
+    } catch (...) {
+      EXPECT_TRUE(false);
+    }
+  }
 }
 
 // FIXME TODO
@@ -1319,7 +1415,7 @@ TEST_F(IResearchViewNodeTest, clone) {
                                                 {});        // no sort condition
     arangodb::aql::Variable const outNmColPtr("variable100", 100);
     arangodb::aql::Variable const outNmDocId("variable101", 101);
-    node.setLateMaterialized(&outNmColPtr, &outNmDocId);
+    node.setLateMaterialized(outNmColPtr, outNmDocId);
     ASSERT_TRUE(node.isLateMaterialized());
     auto varsSetOriginal = node.getVariablesSetHere();
     ASSERT_EQ(2, varsSetOriginal.size());
@@ -1602,7 +1698,7 @@ TEST_F(IResearchViewNodeTest, serialize) {
                                                 {});        // no sort condition
     arangodb::aql::Variable const outNmColPtr("variable100", 100);
     arangodb::aql::Variable const outNmDocId("variable101", 101);
-    node.setLateMaterialized(&outNmColPtr, &outNmDocId);
+    node.setLateMaterialized(outNmColPtr, outNmDocId);
 
     arangodb::velocypack::Builder builder;
     unsigned flags = arangodb::aql::ExecutionNode::SERIALIZE_DETAILS;
@@ -1857,7 +1953,8 @@ TEST_F(IResearchViewNodeTest, serializeSortedView) {
       EXPECT_EQ(node.getCost(), deserialized.getCost());
     }
   }
-    // with late materialization
+
+  // with late materialization
   {
     arangodb::iresearch::IResearchViewNode node(*query.plan(),
                                                 42,           // id
@@ -1870,7 +1967,7 @@ TEST_F(IResearchViewNodeTest, serializeSortedView) {
     arangodb::aql::Variable const outNmColPtr("variable100", 100);
     arangodb::aql::Variable const outNmDocId("variable101", 101);
     node.sort(&viewImpl.primarySort(), 1);
-    node.setLateMaterialized(&outNmColPtr, &outNmDocId);
+    node.setLateMaterialized(outNmColPtr, outNmDocId);
 
     arangodb::velocypack::Builder builder;
     unsigned flags = arangodb::aql::ExecutionNode::SERIALIZE_DETAILS;
@@ -2149,7 +2246,7 @@ TEST_F(IResearchViewNodeTest, createBlockSingleServer) {
       auto block = node.createBlock(engine, EMPTY);
       EXPECT_NE(nullptr, block);
       EXPECT_NE(nullptr,
-                  (dynamic_cast<arangodb::aql::ExecutionBlockImpl<arangodb::aql::IResearchViewExecutor<false, true>>*>(
+                  (dynamic_cast<arangodb::aql::ExecutionBlockImpl<arangodb::aql::IResearchViewExecutor<false, arangodb::iresearch::MaterializeType::Materialize>>*>(
                       block.get())));
     }
   }
@@ -2235,7 +2332,7 @@ TEST_F(IResearchViewNodeTest, createBlockCoordinatorLateMaterialize) {
                                               nullptr,  // no options
                                               {});        // no sort condition
   node.addDependency(&singleton);
-  node.setLateMaterialized(&outNmColPtr, &outNmDocId);
+  node.setLateMaterialized(outNmColPtr, outNmDocId);
   std::unordered_map<arangodb::aql::ExecutionNode*, arangodb::aql::ExecutionBlock*> EMPTY;
   singleton.setVarUsageValid();
   node.setVarUsageValid();
@@ -2282,7 +2379,7 @@ TEST_F(IResearchViewNodeTest, registerPlanningLateMaterialized) {
                                               nullptr,  // no options
                                               {});        // no sort condition
   node.addDependency(&singleton);
-  node.setLateMaterialized(&outNmColPtr, &outNmDocId);
+  node.setLateMaterialized(outNmColPtr, outNmDocId);
   std::vector<arangodb::aql::RegisterId> nrRegsHere{ 0 };
   std::vector<arangodb::aql::RegisterId> nrRegs{ 0 };
   std::unordered_map<arangodb::aql::VariableId, arangodb::aql::VarInfo> varInfo;
@@ -2332,7 +2429,7 @@ TEST_F(IResearchViewNodeTest, registerPlanningLateMaterializedWitScore) {
                                               nullptr,  // no options
                                               std::vector<arangodb::iresearch::Scorer>{ {&scoreVariable, nullptr} });   //sort condition
   node.addDependency(&singleton);
-  node.setLateMaterialized(&outNmColPtr, &outNmDocId);
+  node.setLateMaterialized(outNmColPtr, outNmDocId);
   std::vector<arangodb::aql::RegisterId> nrRegsHere{ 0 };
   std::vector<arangodb::aql::RegisterId> nrRegs{ 0 };
   std::unordered_map<arangodb::aql::VariableId, arangodb::aql::VarInfo> varInfo;
