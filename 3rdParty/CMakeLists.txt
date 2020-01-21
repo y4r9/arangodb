@@ -332,6 +332,13 @@ add_library(fuerte STATIC
 
 target_link_libraries(fuerte nghttp2)
 
+check_type_size("ssize_t" SIZEOF_SSIZE_T)
+if(SIZEOF_SSIZE_T STREQUAL "")
+  # ssize_t is a signed type in POSIX storing at least -1.
+  # Set it to "int" to match the behavior of AC_TYPE_SSIZE_T (autotools).
+  target_compile_definitions(fuerte PRIVATE ssize_t=int)
+endif()
+
 target_include_directories(fuerte SYSTEM PRIVATE
   "${Boost_INCLUDE_DIRS}/"
   "${CMAKE_CURRENT_SOURCE_DIR}/velocypack/include"

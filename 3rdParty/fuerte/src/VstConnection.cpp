@@ -280,8 +280,9 @@ void VstConnection<ST>::asyncWriteNextRequest() {
 
     setTimeout();  // prepare request / connection timeouts
 
+    auto buffers = item->prepareForNetwork(_vstVersion);
     asio_ns::async_write(
-        this->_proto.socket, item->prepareForNetwork(_vstVersion),
+        this->_proto.socket, std::move(buffers),
         [self = Connection::shared_from_this(), req(std::move(item))](
             auto const& ec, std::size_t nwrite) mutable {
           auto& thisPtr = static_cast<VstConnection<ST>&>(*self);
