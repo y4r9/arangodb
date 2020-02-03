@@ -797,29 +797,6 @@ bool TRI_V8_AddProtoMethod(v8::Isolate* isolate,
 }
 
 /// @brief adds a method to an object
-inline bool TRI_V8_AddMethod(v8::Isolate* isolate,
-                             v8::Function tpl,
-                             v8::Handle<v8::String> name,
-                             v8::Handle<v8::FunctionTemplate> callback,
-                             bool isHidden = false) {
-  auto context = TRI_IGETC;
-  // hidden method
-  if (isHidden) {
-    return tpl
-      .DefineOwnProperty(context,
-                         name,
-                         callback->GetFunction(context).FromMaybe(v8::Local<v8::Function>()),
-                         v8::DontEnum)
-        .FromMaybe(false);
-  }
-  // normal method
-  else {
-    return tpl.Set(context, name, callback->GetFunction(context).FromMaybe(v8::Local<v8::Value>())).FromMaybe(false);
-  }
-  return false;
-}
-
-/// @brief adds a method to an object
 bool TRI_AddMethodVocbase(v8::Isolate* isolate, v8::Handle<v8::ObjectTemplate> tpl,
                           v8::Handle<v8::String> name,
                           void (*func)(v8::FunctionCallbackInfo<v8::Value> const&),
