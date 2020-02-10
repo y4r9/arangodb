@@ -338,6 +338,11 @@ class Parser;
   * identifiers
   * --------------------------------------------------------------------------- */
 
+"_" {
+  return T_UNDERSCORE;
+}
+
+
 ($?[a-zA-Z][_a-zA-Z0-9]*|_+[a-zA-Z]+[_a-zA-Z0-9]*) {
   /* unquoted string */
   yylval->strval.value = yyextra->query()->registerString(yytext, yyleng);

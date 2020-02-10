@@ -741,8 +741,8 @@ static void yynoreturn yy_fatal_error ( const char* msg , yyscan_t yyscanner );
 	yyg->yy_hold_char = *yy_cp; \
 	*yy_cp = '\0'; \
 	yyg->yy_c_buf_p = yy_cp;
-#define YY_NUM_RULES 99
-#define YY_END_OF_BUFFER 100
+#define YY_NUM_RULES 100
+#define YY_END_OF_BUFFER 101
 /* This struct is not used in this scanner,
    but its presence is necessary. */
 struct yy_trans_info
@@ -753,35 +753,35 @@ struct yy_trans_info
 static const flex_int16_t yy_accept[275] =
     {   0,
         0,    0,    0,    0,    0,    0,    0,    0,    0,    0,
-        0,    0,    0,    0,  100,   98,   88,   89,   44,   74,
-       98,   51,   98,   79,   57,   58,   49,   47,   56,   48,
-       98,   50,   84,   84,   54,   42,   43,   40,   52,   98,
-       63,   63,   63,   63,   63,   63,   63,   63,   63,   63,
-       63,   63,   63,   63,   63,   63,   61,   62,   98,   64,
-       59,   98,   60,   98,   68,   67,   68,   65,   73,   72,
-       73,   73,   83,   82,   80,   83,   78,   77,   75,   78,
-       92,   91,   95,   97,   96,   88,   38,   36,   63,   45,
-       55,   85,   93,   90,    0,    0,   84,   53,   41,   37,
+        0,    0,    0,    0,  101,   99,   89,   90,   44,   75,
+       99,   51,   99,   80,   57,   58,   49,   47,   56,   48,
+       99,   50,   85,   85,   54,   42,   43,   40,   52,   99,
+       64,   64,   64,   64,   64,   64,   64,   64,   64,   64,
+       64,   64,   64,   64,   64,   64,   61,   62,   63,   65,
+       59,   99,   60,   99,   69,   68,   69,   66,   74,   73,
+       74,   74,   84,   83,   81,   84,   79,   78,   76,   79,
+       93,   92,   96,   98,   97,   89,   38,   36,   64,   45,
+       55,   86,   94,   91,    0,    0,   85,   53,   41,   37,
 
-       35,   39,   86,    0,    0,   63,   63,   63,   63,   63,
-       63,   63,   63,   63,   63,   63,   63,   15,   63,   63,
-       63,   63,   63,   14,   63,   63,   63,   63,   63,   63,
-       63,   63,    0,   46,   69,   66,   71,   70,   81,   76,
-       92,   95,   94,   85,    0,   85,   86,   87,    0,   86,
-       63,   29,   13,   28,   10,   63,   63,   63,   63,   63,
-        1,   63,   63,   63,   63,   63,    2,   63,   63,   63,
-       12,   63,   63,   63,   63,   63,   63,   63,   63,   63,
-       63,   63,   63,   63,   87,   87,   86,   86,   63,   63,
-       11,   63,   63,   63,   63,   63,   63,   16,   63,   31,
+       35,   39,   87,    0,    0,   64,   64,   64,   64,   64,
+       64,   64,   64,   64,   64,   64,   64,   15,   64,   64,
+       64,   64,   64,   14,   64,   64,   64,   64,   64,   64,
+       64,   64,    0,   46,   70,   67,   72,   71,   82,   77,
+       93,   96,   95,   86,    0,   86,   87,   88,    0,   87,
+       64,   29,   13,   28,   10,   64,   64,   64,   64,   64,
+        1,   64,   64,   64,   64,   64,    2,   64,   64,   64,
+       12,   64,   64,   64,   64,   64,   64,   64,   64,   64,
+       64,   64,   64,   64,   88,   88,   87,   87,   64,   64,
+       11,   64,   64,   64,   64,   64,   64,   16,   64,   31,
 
-       63,   30,   32,   63,   63,   63,   63,   63,    6,   33,
-       63,   63,   17,   87,   87,   63,   63,   63,   34,   63,
-       23,   63,   63,   63,    7,   63,   63,   63,   63,   63,
-       63,   63,   63,   63,   63,    3,   63,   19,   63,   63,
-       18,   63,    4,   63,   20,   22,   63,    5,   63,   27,
-       63,   63,   21,   63,   63,    8,   63,   26,   63,    9,
-       63,   63,   63,   63,   63,   63,   63,   63,   63,   24,
-       63,   63,   25,    0
+       64,   30,   32,   64,   64,   64,   64,   64,    6,   33,
+       64,   64,   17,   88,   88,   64,   64,   64,   34,   64,
+       23,   64,   64,   64,    7,   64,   64,   64,   64,   64,
+       64,   64,   64,   64,   64,    3,   64,   19,   64,   64,
+       18,   64,    4,   64,   20,   22,   64,    5,   64,   27,
+       64,   64,   21,   64,   64,    8,   64,   26,   64,    9,
+       64,   64,   64,   64,   64,   64,   64,   64,   64,   24,
+       64,   64,   25,    0
     } ;
 
 static const YY_CHAR yy_ec[256] =
@@ -1065,14 +1065,14 @@ static const flex_int16_t yy_chk[684] =
 
 
 /* Table of booleans, true if rule could match eol. */
-static const flex_int32_t yy_rule_can_match_eol[100] =
+static const flex_int32_t yy_rule_can_match_eol[101] =
     {   0,
 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-    0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 
-    0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 
-        };
+    0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 
+    0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 
+    0,     };
 
 /* The intent behind this definition is that it'll catch
  * any uses of REJECT which flex missed.
@@ -2003,13 +2003,19 @@ YY_RULE_SETUP
 case 63:
 YY_RULE_SETUP
 {
+  return T_UNDERSCORE;
+}
+	YY_BREAK
+case 64:
+YY_RULE_SETUP
+{
   /* unquoted string */
   yylval->strval.value = yyextra->query()->registerString(yytext, yyleng);
   yylval->strval.length = yyleng;
   return T_STRING;
 }
 	YY_BREAK
-case 64:
+case 65:
 YY_RULE_SETUP
 {
   /* string enclosed in backticks */
@@ -2017,7 +2023,7 @@ YY_RULE_SETUP
   BEGIN(BACKTICK);
 }
 	YY_BREAK
-case 65:
+case 66:
 YY_RULE_SETUP
 {
   /* end of backtick-enclosed string */
@@ -2028,14 +2034,14 @@ YY_RULE_SETUP
   return T_STRING;
 }
 	YY_BREAK
-case 66:
+case 67:
 YY_RULE_SETUP
 {
   /* character escaped by backslash */
 }
 	YY_BREAK
-case 67:
-/* rule 67 can match eol */
+case 68:
+/* rule 68 can match eol */
 YY_RULE_SETUP
 {
   /* newline character inside backtick */
@@ -2047,13 +2053,13 @@ case YY_STATE_EOF(BACKTICK):
   parser->registerParseError(TRI_ERROR_QUERY_PARSE, "unexpected unterminated identifier", yylloc->first_line, yylloc->first_column);
 }
 	YY_BREAK
-case 68:
+case 69:
 YY_RULE_SETUP
 {
   /* any character (except newline) inside backtick */
 }
 	YY_BREAK
-case 69:
+case 70:
 YY_RULE_SETUP
 {
   /* string enclosed in forwardticks */
@@ -2061,7 +2067,7 @@ YY_RULE_SETUP
   BEGIN(FORWARDTICK);
 }
 	YY_BREAK
-case 70:
+case 71:
 YY_RULE_SETUP
 {
   /* end of forwardtick-enclosed string */
@@ -2072,14 +2078,14 @@ YY_RULE_SETUP
   return T_STRING;
 }
 	YY_BREAK
-case 71:
+case 72:
 YY_RULE_SETUP
 {
   /* character escaped by backslash */
 }
 	YY_BREAK
-case 72:
-/* rule 72 can match eol */
+case 73:
+/* rule 73 can match eol */
 YY_RULE_SETUP
 {
   /* newline character inside forwardtick */
@@ -2091,7 +2097,7 @@ case YY_STATE_EOF(FORWARDTICK):
   parser->registerParseError(TRI_ERROR_QUERY_PARSE, "unexpected unterminated identifier", yylloc->first_line, yylloc->first_column);
 }
 	YY_BREAK
-case 73:
+case 74:
 YY_RULE_SETUP
 {
   /* any character (except newline) inside forwardtick */
@@ -2100,14 +2106,14 @@ YY_RULE_SETUP
 /* ---------------------------------------------------------------------------
   * strings
   * --------------------------------------------------------------------------- */
-case 74:
+case 75:
 YY_RULE_SETUP
 {
   yyextra->marker(yyextra->queryStringStart() + yyextra->offset());
   BEGIN(DOUBLE_QUOTE);
 }
 	YY_BREAK
-case 75:
+case 76:
 YY_RULE_SETUP
 {
   /* end of quote-enclosed string */
@@ -2118,14 +2124,14 @@ YY_RULE_SETUP
   return T_QUOTED_STRING;
 }
 	YY_BREAK
-case 76:
+case 77:
 YY_RULE_SETUP
 {
   /* character escaped by backslash */
 }
 	YY_BREAK
-case 77:
-/* rule 77 can match eol */
+case 78:
+/* rule 78 can match eol */
 YY_RULE_SETUP
 {
   /* newline character inside quote */
@@ -2137,20 +2143,20 @@ case YY_STATE_EOF(DOUBLE_QUOTE):
   parser->registerParseError(TRI_ERROR_QUERY_PARSE, "unexpected unterminated string literal", yylloc->first_line, yylloc->first_column);
 }
 	YY_BREAK
-case 78:
+case 79:
 YY_RULE_SETUP
 {
   /* any character (except newline) inside quote */
 }
 	YY_BREAK
-case 79:
+case 80:
 YY_RULE_SETUP
 {
   yyextra->marker(yyextra->queryStringStart() + yyextra->offset());
   BEGIN(SINGLE_QUOTE);
 }
 	YY_BREAK
-case 80:
+case 81:
 YY_RULE_SETUP
 {
   /* end of quote-enclosed string */
@@ -2161,14 +2167,14 @@ YY_RULE_SETUP
   return T_QUOTED_STRING;
 }
 	YY_BREAK
-case 81:
+case 82:
 YY_RULE_SETUP
 {
   /* character escaped by backslash */
 }
 	YY_BREAK
-case 82:
-/* rule 82 can match eol */
+case 83:
+/* rule 83 can match eol */
 YY_RULE_SETUP
 {
   /* newline character inside quote */
@@ -2180,7 +2186,7 @@ case YY_STATE_EOF(SINGLE_QUOTE):
   parser->registerParseError(TRI_ERROR_QUERY_PARSE, "unexpected unterminated string literal", yylloc->first_line, yylloc->first_column);
 }
 	YY_BREAK
-case 83:
+case 84:
 YY_RULE_SETUP
 {
   /* any character (except newline) inside quote */
@@ -2189,7 +2195,7 @@ YY_RULE_SETUP
 /* ---------------------------------------------------------------------------
   * number literals
   * --------------------------------------------------------------------------- */
-case 84:
+case 85:
 YY_RULE_SETUP
 {
   /* a numeric integer value */
@@ -2218,7 +2224,7 @@ YY_RULE_SETUP
   return T_INTEGER;
 }
 	YY_BREAK
-case 85:
+case 86:
 YY_RULE_SETUP
 {
   /* a numeric double value */
@@ -2243,7 +2249,7 @@ YY_RULE_SETUP
 /* ---------------------------------------------------------------------------
   * bind parameters
   * --------------------------------------------------------------------------- */
-case 86:
+case 87:
 YY_RULE_SETUP
 {
   /* bind parameters must start with a @
@@ -2256,7 +2262,7 @@ YY_RULE_SETUP
 /* ---------------------------------------------------------------------------
   * bind data source parameters
   * --------------------------------------------------------------------------- */
-case 87:
+case 88:
 YY_RULE_SETUP
 {
   /* bind parameters must start with a @
@@ -2269,14 +2275,14 @@ YY_RULE_SETUP
 /* ---------------------------------------------------------------------------
   * whitespace etc.
   * --------------------------------------------------------------------------- */
-case 88:
+case 89:
 YY_RULE_SETUP
 {
   /* whitespace is ignored */
 }
 	YY_BREAK
-case 89:
-/* rule 89 can match eol */
+case 90:
+/* rule 90 can match eol */
 YY_RULE_SETUP
 {
   yycolumn = 0;
@@ -2285,14 +2291,14 @@ YY_RULE_SETUP
 /* ---------------------------------------------------------------------------
   * comments
   * --------------------------------------------------------------------------- */
-case 90:
+case 91:
 YY_RULE_SETUP
 {
   BEGIN(COMMENT_SINGLE);
 }
 	YY_BREAK
-case 91:
-/* rule 91 can match eol */
+case 92:
+/* rule 92 can match eol */
 YY_RULE_SETUP
 {
   /* line numbers are counted elsewhere already */
@@ -2300,31 +2306,31 @@ YY_RULE_SETUP
   BEGIN(INITIAL);
 }
 	YY_BREAK
-case 92:
+case 93:
 YY_RULE_SETUP
 {
   /* everything else */
 }
 	YY_BREAK
-case 93:
+case 94:
 YY_RULE_SETUP
 {
   BEGIN(COMMENT_MULTI);
 }
 	YY_BREAK
-case 94:
+case 95:
 YY_RULE_SETUP
 {
   BEGIN(INITIAL);
 }
 	YY_BREAK
-case 95:
+case 96:
 YY_RULE_SETUP
 {
   // eat comment in chunks
 }
 	YY_BREAK
-case 96:
+case 97:
 YY_RULE_SETUP
 {
   // eat the lone star
@@ -2336,22 +2342,22 @@ case YY_STATE_EOF(COMMENT_MULTI):
   parser->registerParseError(TRI_ERROR_QUERY_PARSE, "unexpected unterminated multi-line comment", yylloc->first_line, yylloc->first_column);
 }
 	YY_BREAK
-case 97:
-/* rule 97 can match eol */
+case 98:
+/* rule 98 can match eol */
 YY_RULE_SETUP
 {
   /* line numbers are counted elsewhere already */
   yycolumn = 0;
 }
 	YY_BREAK
-case 98:
+case 99:
 YY_RULE_SETUP
 {
   /* anything else is returned as it is */
   return (int) yytext[0];
 }
 	YY_BREAK
-case 99:
+case 100:
 YY_RULE_SETUP
 ECHO;
 	YY_BREAK

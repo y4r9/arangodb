@@ -204,9 +204,11 @@ AstNode const* getIntoExpression(AstNode const* node) {
 }
 
 AstNode* transformOutputVariables(Parser* parser, AstNode const* names) {
-  auto wrapperNode = parser->ast()->createNodeArray();
-  for (size_t i = 0; i < names->numMembers(); ++i) {
+  size_t const n = names->numMembers();
+  auto wrapperNode = parser->ast()->createNodeArray(n);
+  for (size_t i = 0; i < n; ++i) {
     AstNode* variableNameNode = names->getMemberUnchecked(i);
+
     TRI_ASSERT(variableNameNode->isStringValue());
     AstNode* variableNode = parser->ast()->createNodeVariable(variableNameNode->getStringValue(), variableNameNode->getStringLength(), true);
     wrapperNode->addMember(variableNode);
@@ -250,6 +252,7 @@ AstNode* transformOutputVariables(Parser* parser, AstNode const* names) {
 %token T_FALSE "false"
 %token T_STRING "identifier"
 %token T_QUOTED_STRING "quoted string"
+%token T_UNDERSCORE "underscore"
 %token T_INTEGER "integer number"
 %token T_DOUBLE "number"
 %token T_PARAMETER "bind parameter"
@@ -356,6 +359,7 @@ AstNode* transformOutputVariables(Parser* parser, AstNode const* names) {
 %type <node> array;
 %type <node> for_output_variables;
 %type <node> traversal_graph_info;
+%type <node> traversal_output_variable;
 %type <node> shortest_path_graph_info;
 %type <node> k_shortest_paths_graph_info;
 %type <node> optional_array_elements;
@@ -500,17 +504,25 @@ statement_block_statement:
     }
   ;
 
-more_output_variables:
+traversal_output_variable:
     variable_name {
+      $$ = parser->ast()->createNodeValueString($1.value, $1.length);
+  } | T_UNDERSCORE {
+      std::string const nextName = "temp_" + parser->ast()->variables()->nextName();
+      auto p = parser->query()->registerString(nextName);
+      $$ = parser->ast()->createNodeValueString(p, nextName.size());
+    }
+  ;
+
+more_output_variables:
+    traversal_output_variable {
       auto wrapperNode = parser->ast()->createNodeArray();
       parser->pushArray(wrapperNode);
       // This is guaranteed to be called on the first variable
-      AstNode* node = parser->ast()->createNodeValueString($1.value, $1.length);
-      parser->pushArrayElement(node);
+      parser->pushArrayElement($1);
     }
-    | more_output_variables T_COMMA variable_name {
-      AstNode* node = parser->ast()->createNodeValueString($3.value, $3.length);
-      parser->pushArrayElement(node);
+  | more_output_variables T_COMMA traversal_output_variable {
+      parser->pushArrayElement($3);
     }
   ;
 
