@@ -112,6 +112,11 @@ void ConfigFeature::loadConfigFile(std::shared_ptr<ProgramOptions> options,
       FATAL_ERROR_EXIT();
     }
 
+    if (FileUtils::isDirectory(_file)) {
+      LOG_TOPIC("f29d9", FATAL, Logger::CONFIG) << "config file '" << _file << "' is a directory";
+      FATAL_ERROR_EXIT();
+    }
+
     auto local = _file + ".local";
 
     IniFileParser parser(options.get());
@@ -124,10 +129,14 @@ void ConfigFeature::loadConfigFile(std::shared_ptr<ProgramOptions> options,
       }
     }
 
-    LOG_TOPIC("637c7", DEBUG, Logger::CONFIG) << "using user supplied config file '" << _file << "'";
+    if (FileUtils::isDirectory(_file)) {
+      LOG_TOPIC("f2fd9", WARNING, Logger::CONFIG) << "config file '" << _file << "' is a directory";
+    } else {
+      LOG_TOPIC("637c7", DEBUG, Logger::CONFIG) << "using user supplied config file '" << _file << "'";
 
-    if (!parser.parse(_file, true)) {
-      FATAL_ERROR_EXIT();
+      if (!parser.parse(_file, true)) {
+        FATAL_ERROR_EXIT();
+      }
     }
 
     return;
@@ -182,14 +191,14 @@ void ConfigFeature::loadConfigFile(std::shared_ptr<ProgramOptions> options,
     auto name = FileUtils::buildFilename(location, basename);
     LOG_TOPIC("393e7", TRACE, Logger::CONFIG) << "checking config file '" << name << "'";
 
-    if (FileUtils::exists(name)) {
+    if (FileUtils::exists(name) && !FileUtils::isDirectory(name)) {
       LOG_TOPIC("e6bd8", DEBUG, Logger::CONFIG) << "found config file '" << name << "'";
       filename = name;
       break;
     } else if (checkArangoImp) {
       name = FileUtils::buildFilename(location, "arangoimp.conf");
       LOG_TOPIC("b629e", TRACE, Logger::CONFIG) << "checking config file '" << name << "'";
-      if (FileUtils::exists(name)) {
+      if (FileUtils::exists(name) && !FileUtils::isDirectory(name)) {
         LOG_TOPIC("fc54e", DEBUG, Logger::CONFIG) << "found config file '" << name << "'";
         filename = name;
         break;
@@ -199,21 +208,25 @@ void ConfigFeature::loadConfigFile(std::shared_ptr<ProgramOptions> options,
 
   if (filename.empty()) {
     LOG_TOPIC("f4964", DEBUG, Logger::CONFIG) << "cannot find any config file";
-  }
-
-  IniFileParser parser(options.get());
-  std::string local = filename + ".local";
-
-  LOG_TOPIC("f6420", TRACE, Logger::CONFIG) << "checking override '" << local << "'";
-
-  if (FileUtils::exists(local)) {
-    LOG_TOPIC("3d2d0", DEBUG, Logger::CONFIG) << "loading override '" << local << "'";
-
-    if (!parser.parse(local, true)) {
-      FATAL_ERROR_EXIT();
-    }
   } else {
-    LOG_TOPIC("d601e", TRACE, Logger::CONFIG) << "no override file found";
+    IniFileParser parser(options.get());
+    std::string local = filename + ".local";
+
+    LOG_TOPIC("f6420", TRACE, Logger::CONFIG) << "checking override '" << local << "'";
+
+    if (FileUtils::exists(local)) {
+      if (FileUtils::isDirectory(local)) {
+	LOG_TOPIC("f29d9", FATAL, Logger::CONFIG) << "override file '" << local << "' is a directory";
+      } else {
+        LOG_TOPIC("3d2d0", DEBUG, Logger::CONFIG) << "loading override '" << local << "'";
+
+        if (!parser.parse(local, true)) {
+          FATAL_ERROR_EXIT();
+        }
+      }
+    } else {
+      LOG_TOPIC("d601e", TRACE, Logger::CONFIG) << "no override file found";
+    }
   }
 
   LOG_TOPIC("02398", DEBUG, Logger::CONFIG) << "loading '" << filename << "'";
