@@ -130,7 +130,7 @@ void ConfigFeature::loadConfigFile(std::shared_ptr<ProgramOptions> options,
     }
 
     if (FileUtils::isDirectory(_file)) {
-      LOG_TOPIC("f2fd9", WARNING, Logger::CONFIG) << "config file '" << _file << "' is a directory";
+      LOG_TOPIC("f2fd9", WARN, Logger::CONFIG) << "config file '" << _file << "' is a directory";
     } else {
       LOG_TOPIC("637c7", DEBUG, Logger::CONFIG) << "using user supplied config file '" << _file << "'";
 
