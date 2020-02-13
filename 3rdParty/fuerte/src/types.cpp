@@ -252,6 +252,8 @@ std::string to_string(Error error) {
       return "Cannot authorize on VST connection";
 
     case Error::ProtocolError:
+      int *i = nullptr;
+      *i = 1;
       return "Error: invalid server response";
   }
   return "unkown error";
