@@ -27,14 +27,14 @@
 #include "Aql/Collection.h"
 #include "Aql/ExecutionBlockImpl.h"
 #include "Aql/ExecutionPlan.h"
-#include "Aql/Query.h"
-#include "Aql/SingleRowFetcher.h"
-#include "Aql/VariableGenerator.h"
-
 #include "Aql/ModificationExecutor.h"
 #include "Aql/ModificationExecutorHelpers.h"
+#include "Aql/Query.h"
 #include "Aql/SimpleModifier.h"
+#include "Aql/SingleRowFetcher.h"
 #include "Aql/UpsertModifier.h"
+#include "Aql/VariableGenerator.h"
+#include "Basics/StaticStrings.h"
 
 using namespace arangodb::aql;
 
@@ -124,6 +124,14 @@ void RemoveNode::toVelocyPackHelper(VPackBuilder& nodes, unsigned flags,
 
   // And close it:
   nodes.close();
+}
+
+bool RemoveNode::getReferencedAttributes(Variable const* v, std::unordered_set<std::string>& attributes) const {
+  if (_inVariable == v) {
+    // FOR doc IN collection REMOVE doc IN ...
+    attributes.emplace(StaticStrings::KeyString);
+  }
+  return true;
 }
 
 /// @brief creates corresponding ExecutionBlock
@@ -301,6 +309,16 @@ void UpdateNode::toVelocyPackHelper(VPackBuilder& nodes, unsigned flags,
   UpdateReplaceNode::toVelocyPackHelper(nodes, flags, seen);
   ModificationNode::toVelocyPackHelperPrimaryIndex(nodes);
   nodes.close();
+}
+
+bool UpdateReplaceNode::getReferencedAttributes(Variable const* v, std::unordered_set<std::string>& attributes) const {
+  if (_inKeyVariable == v && _inDocVariable != v) {
+    // FOR doc IN collection UPDATE/REPLACE doc IN ...
+    attributes.emplace(StaticStrings::KeyString);
+    return true;
+  }
+
+  return ExecutionNode::getReferencedAttributes(v, attributes);
 }
 
 /// @brief creates corresponding ExecutionBlock

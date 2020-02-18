@@ -338,6 +338,8 @@ class GatherNode final : public ExecutionNode {
       vars.emplace(p.var);
     }
   }
+  
+  bool getReferencedAttributes(Variable const* v, std::unordered_set<std::string>& attributes) const override;
 
   /// @brief get Variables used here including ASC/DESC
   SortElementVector const& elements() const { return _elements; }

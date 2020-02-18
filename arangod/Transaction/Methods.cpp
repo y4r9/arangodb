@@ -1252,6 +1252,31 @@ Result transaction::Methods::documentFastPathLocal(std::string const& collection
   return res;
 }
 
+Result transaction::Methods::documentFastPathLocal(std::string const& collectionName,
+                                                   arangodb::velocypack::StringRef const& key,
+                                                   arangodb::velocypack::Builder& result,
+                                                   bool shouldLock,
+                                                   std::vector<std::string> const& projections) {
+  TRI_ASSERT(!ServerState::instance()->isCoordinator());
+  TRI_ASSERT(_state->status() == transaction::Status::RUNNING);
+
+  TRI_voc_cid_t cid = addCollectionAtRuntime(collectionName, AccessMode::Type::READ);
+  TransactionCollection* trxColl = trxCollection(cid);
+  TRI_ASSERT(trxColl != nullptr);
+  std::shared_ptr<LogicalCollection> const& collection = trxColl->collection();
+  TRI_ASSERT(collection != nullptr);
+  _transactionContextPtr->pinData(collection.get());  // will throw when it fails
+
+  if (key.empty()) {
+    return TRI_ERROR_ARANGO_DOCUMENT_HANDLE_BAD;
+  }
+
+  bool isLocked = trxColl->isLocked(AccessMode::Type::READ, _state->nestingLevel());
+  Result res = collection->read(this, key, result, shouldLock && !isLocked, projections);
+  TRI_ASSERT(res.fail() || isPinned(cid));
+  return res;
+}
+
 namespace {
 template<typename F>
 Future<OperationResult> addTracking(Future<OperationResult> f,

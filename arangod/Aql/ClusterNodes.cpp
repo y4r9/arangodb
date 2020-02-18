@@ -529,6 +529,22 @@ std::unique_ptr<ExecutionBlock> GatherNode::createBlock(
   return std::make_unique<ExecutionBlockImpl<SortingGatherExecutor>>(&engine, this,
                                                                      std::move(infos));
 }
+  
+bool GatherNode::getReferencedAttributes(Variable const* v, std::unordered_set<std::string>& attributes) const {
+  for (auto const& it : _elements) {
+    if (it.var == v) {
+      if (it.attributePath.empty()) {
+        // sort of GatherNode refers to the entire document, not to an
+        // attribute of the document
+        return false;
+      }
+      // insert 0th level of attribute name into the set of attributes
+      // that we need for our projection
+      attributes.emplace(it.attributePath[0]);
+    }
+  }
+  return true;
+}
 
 /// @brief estimateCost
 CostEstimate GatherNode::estimateCost() const {

@@ -103,6 +103,20 @@ TraverserOptions::TraverserOptions(aql::Query* query, VPackSlice const& obj)
   }
   
   _produceVertices = VPackHelper::getBooleanValue(obj, "produceVertices", true);
+
+  VPackSlice value = obj.get("vertexProjections");
+  if (value.isArray()) {
+    for (auto const& it : VPackArrayIterator(value)) {
+      _vertexProjections.emplace_back(it.copyString());
+    }
+  }
+
+  value = obj.get("edgeProjections");
+  if (value.isArray()) {
+    for (auto const& it : VPackArrayIterator(value)) {
+      _edgeProjections.emplace_back(it.copyString());
+    }
+  }
 }
 
 arangodb::traverser::TraverserOptions::TraverserOptions(arangodb::aql::Query* query,
@@ -245,6 +259,20 @@ arangodb::traverser::TraverserOptions::TraverserOptions(arangodb::aql::Query* qu
   TRI_ASSERT(uniqueVertices != TraverserOptions::UniquenessLevel::GLOBAL || useBreadthFirst);
   
   _produceVertices = VPackHelper::getBooleanValue(info, "produceVertices", true);
+  
+  read = info.get("vertexProjections");
+  if (read.isArray()) {
+    for (auto const& it : VPackArrayIterator(read)) {
+      _vertexProjections.emplace_back(it.copyString());
+    }
+  }
+
+  read = info.get("edgeProjections");
+  if (read.isArray()) {
+    for (auto const& it : VPackArrayIterator(read)) {
+      _edgeProjections.emplace_back(it.copyString());
+    }
+  }
 }
 
 arangodb::traverser::TraverserOptions::TraverserOptions(TraverserOptions const& other)
@@ -303,6 +331,22 @@ void TraverserOptions::toVelocyPack(VPackBuilder& builder) const {
     case TraverserOptions::UniquenessLevel::GLOBAL:
       builder.add("uniqueEdges", VPackValue("global"));
       break;
+  }
+
+  if (!_vertexProjections.empty()) {
+    builder.add("vertexProjections", VPackValue(VPackValueType::Array));
+    for (auto const& it : _vertexProjections) {
+      builder.add(VPackValue(it));
+    }
+    builder.close();
+  }
+  
+  if (!_edgeProjections.empty()) {
+    builder.add("edgeProjections", VPackValue(VPackValueType::Array));
+    for (auto const& it : _edgeProjections) {
+      builder.add(VPackValue(it));
+    }
+    builder.close();
   }
 
   builder.add("produceVertices", VPackValue(_produceVertices));

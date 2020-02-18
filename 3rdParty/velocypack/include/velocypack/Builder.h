@@ -525,6 +525,12 @@ class Builder {
     close();
     return *this;
   }
+  
+  void cleanupAdd() noexcept {
+    std::size_t depth = _stack.size() - 1;
+    VELOCYPACK_ASSERT(!_index[depth].empty());
+    _index[depth].pop_back();
+  }
 
  private:
   void sortObjectIndexShort(uint8_t* objBase,
@@ -829,12 +835,6 @@ class Builder {
 
   uint8_t* set(Serializable const& sable) {
     return set(0, sable);
-  }
-
-  void cleanupAdd() noexcept {
-    std::size_t depth = _stack.size() - 1;
-    VELOCYPACK_ASSERT(!_index[depth].empty());
-    _index[depth].pop_back();
   }
 
   inline void reportAdd() {

@@ -38,8 +38,10 @@
 #include "Aql/OptimizerRulesFeature.h"
 #include "Aql/Query.h"
 #include "Aql/SortNode.h"
+#include "Aql/TraversalNode.h"
 #include "Basics/StaticStrings.h"
 #include "Containers/HashSet.h"
+#include "Graph/BaseOptions.h"
 #include "Indexes/Index.h"
 #include "VocBase/LogicalCollection.h"
 
@@ -60,6 +62,13 @@ void RocksDBOptimizerRules::registerResources(OptimizerRulesFeature& feature) {
   feature.registerRule("reduce-extraction-to-projection",
                        reduceExtractionToProjectionRule,
                        OptimizerRule::reduceExtractionToProjectionRule,
+                       OptimizerRule::makeFlags(OptimizerRule::Flags::CanBeDisabled));
+  
+  // optimize traversals so that they also restrict vertex and edge fetching to
+  // the actually required document attributes
+  feature.registerRule("reduce-traversal-extraction-to-projection",
+                       reduceTraversalExtractionToProjectionRule,
+                       OptimizerRule::reduceTraversalExtractionToProjectionRule,
                        OptimizerRule::makeFlags(OptimizerRule::Flags::CanBeDisabled));
 
   // remove SORT RAND() LIMIT 1 if appropriate
@@ -84,107 +93,20 @@ void RocksDBOptimizerRules::reduceExtractionToProjectionRule(
   std::unordered_set<std::string> attributes;
 
   for (auto& n : nodes) {
-    bool stop = false;
-    bool optimize = false;
-    attributes.clear();
     DocumentProducingNode* e = dynamic_cast<DocumentProducingNode*>(n);
     if (e == nullptr) {
       THROW_ARANGO_EXCEPTION_MESSAGE(
           TRI_ERROR_INTERNAL, "cannot convert node to DocumentProducingNode");
     }
+
     Variable const* v = e->outVariable();
 
+    attributes.clear();
+    bool stop = false;
     ExecutionNode* current = n->getFirstParent();
     while (current != nullptr) {
-      bool doRegularCheck = false;
-
-      if (current->getType() == EN::REMOVE) {
-        RemoveNode const* removeNode = ExecutionNode::castTo<RemoveNode const*>(current);
-        if (removeNode->inVariable() == v) {
-          // FOR doc IN collection REMOVE doc IN ...
-          attributes.emplace(StaticStrings::KeyString);
-          optimize = true;
-        } else {
-          doRegularCheck = true;
-        }
-      } else if (current->getType() == EN::UPDATE || current->getType() == EN::REPLACE) {
-        UpdateReplaceNode const* modificationNode =
-            ExecutionNode::castTo<UpdateReplaceNode const*>(current);
-
-        if (modificationNode->inKeyVariable() == v &&
-            modificationNode->inDocVariable() != v) {
-          // FOR doc IN collection UPDATE/REPLACE doc IN ...
-          attributes.emplace(StaticStrings::KeyString);
-          optimize = true;
-        } else {
-          doRegularCheck = true;
-        }
-      } else if (current->getType() == EN::CALCULATION) {
-        Expression* exp = ExecutionNode::castTo<CalculationNode*>(current)->expression();
-
-        if (exp != nullptr && exp->node() != nullptr) {
-          AstNode const* node = exp->node();
-          vars.clear();
-          current->getVariablesUsedHere(vars);
-
-          if (vars.find(v) != vars.end()) {
-            if (!Ast::getReferencedAttributes(node, v, attributes)) {
-              stop = true;
-              break;
-            }
-            optimize = true;
-          }
-        }
-      } else if (current->getType() == EN::GATHER) {
-        // compare sort attributes of GatherNode
-        auto gn = ExecutionNode::castTo<GatherNode*>(current);
-        for (auto const& it : gn->elements()) {
-          if (it.var == v) {
-            if (it.attributePath.empty()) {
-              // sort of GatherNode refers to the entire document, not to an
-              // attribute of the document
-              stop = true;
-              break;
-            }
-            // insert 0th level of attribute name into the set of attributes
-            // that we need for our projection
-            attributes.emplace(it.attributePath[0]);
-          }
-        }
-      } else if (current->getType() == EN::INDEX) {
-        Condition const* condition =
-            ExecutionNode::castTo<IndexNode const*>(current)->condition();
-
-        if (condition != nullptr && condition->root() != nullptr) {
-          AstNode const* node = condition->root();
-          vars.clear();
-          current->getVariablesUsedHere(vars);
-
-          if (vars.find(v) != vars.end()) {
-            if (!Ast::getReferencedAttributes(node, v, attributes)) {
-              stop = true;
-              break;
-            }
-            optimize = true;
-          }
-        }
-      } else {
-        // all other node types mandate a check
-        doRegularCheck = true;
-      }
-
-      if (doRegularCheck) {
-        vars.clear();
-        current->getVariablesUsedHere(vars);
-
-        if (vars.find(v) != vars.end()) {
-          // original variable is still used here
-          stop = true;
-          break;
-        }
-      }
-
-      if (stop) {
+      if (!current->getReferencedAttributes(v, attributes)) {
+        stop = true;
         break;
       }
 
@@ -192,7 +114,7 @@ void RocksDBOptimizerRules::reduceExtractionToProjectionRule(
     }
 
     // projections are currently limited (arbitrarily to 5 attributes)
-    if (optimize && !stop && !attributes.empty() && attributes.size() <= 5) {
+    if (!stop && !attributes.empty() && attributes.size() <= 5) {
       if (n->getType() == ExecutionNode::ENUMERATE_COLLECTION &&
           std::find(attributes.begin(), attributes.end(), StaticStrings::IdString) ==
               attributes.end()) {
@@ -347,6 +269,89 @@ void RocksDBOptimizerRules::reduceExtractionToProjectionRule(
         en->DocumentProducingNode::cloneInto(plan.get(), *inode);
         modified = true;
       }
+    }
+  }
+
+  opt->addPlan(std::move(plan), rule, modified);
+}
+
+// Optimize traversals so that they also restrict vertex and edge fetching to
+// the actually required document attributes
+void RocksDBOptimizerRules::reduceTraversalExtractionToProjectionRule(
+    Optimizer* opt, std::unique_ptr<ExecutionPlan> plan, OptimizerRule const& rule) {
+  // These are all the nodes where we start traversing (including all
+  // subqueries)
+  ::arangodb::containers::SmallVector<ExecutionNode*>::allocator_type::arena_type a;
+  ::arangodb::containers::SmallVector<ExecutionNode*> nodes{a};
+  
+  plan->findNodesOfType(nodes, EN::TRAVERSAL, true);
+
+  bool modified = false;
+
+  auto checkVariableUsage = [](ExecutionNode const* current, Variable const* v, 
+                               std::unordered_set<std::string>& attributes) {
+    attributes.clear();
+
+    while (current != nullptr) {
+      if (!current->getReferencedAttributes(v, attributes)) {
+        return false;
+      }
+
+      current = current->getFirstParent();
+    }
+
+    return true;
+  };
+
+  std::unordered_set<std::string> attributes;
+
+  for (auto& n : nodes) {
+    auto t = ExecutionNode::castTo<TraversalNode*>(n);
+
+    attributes.clear();
+    
+    bool usesPathVertices = false; 
+    bool usesPathEdges = false; 
+    
+    Variable const* v = t->pathOutVariable();
+    if (v != nullptr) {
+      // check if path.vertices and path.edges are used
+      usesPathVertices = true; 
+      usesPathEdges = true; 
+      if (checkVariableUsage(n, v, attributes)) {
+        usesPathVertices = (attributes.find("vertices") != attributes.end());
+        usesPathEdges = (attributes.find("edges") != attributes.end());
+      }
+    
+      if (t->condition() != nullptr) {
+        attributes.clear();
+        if (Ast::getReferencedAttributes(t->condition()->root(), v, attributes)) {
+          usesPathVertices |= (attributes.find("vertices") != attributes.end());
+          usesPathEdges |= (attributes.find("edges") != attributes.end());
+        } else {
+          // we are unsure
+          usesPathVertices = true;
+          usesPathEdges = true;
+        }
+      }
+    }
+
+    // check traversal's vertex output variable
+    v = t->vertexOutVariable();
+    if (v != nullptr &&
+        !usesPathVertices &&
+        checkVariableUsage(n->getFirstParent(), v, attributes)) {
+      t->options()->setVertexProjections(std::move(attributes));
+      modified = true;
+    }
+    
+    // check traversal's edge output variable
+    v = t->edgeOutVariable();
+    if (v != nullptr && 
+        !usesPathEdges &&
+        checkVariableUsage(n->getFirstParent(), v, attributes)) {
+      t->options()->setEdgeProjections(std::move(attributes));
+      modified = true;
     }
   }
 

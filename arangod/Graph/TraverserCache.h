@@ -27,20 +27,17 @@
 #include "Basics/StringHeap.h"
 #include "VocBase/ManagedDocumentResult.h"
 
+#include <velocypack/Builder.h>
 #include <velocypack/StringRef.h>
 
 #include <unordered_set>
 
 namespace arangodb {
-class ManagedDocumentResult;
-class StringHeap;
-
 namespace transaction {
 class Methods;
 }
 
 namespace velocypack {
-class Builder;
 class Slice;
 }  // namespace velocypack
 
@@ -133,6 +130,9 @@ class TraverserCache {
   ///        responsibility for one document.
   //////////////////////////////////////////////////////////////////////////////
   ManagedDocumentResult _mmdr;
+
+  /// @brief builder to hold a temporary result (e.g. a vertex or an edge)
+  arangodb::velocypack::Builder _resultBuilder;
 
   //////////////////////////////////////////////////////////////////////////////
   /// @brief Query used to register warnings to.

@@ -1022,11 +1022,14 @@ Result LogicalCollection::read(transaction::Methods* trx,
   return getPhysical()->read(trx, key, result, lock);
 }
 
+/// @brief reads an element from the document collection
 Result LogicalCollection::read(transaction::Methods* trx,
-                               arangodb::velocypack::Slice const& key,
-                               ManagedDocumentResult& result, bool lock) {
+                               arangodb::velocypack::StringRef const& key,
+                               arangodb::velocypack::Builder& result,
+                               bool lock,
+                               std::vector<std::string> const& projections) {
   TRI_IF_FAILURE("LogicalCollection::read") { return Result(TRI_ERROR_DEBUG); }
-  return getPhysical()->read(trx, key, result, lock);
+  return getPhysical()->read(trx, key, result, lock, projections);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

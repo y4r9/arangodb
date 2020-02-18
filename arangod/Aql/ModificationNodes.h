@@ -185,6 +185,8 @@ class RemoveNode : public ModificationNode {
   void getVariablesUsedHere(::arangodb::containers::HashSet<Variable const*>& vars) const override final {
     vars.emplace(_inVariable);
   }
+  
+  bool getReferencedAttributes(Variable const* v, std::unordered_set<std::string>& attributes) const override;
 
   void setInVariable(Variable const* var) { _inVariable = var; }
 
@@ -274,6 +276,8 @@ class UpdateReplaceNode : public ModificationNode {
       vars.emplace(_inKeyVariable);
     }
   }
+  
+  bool getReferencedAttributes(Variable const* v, std::unordered_set<std::string>& attributes) const override;
 
   /// @brief set the input document variable
   void setInDocVariable(Variable const* var) { _inDocVariable = var; }

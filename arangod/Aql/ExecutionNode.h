@@ -376,6 +376,15 @@ class ExecutionNode {
   /// @brief invalidateVarUsage
   void invalidateVarUsage();
 
+  /// @brief determines which attributes of variable v are referenced (read) by the
+  /// node. returns false if it cannot be determined if/how variable v is used by the node.
+  /// also returns false if the variable v is accessed by the node in its entirety, but no
+  /// subattributes are accessed.
+  /// returns true if it can be determined accurately that the node does not access v at all,
+  /// or only accesses sub-attributes of v. In the latter case, the accessed attributes will be
+  /// stored in the set.
+  virtual bool getReferencedAttributes(Variable const* v, std::unordered_set<std::string>& attributes) const;
+
   /// @brief whether or not the subquery is deterministic
   virtual bool isDeterministic();
 
@@ -724,7 +733,9 @@ class CalculationNode : public ExecutionNode {
   void getVariablesUsedHere(::arangodb::containers::HashSet<Variable const*>& vars) const override final;
 
   /// @brief getVariablesSetHere
-  virtual std::vector<Variable const*> getVariablesSetHere() const override final;
+  std::vector<Variable const*> getVariablesSetHere() const override final;
+  
+  bool getReferencedAttributes(Variable const* v, std::unordered_set<std::string>& attributes) const override;
 
   bool isDeterministic() override final;
 

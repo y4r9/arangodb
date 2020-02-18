@@ -1993,8 +1993,13 @@ LocalDocumentId MMFilesCollection::lookupKey(transaction::Methods* trx,
   return element ? LocalDocumentId(element.localDocumentId()) : LocalDocumentId();
 }
 
-Result MMFilesCollection::read(transaction::Methods* trx, VPackSlice const& key,
+Result MMFilesCollection::read(transaction::Methods* trx,
+                               arangodb::velocypack::StringRef const& key,
                                ManagedDocumentResult& result, bool lock) {
+  // copy string into a vpack string
+  transaction::BuilderLeaser builder(trx);
+  builder->add(VPackValuePair(key.data(), key.size(), VPackValueType::String));
+  
   TRI_IF_FAILURE("ReadDocumentNoLock") {
     // test what happens if no lock can be acquired
     return Result(TRI_ERROR_DEBUG);
@@ -2015,7 +2020,7 @@ Result MMFilesCollection::read(transaction::Methods* trx, VPackSlice const& key,
   }
   TRI_DEFER(if (lock) { unlockRead(useDeadlockDetector, trx->state()); });
 
-  LocalDocumentId const documentId = lookupDocument(trx, key, result);
+  LocalDocumentId const documentId = lookupDocument(trx, builder->slice(), result);
   if (documentId.empty()) {
     return Result(TRI_ERROR_ARANGO_DOCUMENT_NOT_FOUND);
   }
@@ -2026,11 +2031,15 @@ Result MMFilesCollection::read(transaction::Methods* trx, VPackSlice const& key,
 
 Result MMFilesCollection::read(transaction::Methods* trx,
                                arangodb::velocypack::StringRef const& key,
-                               ManagedDocumentResult& result, bool lock) {
-  // copy string into a vpack string
-  transaction::BuilderLeaser builder(trx);
-  builder->add(VPackValuePair(key.data(), key.size(), VPackValueType::String));
-  return read(trx, builder->slice(), result, lock);
+                               arangodb::velocypack::Builder& result,
+                               bool lock,
+                               std::vector<std::string> const& projections) {
+  ManagedDocumentResult mmdr;
+  Result res = read(trx, key, mmdr, lock);
+  if (res.ok()) {
+    result.add(VPackSlice(mmdr.vpack()));
+  }
+  return res;
 }
 
 bool MMFilesCollection::readDocument(transaction::Methods* trx,

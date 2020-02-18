@@ -203,6 +203,10 @@ struct OptimizerRule {
     // sort values used in IN comparisons of remaining filters
     sortInValuesRule,
 
+    // optimize traversals so that they also restrict vertex and edge fetching to
+    // the actually required document attributes
+    reduceTraversalExtractionToProjectionRule,
+
     // merge filters into graph traversals
     optimizeTraversalsRule,
     // remove redundant filters statements
@@ -291,7 +295,7 @@ struct OptimizerRule {
     // simplify an EnumerationCollectionNode that fetches an
     // entire document to a projection of this document
     reduceExtractionToProjectionRule,
-
+    
     // moves filters on collection data into EnumerateCollection/Index to
     // avoid copying large amounts of unneeded documents
     moveFiltersIntoEnumerateRule,

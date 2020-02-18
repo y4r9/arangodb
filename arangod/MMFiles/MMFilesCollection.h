@@ -282,9 +282,9 @@ class MMFilesCollection final : public PhysicalCollection {
 
   Result read(transaction::Methods*, arangodb::velocypack::StringRef const& key,
               ManagedDocumentResult& result, bool) override;
-
-  Result read(transaction::Methods*, arangodb::velocypack::Slice const& key,
-              ManagedDocumentResult& result, bool) override;
+  
+  Result read(transaction::Methods*, arangodb::velocypack::StringRef const& key,
+              arangodb::velocypack::Builder& result, bool shouldLock, std::vector<std::string> const& projections) override;
 
   bool readDocument(transaction::Methods* trx, LocalDocumentId const& documentId,
                     ManagedDocumentResult& result) const override;

@@ -105,6 +105,8 @@ class IndexNode : public ExecutionNode, public DocumentProducingNode, public Col
 
   /// @brief getVariablesUsedHere, modifying the set in-place
   void getVariablesUsedHere(::arangodb::containers::HashSet<Variable const*>& vars) const final;
+  
+  bool getReferencedAttributes(Variable const* v, std::unordered_set<std::string>& attributes) const override;
 
   /// @brief estimateCost
   CostEstimate estimateCost() const final;

@@ -2231,11 +2231,11 @@ TopLevelAttributes Ast::getReferencedAttributes(AstNode const* node, bool& isSaf
         THROW_ARANGO_EXCEPTION(TRI_ERROR_OUT_OF_MEMORY);
       }
 
-      auto[it, emp] = result.try_emplace(
+      auto [it, emp] = result.try_emplace(
         variable,
         arangodb::lazyConstruct([&]{
-         return std::unordered_set<std::string>( {std::string(attributeName, nameLength)});
-         })
+          return std::unordered_set<std::string>({std::string(attributeName, nameLength)});
+        })
       );
       if (emp) {
         // insert attributeName only

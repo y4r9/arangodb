@@ -1220,6 +1220,15 @@ void ExecutionNode::invalidateVarUsage() {
   _varsValid.clear();
   _varUsageValid = false;
 }
+  
+bool ExecutionNode::getReferencedAttributes(Variable const* v, std::unordered_set<std::string>& attributes) const {
+  ::arangodb::containers::HashSet<Variable const*> vars;
+  // determine which variables are used by the node
+  getVariablesUsedHere(vars);
+
+  // returns true if the variable v is not used by the node, and false otherwise
+  return vars.find(v) == vars.end();
+}
 
 bool ExecutionNode::isDeterministic() { return true; }
 
@@ -1758,6 +1767,18 @@ void CalculationNode::getVariablesUsedHere(::arangodb::containers::HashSet<const
 
 std::vector<Variable const*> CalculationNode::getVariablesSetHere() const {
   return std::vector<Variable const*>{_outVariable};
+}
+  
+bool CalculationNode::getReferencedAttributes(Variable const* v, std::unordered_set<std::string>& attributes) const {
+  ::arangodb::containers::HashSet<Variable const*> vars;
+  // determine which variables are used by the node
+  getVariablesUsedHere(vars);
+
+  if (vars.find(v) == vars.end()) {
+    return true;
+  }
+  
+  return Ast::getReferencedAttributes(_expression->node(), v, attributes);
 }
 
 bool CalculationNode::isDeterministic() {

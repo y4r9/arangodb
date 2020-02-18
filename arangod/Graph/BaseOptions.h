@@ -31,6 +31,9 @@
 #include "Cluster/TraverserEngineRegistry.h"
 #include "Transaction/Methods.h"
 
+#include <unordered_set>
+#include <vector>
+
 namespace arangodb {
 
 namespace aql {
@@ -116,6 +119,22 @@ struct BaseOptions {
   
   void setProduceVertices(bool value) { _produceVertices = value; }
 
+  void setVertexProjections(std::unordered_set<std::string> projections) {
+    _vertexProjections.assign(projections.begin(), projections.end());
+  }
+  
+  std::vector<std::string> const& vertexProjections() const {
+    return _vertexProjections;
+  }
+  
+  void setEdgeProjections(std::unordered_set<std::string> projections) {
+    _edgeProjections.assign(projections.begin(), projections.end());
+  }
+  
+  std::vector<std::string> const& edgeProjections() const {
+    return _edgeProjections;
+  }
+
   transaction::Methods* trx() const;
 
   aql::Query* query() const;
@@ -181,8 +200,14 @@ struct BaseOptions {
   /// @brief the traverser cache
   std::unique_ptr<TraverserCache> _cache;
 
-  // @brief - translations for one-shard-databases
+  /// @brief - translations for one-shard-databases
   std::map<std::string, std::string> _collectionToShard;
+
+  /// @brief projections for vertices
+  std::vector<std::string> _vertexProjections;
+  
+  /// @brief projections for edges
+  std::vector<std::string> _edgeProjections;
 };
 
 }  // namespace graph

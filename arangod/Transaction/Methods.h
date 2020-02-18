@@ -267,6 +267,12 @@ class Methods {
                                                arangodb::velocypack::StringRef const& key,
                                                ManagedDocumentResult& result,
                                                bool shouldLock);
+  
+  ENTERPRISE_VIRT Result documentFastPathLocal(std::string const& collectionName,
+                                               arangodb::velocypack::StringRef const& key,
+                                               arangodb::velocypack::Builder& result,
+                                               bool shouldLock,
+                                               std::vector<std::string> const& projections);
 
   /// @brief return one or multiple documents from a collection
   /// @deprecated use async variant

@@ -1062,9 +1062,9 @@ function processQuery(query, explain, planIndex) {
     return results[0];
   };
 
-  var projection = function (node) {
-    if (node.projections && node.projections.length > 0) {
-      return ', projections: `' + node.projections.join('`, `') + '`';
+  var projection = function (projections, prefix) {
+    if (projections && projections.length > 0) {
+      return prefix + 'projections: `' + projections.join('`, `') + '`';
     }
     return '';
   };
@@ -1115,7 +1115,7 @@ function processQuery(query, explain, planIndex) {
         if (node.filter) {
           filter = '   ' + keyword('FILTER') + ' ' + buildExpression(node.filter) + '   ' + annotation('/* early pruning */');
         }
-        return keyword('FOR') + ' ' + variableName(node.outVariable) + ' ' + keyword('IN') + ' ' + collection(node.collection) + '   ' + annotation('/* full collection scan' + (node.random ? ', random order' : '') + projection(node) + (node.satellite ? ', satellite' : '') + ((node.producesResult || !node.hasOwnProperty('producesResult')) ? '' : ', scan only') + `${restriction(node)} */`) + filter;
+        return keyword('FOR') + ' ' + variableName(node.outVariable) + ' ' + keyword('IN') + ' ' + collection(node.collection) + '   ' + annotation('/* full collection scan' + (node.random ? ', random order' : '') + projection(node.projections, ', ') + (node.satellite ? ', satellite' : '') + ((node.producesResult || !node.hasOwnProperty('producesResult')) ? '' : ', scan only') + `${restriction(node)} */`) + filter;
       case 'EnumerateListNode':
         return keyword('FOR') + ' ' + variableName(node.outVariable) + ' ' + keyword('IN') + ' ' + variableName(node.inVariable) + '   ' + annotation('/* list iteration */');
       case 'EnumerateViewNode':
@@ -1181,7 +1181,7 @@ function processQuery(query, explain, planIndex) {
         }
         node.indexes.forEach(function (idx, i) { iterateIndexes(idx, i, node, types, false); });
         return `${keyword('FOR')} ${variableName(node.outVariable)} ${keyword('IN')} ${collection(node.collection)}` + indexVariables +
-          `   ${annotation(`/* ${types.join(', ')}${projection(node)}${node.satellite ? ', satellite' : ''}${restriction(node)} */`)} ` + filter +
+          `   ${annotation(`/* ${types.join(', ')}${projection(node.projections, ', ')}${node.satellite ? ', satellite' : ''}${restriction(node)} */`)} ` + filter +
           '   ' + annotation(indexAnnotation);
       case 'TraversalNode':
         if (node.hasOwnProperty("options")) {
@@ -1280,7 +1280,16 @@ function processQuery(query, explain, planIndex) {
         } else {
           rc += keyword('GRAPH') + " '" + value(node.graph) + "'";
         }
-
+        let pr = [];
+        if (node.options.vertexProjections) {
+          pr.push(projection(node.options.vertexProjections, 'vertex '));
+        }
+        if (node.options.edgeProjections) {
+          pr.push(projection(node.options.edgeProjections, 'edge '));
+        }
+        if (pr.length) {
+          rc += annotation('   /* ' + pr.join(', ') + ' */');
+        }
         traversalDetails.push(node);
         if (node.hasOwnProperty('condition')) {
           node.ConditionStr = buildExpression(node.condition);

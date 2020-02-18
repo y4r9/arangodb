@@ -44,6 +44,14 @@ struct RocksDBOptimizerRules {
   static void reduceExtractionToProjectionRule(aql::Optimizer* opt,
                                                std::unique_ptr<aql::ExecutionPlan> plan,
                                                aql::OptimizerRule const& rule);
+
+  // optimize traversals so that they also restrict vertex and edge fetching to
+  // the actually required document attributes
+  static void reduceTraversalExtractionToProjectionRule(aql::Optimizer* opt,
+                                                        std::unique_ptr<aql::ExecutionPlan> plan,
+                                                        aql::OptimizerRule const& rule);
+
+
   // remove SORT RAND() LIMIT 1 if appropriate
   static void removeSortRandRule(aql::Optimizer* opt,
                                  std::unique_ptr<aql::ExecutionPlan> plan,

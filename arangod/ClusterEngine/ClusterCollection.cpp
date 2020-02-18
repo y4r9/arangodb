@@ -430,6 +430,14 @@ Result ClusterCollection::read(transaction::Methods* trx,
   return Result(TRI_ERROR_NOT_IMPLEMENTED);
 }
 
+Result ClusterCollection::read(transaction::Methods* trx,
+                               arangodb::velocypack::StringRef const&,
+                               arangodb::velocypack::Builder&, 
+                               bool, 
+                               std::vector<std::string> const&) {
+  return Result(TRI_ERROR_NOT_IMPLEMENTED);
+}
+
 // read using a token!
 bool ClusterCollection::readDocument(transaction::Methods* trx,
                                      LocalDocumentId const& documentId,

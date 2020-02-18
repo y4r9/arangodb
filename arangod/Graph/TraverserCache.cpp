@@ -110,11 +110,20 @@ VPackSlice TraverserCache::lookupVertexInCollection(arangodb::velocypack::String
     }
   }
 
-  Result res = _trx->documentFastPathLocal(collectionName,
-                                           id.substr(pos + 1), _mmdr, true);
-  if (res.ok()) {
-    ++_insertedDocuments;
-    return VPackSlice(_mmdr.vpack());
+  Result res;
+  if (_baseOptions->vertexProjections().empty()) {
+    res = _trx->documentFastPathLocal(collectionName, id.substr(pos + 1), _mmdr, true);
+    if (res.ok()) {
+      ++_insertedDocuments;
+      return VPackSlice(_mmdr.vpack());
+    }
+  } else {
+    _resultBuilder.clear();
+    res = _trx->documentFastPathLocal(collectionName, id.substr(pos + 1), _resultBuilder, true, _baseOptions->vertexProjections());
+    if (res.ok()) {
+      ++_insertedDocuments;
+      return _resultBuilder.slice();
+    }
   }
 
   if (!res.is(TRI_ERROR_ARANGO_DOCUMENT_NOT_FOUND)) {

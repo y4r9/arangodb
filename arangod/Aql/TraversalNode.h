@@ -143,7 +143,7 @@ class TraversalNode : public GraphNode {
     }
     return vars;
   }
-
+  
   /// @brief checks if the path out variable is used
   bool usesPathOutVariable() const { return _pathOutVariable != nullptr; }
 

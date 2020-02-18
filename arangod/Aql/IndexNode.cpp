@@ -610,6 +610,18 @@ void IndexNode::getVariablesUsedHere(::arangodb::containers::HashSet<Variable co
 
   vars.erase(_outVariable);
 }
+  
+bool IndexNode::getReferencedAttributes(Variable const* v, std::unordered_set<std::string>& attributes) const {
+  ::arangodb::containers::HashSet<Variable const*> vars;
+  // determine which variables are used by the node
+  getVariablesUsedHere(vars);
+
+  if (vars.find(v) == vars.end()) {
+    return true;
+  }
+  return Ast::getReferencedAttributes(_condition->root(), v, attributes);
+}
+
 ExecutionNode::NodeType IndexNode::getType() const { return INDEX; }
 
 Condition* IndexNode::condition() const { return _condition.get(); }

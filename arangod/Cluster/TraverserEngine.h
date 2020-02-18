@@ -96,6 +96,11 @@ class BaseEngine {
   virtual EngineType getType() const = 0;
 
   virtual bool produceVertices() const { return true; }
+  virtual std::vector<std::string> const& vertexProjections() const;
+
+ protected:
+  void getVertexData(arangodb::velocypack::Slice, size_t depth, 
+                     arangodb::velocypack::Builder&, bool produceDetails);
 
  protected:
   arangodb::aql::Query* _query;
@@ -130,6 +135,7 @@ class BaseTraverserEngine : public BaseEngine {
   EngineType getType() const override { return TRAVERSER; }
   
   bool produceVertices() const override;
+  std::vector<std::string> const& vertexProjections() const override;
  
  protected:
   std::unique_ptr<traverser::TraverserOptions> _opts;

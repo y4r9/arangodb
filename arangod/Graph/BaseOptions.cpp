@@ -180,7 +180,9 @@ BaseOptions::BaseOptions(BaseOptions const& other)
       _trx(other._trx),
       _produceVertices(other._produceVertices),
       _isCoordinator(arangodb::ServerState::instance()->isCoordinator()),
-      _tmpVar(nullptr) {
+      _tmpVar(nullptr),
+      _vertexProjections(other._vertexProjections),
+      _edgeProjections(other._edgeProjections) {
   TRI_ASSERT(other._baseLookupInfos.empty());
   TRI_ASSERT(other._tmpVar == nullptr);
 }
@@ -217,6 +219,20 @@ BaseOptions::BaseOptions(arangodb::aql::Query* query, VPackSlice info, VPackSlic
   read = info.get("produceVertices");
   if (read.isBool() && !read.getBool()) {
     _produceVertices = false;
+  }
+  
+  read = info.get("vertexProjections");
+  if (read.isArray()) {
+    for (auto const& it : VPackArrayIterator(read)) {
+      _vertexProjections.emplace_back(it.copyString());
+    }
+  }
+  
+  read = info.get("edgeProjections");
+  if (read.isArray()) {
+    for (auto const& it : VPackArrayIterator(read)) {
+      _edgeProjections.emplace_back(it.copyString());
+    }
   }
 }
 

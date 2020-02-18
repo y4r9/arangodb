@@ -750,9 +750,68 @@ Result RocksDBCollection::read(transaction::Methods* trx,
       } // else value is already assigned
       result.setRevisionId(); // extracts id from buffer
     }
-  } while(res.is(TRI_ERROR_ARANGO_DOCUMENT_NOT_FOUND) &&
-          RocksDBTransactionState::toState(trx)->setSnapshotOnReadOnly());
+  } while (res.is(TRI_ERROR_ARANGO_DOCUMENT_NOT_FOUND) &&
+           RocksDBTransactionState::toState(trx)->setSnapshotOnReadOnly());
   return res;
+}
+
+Result RocksDBCollection::read(transaction::Methods* trx,
+                               arangodb::velocypack::StringRef const& key,
+                               arangodb::velocypack::Builder& result, 
+                               bool /*lock*/,
+                               std::vector<std::string> const& projections) {
+  LocalDocumentId const documentId = primaryIndex()->lookupKey(trx, key);
+  if (!documentId.isSet()) {
+    return Result(TRI_ERROR_ARANGO_DOCUMENT_NOT_FOUND);
+  }
+  
+  if (projections.empty()) {
+    result.add(VPackSlice::emptyObjectSlice());
+    return Result();
+  } 
+  
+  struct CallbackHelper {
+    arangodb::transaction::Methods* trx;
+    arangodb::velocypack::Builder& result;
+    std::vector<std::string> const& projections;
+  };
+
+  CallbackHelper helper{trx, result, projections};
+  
+  IndexIterator::DocumentCallback cb = [&helper](LocalDocumentId const& token, VPackSlice doc) {
+    TRI_ASSERT(!helper.projections.empty());
+    for (auto const& it : helper.projections) {
+      VPackSlice value = doc.get(it);
+      if (value.isCustom()) {
+        helper.result.add(it, VPackValue(helper.trx->extractIdString(doc)));
+      } else if (!value.isNone()) {
+        helper.result.add(it, value);
+      }
+    }
+    return true;
+  };
+
+  VPackObjectBuilder obj(&result);
+  if (projections.size() == 1) {
+    if (projections[0] == StaticStrings::KeyString) {
+      result.add(StaticStrings::KeyString, VPackValuePair(key.data(), key.size(), VPackValueType::String));
+      return Result();
+    } else if (projections[0] == StaticStrings::IdString) {
+      std::string id(trx->resolver()->getCollectionNameCluster(_logicalCollection.id()));
+      id.push_back('/');
+      id.append(key.data(), key.size());
+      result.add(StaticStrings::IdString, VPackValue(id));
+      return Result();
+    }
+  }
+      
+  do {
+    if (lookupDocumentVPack(trx, documentId, cb, true)) {
+      return Result();
+    }
+  } while (RocksDBTransactionState::toState(trx)->setSnapshotOnReadOnly());
+
+  return Result(TRI_ERROR_ARANGO_DOCUMENT_NOT_FOUND);
 }
 
 // read using a token!
