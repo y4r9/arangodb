@@ -796,6 +796,8 @@ class SubqueryNode : public ExecutionNode {
 
   /// @brief getVariablesSetHere
   std::vector<Variable const*> getVariablesSetHere() const override final;
+  
+  bool getReferencedAttributes(Variable const* v, std::unordered_set<std::string>& attributes) const override;
 
   /// @brief replace the out variable, so we can adjust the name.
   void replaceOutVariable(Variable const* var);

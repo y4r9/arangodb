@@ -53,6 +53,17 @@ namespace {
 
 std::vector<ExecutionNode::NodeType> const reduceExtractionToProjectionTypes = {
     ExecutionNode::ENUMERATE_COLLECTION, ExecutionNode::INDEX};
+  
+bool checkVariableUsage(ExecutionNode const* current, Variable const* v, std::unordered_set<std::string>& attributes) {
+  while (current != nullptr) {
+    if (!current->getReferencedAttributes(v, attributes)) {
+      return false;
+    }
+    current = current->getFirstParent();
+  }
+
+  return true;
+}
 
 }  // namespace
 
@@ -285,31 +296,13 @@ void RocksDBOptimizerRules::reduceTraversalExtractionToProjectionRule(
   ::arangodb::containers::SmallVector<ExecutionNode*> nodes{a};
   
   plan->findNodesOfType(nodes, EN::TRAVERSAL, true);
-
+  
   bool modified = false;
-
-  auto checkVariableUsage = [](ExecutionNode const* current, Variable const* v, 
-                               std::unordered_set<std::string>& attributes) {
-    attributes.clear();
-
-    while (current != nullptr) {
-      if (!current->getReferencedAttributes(v, attributes)) {
-        return false;
-      }
-
-      current = current->getFirstParent();
-    }
-
-    return true;
-  };
-
   std::unordered_set<std::string> attributes;
 
   for (auto& n : nodes) {
     auto t = ExecutionNode::castTo<TraversalNode*>(n);
 
-    attributes.clear();
-    
     bool usesPathVertices = false; 
     bool usesPathEdges = false; 
     
@@ -318,6 +311,7 @@ void RocksDBOptimizerRules::reduceTraversalExtractionToProjectionRule(
       // check if path.vertices and path.edges are used
       usesPathVertices = true; 
       usesPathEdges = true; 
+      attributes.clear();
       if (checkVariableUsage(n, v, attributes)) {
         usesPathVertices = (attributes.find("vertices") != attributes.end());
         usesPathEdges = (attributes.find("edges") != attributes.end());
@@ -335,8 +329,9 @@ void RocksDBOptimizerRules::reduceTraversalExtractionToProjectionRule(
         }
       }
     }
-
+    
     // check traversal's vertex output variable
+    attributes.clear();
     v = t->vertexOutVariable();
     if (v != nullptr &&
         !usesPathVertices &&
@@ -346,6 +341,7 @@ void RocksDBOptimizerRules::reduceTraversalExtractionToProjectionRule(
     }
     
     // check traversal's edge output variable
+    attributes.clear();
     v = t->edgeOutVariable();
     if (v != nullptr && 
         !usesPathEdges &&
