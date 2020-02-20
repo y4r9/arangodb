@@ -64,6 +64,12 @@
 #include <velocypack/Iterator.h>
 #include <velocypack/velocypack-aliases.h>
 
+
+#include "Basics/system-functions.h"
+#include "Basics/ScopeGuard.h"
+#include "Logger/LogMacros.h"
+
+
 using namespace arangodb;
 
 RocksDBCollection::RocksDBCollection(LogicalCollection& collection,
@@ -791,6 +797,7 @@ Result RocksDBCollection::read(transaction::Methods* trx,
     return true;
   };
 
+  //LOG_DEVEL << "CALLing PROJECTION FOR " << _logicalCollection.name() << ", PROJECTIONS: " << basics::StringUtils::join(projections, ", ");
   VPackObjectBuilder obj(&result);
   if (projections.size() == 1) {
     if (projections[0] == StaticStrings::KeyString) {
@@ -1524,10 +1531,11 @@ bool RocksDBCollection::lookupDocumentVPack(transaction::Methods* trx,
                                             LocalDocumentId const& documentId,
                                             IndexIterator::DocumentCallback const& cb,
                                             bool withCache) const {
-
+  RocksDBKeyLeaser key(trx);
+  key->constructDocument(_objectId, documentId);
+  
+  bool lockTimeout = false;
   if (withCache && useCache()) {
-    RocksDBKeyLeaser key(trx);
-    key->constructDocument(_objectId, documentId);
     TRI_ASSERT(_cache != nullptr);
     // check cache first for fast path
     auto f = _cache->find(key->string().data(),
@@ -1536,17 +1544,46 @@ bool RocksDBCollection::lookupDocumentVPack(transaction::Methods* trx,
       cb(documentId, VPackSlice(reinterpret_cast<uint8_t const*>(f.value()->value())));
       return true;
     }
+    if (f.result().errorNumber() == TRI_ERROR_LOCK_TIMEOUT) {
+      // assuming someone is currently holding a write lock, which
+      // is why we cannot access the TransactionalBucket.
+      lockTimeout = true;  // we skip the insert in this case
+    }
   }
-
+  
   transaction::StringLeaser buffer(trx);
   rocksdb::PinnableSlice ps(buffer.get());
-  Result res = lookupDocumentVPack(trx, documentId, ps, /*readCache*/false, withCache);
-  if (res.ok()) {
-    TRI_ASSERT(ps.size() > 0);
-    cb(documentId, VPackSlice(reinterpret_cast<uint8_t const*>(ps.data())));
-    return true;
+  RocksDBMethods* mthd = RocksDBTransactionState::toMethods(trx);
+  rocksdb::Status s = mthd->Get(RocksDBColumnFamily::documents(), key->string(), &ps);
+
+  if (!s.ok()) {
+    return false;
   }
-  return false;
+    
+  TRI_ASSERT(ps.size() > 0);
+  cb(documentId, VPackSlice(reinterpret_cast<uint8_t const*>(ps.data())));
+
+  if (withCache && useCache() && !lockTimeout) {
+    TRI_ASSERT(_cache != nullptr);
+    // write entry back to cache
+    auto entry =
+        cache::CachedValue::construct(key->string().data(),
+                                      static_cast<uint32_t>(key->string().size()),
+                                      ps.data(), static_cast<uint64_t>(ps.size()));
+    if (entry) {
+      auto status = _cache->insert(entry);
+      if (status.errorNumber() == TRI_ERROR_LOCK_TIMEOUT) {
+        // the writeLock uses cpu_relax internally, so we can try yield
+        std::this_thread::yield();
+        status = _cache->insert(entry);
+      }
+      if (status.fail()) {
+        delete entry;
+      }
+    }
+  }
+
+  return true;
 }
 
 void RocksDBCollection::createCache() const {

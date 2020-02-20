@@ -131,7 +131,7 @@ void ClusterTraverser::fetchVertices() {
   _verticesToFetch.clear();
 }
 
-aql::AqlValue ClusterTraverser::fetchVertexData(arangodb::velocypack::StringRef idString) {
+aql::AqlValue ClusterTraverser::fetchVertexAqlValue(arangodb::velocypack::StringRef idString, uint64_t depth) {
   // TRI_ASSERT(idString.isString());
   auto cached = _vertices.find(idString);
   if (cached == _vertices.end()) {

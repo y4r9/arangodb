@@ -212,6 +212,8 @@ class Traverser {
   virtual void clear() = 0;
 
   graph::TraverserCache* traverserCache();
+  
+  static constexpr uint64_t DepthUnknown = UINT64_MAX;
 
  protected:
   /// @brief Function to load the other sides vertex of an edge
@@ -292,8 +294,6 @@ class Traverser {
 
   bool vertexMatchesConditions(arangodb::velocypack::StringRef vid, uint64_t depth);
 
-  void allowOptimizedNeighbors();
-
   transaction::Methods* trx() const { return _trx; }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -315,13 +315,11 @@ class Traverser {
   /// @brief indicator if this traversal is done
   bool _done;
   
-  bool _canUseOptimizedNeighbors;
-
   /// @brief options for traversal
   TraverserOptions* _opts;
 
   /// @brief Function to fetch the real data of a vertex into an AQLValue
-  virtual aql::AqlValue fetchVertexData(arangodb::velocypack::StringRef vid) = 0;
+  virtual aql::AqlValue fetchVertexAqlValue(arangodb::velocypack::StringRef vid, uint64_t depth) = 0;
 
   /// @brief Function to add the real data of a vertex into a velocypack builder
   virtual void addVertexToVelocyPack(arangodb::velocypack::StringRef vid,

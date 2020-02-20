@@ -89,7 +89,7 @@ class TraverserCache {
   /// @brief Return AQL value containing the result
   ///        The document will be looked up in the StorageEngine
   //////////////////////////////////////////////////////////////////////////////
-  virtual aql::AqlValue fetchVertexAqlResult(arangodb::velocypack::StringRef idString);
+  virtual aql::AqlValue fetchVertexAqlValue(arangodb::velocypack::StringRef idString, uint64_t depth);
 
   size_t getAndResetInsertedDocuments() {
     size_t tmp = _insertedDocuments;
@@ -122,7 +122,7 @@ class TraverserCache {
   ///        The Slice returned here is only valid until the NEXT call of this
   ///        function.
   //////////////////////////////////////////////////////////////////////////////
-  arangodb::velocypack::Slice lookupVertexInCollection(arangodb::velocypack::StringRef idString);
+  arangodb::velocypack::Slice lookupVertexInCollection(arangodb::velocypack::StringRef idString, uint64_t depth);
 
  protected:
   //////////////////////////////////////////////////////////////////////////////

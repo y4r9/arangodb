@@ -42,6 +42,7 @@
 #include "Basics/StaticStrings.h"
 #include "Containers/HashSet.h"
 #include "Graph/BaseOptions.h"
+#include "Graph/TraverserOptions.h"
 #include "Indexes/Index.h"
 #include "VocBase/LogicalCollection.h"
 
@@ -338,6 +339,10 @@ void RocksDBOptimizerRules::reduceTraversalExtractionToProjectionRule(
         checkVariableUsage(n->getFirstParent(), v, attributes)) {
       t->options()->setVertexProjections(std::move(attributes));
       modified = true;
+
+      auto* opts = static_cast<traverser::TraverserOptions*>(t->options());
+      t->options()->setVertexProductionLevels(opts->minDepth, opts->maxDepth);
+      // LOG_DEVEL << "MIN: " << opts->minDepth << ", MAX: " << opts->maxDepth;
     }
     
     // check traversal's edge output variable

@@ -90,6 +90,9 @@ class BreadthFirstEnumerator final : public arangodb::traverser::PathEnumerator 
   ///        with this depth.
   size_t _toSearchPos;
 
+  /// @brief temporary vector that will be reused inside pathToIndexToSlice
+  std::vector<size_t> _pathIndexBuilder;
+
  public:
   BreadthFirstEnumerator(arangodb::traverser::Traverser* traverser,
                          arangodb::traverser::TraverserOptions* opts);
@@ -145,8 +148,6 @@ class BreadthFirstEnumerator final : public arangodb::traverser::PathEnumerator 
    * @return true if we can continue searching. False if we are done
    */
   bool prepareSearchOnNextDepth();
-
-  aql::AqlValue vertexToAqlValue(size_t index);
 
   aql::AqlValue edgeToAqlValue(size_t index);
 

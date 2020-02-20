@@ -135,7 +135,7 @@ bool NeighborsEnumerator::next() {
 
 arangodb::aql::AqlValue NeighborsEnumerator::lastVertexToAqlValue() {
   TRI_ASSERT(_iterator != _currentDepth.end());
-  return _traverser->fetchVertexData(*_iterator);
+  return _traverser->fetchVertexAqlValue(*_iterator, traverser::Traverser::DepthUnknown);
 }
 
 arangodb::aql::AqlValue NeighborsEnumerator::lastEdgeToAqlValue() {
@@ -167,9 +167,10 @@ void NeighborsEnumerator::swapLastAndCurrentDepth() {
 bool NeighborsEnumerator::shouldPrune(arangodb::velocypack::StringRef v) {
   // Prune here
   if (_opts->usesPrune()) {
+    // CRAP
     auto* evaluator = _opts->getPruneEvaluator();
     if (evaluator->needsVertex()) {
-      evaluator->injectVertex(_traverser->fetchVertexData(v).slice());
+      evaluator->injectVertex(_traverser->fetchVertexAqlValue(v, traverser::Traverser::DepthUnknown).slice());
     }
     // We cannot support these two here
     TRI_ASSERT(!evaluator->needsEdge());

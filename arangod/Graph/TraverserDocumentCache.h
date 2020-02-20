@@ -62,7 +62,7 @@ class TraverserDocumentCache final : public TraverserCache {
 
   aql::AqlValue fetchEdgeAqlResult(graph::EdgeDocumentToken const&) override;
 
-  aql::AqlValue fetchVertexAqlResult(arangodb::velocypack::StringRef idString) override;
+  aql::AqlValue fetchVertexAqlValue(arangodb::velocypack::StringRef idString, uint64_t depth) override;
 
  protected:
   //////////////////////////////////////////////////////////////////////////////

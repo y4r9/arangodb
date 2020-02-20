@@ -68,7 +68,7 @@ class ClusterTraverser final : public Traverser {
   /// @brief Function to fetch the real data of a vertex into an AQLValue
   //////////////////////////////////////////////////////////////////////////////
 
-  aql::AqlValue fetchVertexData(arangodb::velocypack::StringRef) override;
+  aql::AqlValue fetchVertexAqlValue(arangodb::velocypack::StringRef, uint64_t depth) override;
 
   //////////////////////////////////////////////////////////////////////////////
   /// @brief Function to add the real data of a vertex into a velocypack builder

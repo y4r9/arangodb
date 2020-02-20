@@ -24,7 +24,6 @@
 #include "SingleServerTraverser.h"
 #include "Aql/AqlValue.h"
 #include "Graph/BreadthFirstEnumerator.h"
-#include "Graph/NeighborsEnumerator.h"
 #include "Graph/TraverserCache.h"
 #include "Graph/TraverserOptions.h"
 #include "Transaction/Methods.h"
@@ -46,8 +45,8 @@ void SingleServerTraverser::addVertexToVelocyPack(arangodb::velocypack::StringRe
   _opts->cache()->insertVertexIntoResult(vid, result);
 }
 
-aql::AqlValue SingleServerTraverser::fetchVertexData(arangodb::velocypack::StringRef vid) {
-  return _opts->cache()->fetchVertexAqlResult(vid);
+aql::AqlValue SingleServerTraverser::fetchVertexAqlValue(arangodb::velocypack::StringRef vid, uint64_t depth) {
+  return _opts->cache()->fetchVertexAqlValue(vid, depth);
 }
 
 void SingleServerTraverser::setStartVertex(std::string const& vid) {
@@ -81,11 +80,7 @@ void SingleServerTraverser::createEnumerator() {
   TRI_ASSERT(_enumerator == nullptr);
 
   if (_opts->useBreadthFirst) {
-    if (_canUseOptimizedNeighbors) {
-      _enumerator.reset(new NeighborsEnumerator(this, _opts));
-    } else {
-      _enumerator.reset(new BreadthFirstEnumerator(this, _opts));
-    }
+    _enumerator.reset(new BreadthFirstEnumerator(this, _opts));
   } else {
     _enumerator.reset(new DepthFirstEnumerator(this, _opts));
   }

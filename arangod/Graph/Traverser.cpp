@@ -131,7 +131,6 @@ void Traverser::UniqueVertexGetter::reset(arangodb::velocypack::StringRef const&
 Traverser::Traverser(arangodb::traverser::TraverserOptions* opts, transaction::Methods* trx)
     : _trx(trx),
       _done(true),
-      _canUseOptimizedNeighbors(false),
       _opts(opts) {
   if (opts->uniqueVertices == TraverserOptions::UniquenessLevel::GLOBAL) {
     _vertexGetter = std::make_unique<UniqueVertexGetter>(this);
@@ -155,7 +154,7 @@ bool arangodb::traverser::Traverser::vertexMatchesConditions(arangodb::velocypac
                                                              uint64_t depth) {
   if (_opts->vertexHasFilter(depth)) {
     // We always need to destroy this vertex
-    aql::AqlValue vertex = fetchVertexData(v);
+    aql::AqlValue vertex = fetchVertexAqlValue(v, depth);
     aql::AqlValueGuard guard{vertex, true};
     if (!_opts->evaluateVertexExpression(vertex.slice(), depth)) {
       return false;
@@ -190,8 +189,4 @@ size_t arangodb::traverser::Traverser::getAndResetHttpRequests() {
     return _enumerator->getAndResetHttpRequests();
   }
   return 0;
-}
-
-void arangodb::traverser::Traverser::allowOptimizedNeighbors() {
-  _canUseOptimizedNeighbors = true;
 }

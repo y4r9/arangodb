@@ -134,6 +134,14 @@ struct BaseOptions {
   std::vector<std::string> const& edgeProjections() const {
     return _edgeProjections;
   }
+  
+  void setVertexProductionLevels(uint64_t min, uint64_t max) {
+    _vertexProductionMinLevel = min;
+    _vertexProductionMaxLevel = max;
+  }
+  
+  uint64_t vertexProductionMinLevel() const { return _vertexProductionMinLevel; }
+  uint64_t vertexProductionMaxLevel() const { return _vertexProductionMaxLevel; }
 
   transaction::Methods* trx() const;
 
@@ -208,6 +216,12 @@ struct BaseOptions {
   
   /// @brief projections for edges
   std::vector<std::string> _edgeProjections;
+  
+  /// @brief minimum level at which we produce vertex output
+  uint64_t _vertexProductionMinLevel;
+  
+  /// @brief maximum level at which we produce vertex output
+  uint64_t _vertexProductionMaxLevel;
 };
 
 }  // namespace graph

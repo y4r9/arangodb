@@ -196,42 +196,43 @@ bool DepthFirstEnumerator::next() {
 }
 
 arangodb::aql::AqlValue DepthFirstEnumerator::lastVertexToAqlValue() {
-  return _traverser->fetchVertexData(
-      arangodb::velocypack::StringRef(_enumeratedPath.vertices.back()));
+  return _traverser->fetchVertexAqlValue(
+      arangodb::velocypack::StringRef(_enumeratedPath.vertices.back()), traverser::Traverser::DepthUnknown);
 }
 
 arangodb::aql::AqlValue DepthFirstEnumerator::lastEdgeToAqlValue() {
   if (_enumeratedPath.edges.empty()) {
     return arangodb::aql::AqlValue(arangodb::aql::AqlValueHintNull());
   }
-  // FIXME: add some asserts back into this
-  // TRI_ASSERT(_enumeratedPath.edges.back() != nullptr);
   return _opts->cache()->fetchEdgeAqlResult(_enumeratedPath.edges.back());
 }
 
-VPackSlice DepthFirstEnumerator::pathToSlice(VPackBuilder& result) {
-  result.clear();
+void DepthFirstEnumerator::addPathToBuilder(VPackBuilder& result) {
   result.openObject();
-  result.add(VPackValue("edges"));
-  result.openArray();
-  for (auto const& it : _enumeratedPath.edges) {
-    // TRI_ASSERT(it != nullptr);
-    _opts->cache()->insertEdgeIntoResult(it, result);
+  if (_enumeratedPath.edges.empty()) {
+    result.add(StaticStrings::GraphQueryEdges, VPackSlice::emptyArraySlice());
+  } else {
+    result.add(StaticStrings::GraphQueryEdges, VPackValue(VPackValueType::Array));
+    for (auto const& it : _enumeratedPath.edges) {
+      _opts->cache()->insertEdgeIntoResult(it, result);
+    }
+    result.close();
   }
-  result.close();
-  result.add(VPackValue("vertices"));
-  result.openArray();
+
+  result.add(StaticStrings::GraphQueryVertices, VPackValue(VPackValueType::Array));
   for (auto const& it : _enumeratedPath.vertices) {
     _traverser->addVertexToVelocyPack(VPackStringRef(it), result);
   }
   result.close();
+
   result.close();
   TRI_ASSERT(result.isClosed());
-  return result.slice();
 }
 
 arangodb::aql::AqlValue DepthFirstEnumerator::pathToAqlValue(VPackBuilder& result) {
-  return arangodb::aql::AqlValue(pathToSlice(result));
+  result.clear();
+  addPathToBuilder(result);
+  return arangodb::aql::AqlValue(result.slice());
 }
 
 bool DepthFirstEnumerator::shouldPrune() {
@@ -240,6 +241,7 @@ bool DepthFirstEnumerator::shouldPrune() {
     // evaluator->evaluate() might access these, so they have to live long
     // enough. To make that perfectly clear, I added a scope.
     transaction::BuilderLeaser pathBuilder(_opts->trx());
+    // CRAP!
     aql::AqlValue vertex, edge;
     aql::AqlValueGuard vertexGuard{vertex, true}, edgeGuard{edge, true};
     {
@@ -253,8 +255,9 @@ bool DepthFirstEnumerator::shouldPrune() {
         evaluator->injectEdge(edge.slice());
       }
       if (evaluator->needsPath()) {
-        VPackSlice path = pathToSlice(*pathBuilder.get());
-        evaluator->injectPath(path);
+        pathBuilder->clear();
+        addPathToBuilder(*pathBuilder.get());
+        evaluator->injectPath(pathBuilder->slice());
       }
       return evaluator->evaluate();
     }

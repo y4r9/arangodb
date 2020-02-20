@@ -172,7 +172,9 @@ BaseOptions::BaseOptions(arangodb::aql::Query* query)
       _trx(_query->trx()),
       _produceVertices(true),
       _isCoordinator(arangodb::ServerState::instance()->isCoordinator()),
-      _tmpVar(nullptr) {}
+      _tmpVar(nullptr),
+      _vertexProductionMinLevel(0),
+      _vertexProductionMaxLevel(UINT64_MAX) {}
 
 BaseOptions::BaseOptions(BaseOptions const& other)
     : _query(other._query),
@@ -182,7 +184,9 @@ BaseOptions::BaseOptions(BaseOptions const& other)
       _isCoordinator(arangodb::ServerState::instance()->isCoordinator()),
       _tmpVar(nullptr),
       _vertexProjections(other._vertexProjections),
-      _edgeProjections(other._edgeProjections) {
+      _edgeProjections(other._edgeProjections),
+      _vertexProductionMinLevel(other._vertexProductionMinLevel), 
+      _vertexProductionMaxLevel(other._vertexProductionMaxLevel) { 
   TRI_ASSERT(other._baseLookupInfos.empty());
   TRI_ASSERT(other._tmpVar == nullptr);
 }
@@ -234,6 +238,9 @@ BaseOptions::BaseOptions(arangodb::aql::Query* query, VPackSlice info, VPackSlic
       _edgeProjections.emplace_back(it.copyString());
     }
   }
+  
+  _vertexProductionMinLevel = arangodb::basics::VelocyPackHelper::getNumericValue<uint64_t>(info, "vertexProductionMinLevel", 0);
+  _vertexProductionMaxLevel = arangodb::basics::VelocyPackHelper::getNumericValue<uint64_t>(info, "vertexProductionMaxLevel", UINT64_MAX);
 }
 
 BaseOptions::~BaseOptions() = default;

@@ -31,6 +31,7 @@
 #include "Cache/Finding.h"
 #include "Cluster/ServerState.h"
 #include "Graph/EdgeDocumentToken.h"
+#include "Graph/Traverser.h"
 #include "Logger/LogMacros.h"
 #include "Logger/Logger.h"
 #include "Logger/LoggerStream.h"
@@ -72,7 +73,7 @@ cache::Finding TraverserDocumentCache::lookup(arangodb::velocypack::StringRef id
 }
 
 VPackSlice TraverserDocumentCache::lookupAndCache(arangodb::velocypack::StringRef id) {
-  VPackSlice result = lookupVertexInCollection(id);
+  VPackSlice result = lookupVertexInCollection(id, traverser::Traverser::DepthUnknown);
   insertIntoCache(id, result);
   return result;
 }
@@ -102,7 +103,7 @@ aql::AqlValue TraverserDocumentCache::fetchEdgeAqlResult(EdgeDocumentToken const
   return aql::AqlValue(lookupToken(idToken));
 }
 
-aql::AqlValue TraverserDocumentCache::fetchVertexAqlResult(arangodb::velocypack::StringRef idString) {
+aql::AqlValue TraverserDocumentCache::fetchVertexAqlValue(arangodb::velocypack::StringRef idString, uint64_t depth) {
   auto finding = lookup(idString);
   if (finding.found()) {
     auto val = finding.value();

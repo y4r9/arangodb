@@ -117,6 +117,9 @@ TraverserOptions::TraverserOptions(aql::Query* query, VPackSlice const& obj)
       _edgeProjections.emplace_back(it.copyString());
     }
   }
+  
+  _vertexProductionMinLevel = VPackHelper::getNumericValue<uint64_t>(obj, "vertexProductionMinLevel", 0);
+  _vertexProductionMaxLevel = VPackHelper::getNumericValue<uint64_t>(obj, "vertexProductionMaxLevel", UINT64_MAX);
 }
 
 arangodb::traverser::TraverserOptions::TraverserOptions(arangodb::aql::Query* query,
@@ -273,6 +276,9 @@ arangodb::traverser::TraverserOptions::TraverserOptions(arangodb::aql::Query* qu
       _edgeProjections.emplace_back(it.copyString());
     }
   }
+  
+  _vertexProductionMinLevel = VPackHelper::getNumericValue<uint64_t>(info, "vertexProductionMinLevel", 0);
+  _vertexProductionMaxLevel = VPackHelper::getNumericValue<uint64_t>(info, "vertexProductionMaxLevel", UINT64_MAX);
 }
 
 arangodb::traverser::TraverserOptions::TraverserOptions(TraverserOptions const& other)
@@ -348,6 +354,9 @@ void TraverserOptions::toVelocyPack(VPackBuilder& builder) const {
     }
     builder.close();
   }
+
+  builder.add("vertexProductionMinLevel", VPackValue(_vertexProductionMinLevel));
+  builder.add("vertexProductionMaxLevel", VPackValue(_vertexProductionMaxLevel));
 
   builder.add("produceVertices", VPackValue(_produceVertices));
   builder.add("type", VPackValue("traversal"));

@@ -66,7 +66,7 @@ class ClusterTraverserCache : public TraverserCache {
   /// Lookup document in cache and add it into the builder
   void insertVertexIntoResult(arangodb::velocypack::StringRef idString, velocypack::Builder& builder) override;
   /// Lookup document in cache and transform it to an AqlValue
-  aql::AqlValue fetchVertexAqlResult(arangodb::velocypack::StringRef idString) override;
+  aql::AqlValue fetchVertexAqlValue(arangodb::velocypack::StringRef idString, uint64_t depth) override;
 
   //////////////////////////////////////////////////////////////////////////////
   /// @brief Return AQL value containing the result

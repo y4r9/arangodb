@@ -185,7 +185,8 @@ bool BreadthFirstEnumerator::next() {
 }
 
 arangodb::aql::AqlValue BreadthFirstEnumerator::lastVertexToAqlValue() {
-  return vertexToAqlValue(_lastReturned);
+  TRI_ASSERT(_lastReturned < _schreier.size());
+  return _traverser->fetchVertexAqlValue(_schreier[_lastReturned].vertex, _currentDepth);
 }
 
 arangodb::aql::AqlValue BreadthFirstEnumerator::lastEdgeToAqlValue() {
@@ -194,11 +195,6 @@ arangodb::aql::AqlValue BreadthFirstEnumerator::lastEdgeToAqlValue() {
 
 arangodb::aql::AqlValue BreadthFirstEnumerator::pathToAqlValue(arangodb::velocypack::Builder& result) {
   return pathToIndexToAqlValue(result, _lastReturned);
-}
-
-arangodb::aql::AqlValue BreadthFirstEnumerator::vertexToAqlValue(size_t index) {
-  TRI_ASSERT(index < _schreier.size());
-  return _traverser->fetchVertexData(_schreier[index].vertex);
 }
 
 arangodb::aql::AqlValue BreadthFirstEnumerator::edgeToAqlValue(size_t index) {
@@ -211,30 +207,35 @@ arangodb::aql::AqlValue BreadthFirstEnumerator::edgeToAqlValue(size_t index) {
 }
 
 VPackSlice BreadthFirstEnumerator::pathToIndexToSlice(VPackBuilder& result, size_t index) {
-  std::vector<size_t> fullPath;
+  _pathIndexBuilder.clear();
   while (index != 0) {
     // Walk backwards through the path and push everything found on the local
     // stack
-    fullPath.emplace_back(index);
+    _pathIndexBuilder.emplace_back(index);
     index = _schreier[index].sourceIdx;
   }
 
   result.clear();
   result.openObject();
-  result.add(VPackValue("edges"));
-  result.openArray();
-  for (auto it = fullPath.rbegin(); it != fullPath.rend(); ++it) {
-    _opts->cache()->insertEdgeIntoResult(_schreier[*it].edge, result);
+
+  if (_pathIndexBuilder.empty()) {
+    result.add(StaticStrings::GraphQueryEdges, VPackSlice::emptyArraySlice());
+  } else {
+    result.add(StaticStrings::GraphQueryEdges, VPackValue(VPackValueType::Array));
+    for (auto it = _pathIndexBuilder.rbegin(); it != _pathIndexBuilder.rend(); ++it) {
+      _opts->cache()->insertEdgeIntoResult(_schreier[*it].edge, result);
+    }
+    result.close();  // edges
   }
-  result.close();  // edges
-  result.add(VPackValue("vertices"));
-  result.openArray();
+  
+  result.add(StaticStrings::GraphQueryVertices, VPackValue(VPackValueType::Array));
   // Always add the start vertex
   _traverser->addVertexToVelocyPack(_schreier[0].vertex, result);
-  for (auto it = fullPath.rbegin(); it != fullPath.rend(); ++it) {
+  for (auto it = _pathIndexBuilder.rbegin(); it != _pathIndexBuilder.rend(); ++it) {
     _traverser->addVertexToVelocyPack(_schreier[*it].vertex, result);
   }
   result.close();  // vertices
+  
   result.close();
   TRI_ASSERT(result.isClosed());
   return result.slice();
@@ -260,7 +261,6 @@ bool BreadthFirstEnumerator::pathContainsVertex(size_t index,
     }
     index = step.sourceIdx;
   }
-  return false;
 }
 
 bool BreadthFirstEnumerator::pathContainsEdge(size_t index,
@@ -298,34 +298,36 @@ bool BreadthFirstEnumerator::prepareSearchOnNextDepth() {
 }
 
 bool BreadthFirstEnumerator::shouldPrune() {
-  if (_opts->usesPrune()) {
-    // evaluator->evaluate() might access these, so they have to live long enough.
-    // To make that perfectly clear, I added a scope.
-    transaction::BuilderLeaser pathBuilder(_opts->trx());
-    aql::AqlValue vertex, edge;
-    aql::AqlValueGuard vertexGuard{vertex, true}, edgeGuard{edge, true};
-    {
-      auto* evaluator = _opts->getPruneEvaluator();
-      if (evaluator->needsVertex()) {
-        // Note: vertexToAqlValue() copies the original vertex into the AqlValue.
-        // This could be avoided with a function that just returns the slice,
-        // as it will stay valid long enough.
-        vertex = vertexToAqlValue(_schreierIndex);
-        evaluator->injectVertex(vertex.slice());
-      }
-      if (evaluator->needsEdge()) {
-        // Note: edgeToAqlValue() copies the original edge into the AqlValue.
-        // This could be avoided with a function that just returns the slice,
-        // as it will stay valid long enough.
-        edge = edgeToAqlValue(_schreierIndex);
-        evaluator->injectEdge(edge.slice());
-      }
-      if (evaluator->needsPath()) {
-        VPackSlice path = pathToIndexToSlice(*pathBuilder.get(), _schreierIndex);
-        evaluator->injectPath(path);
-      }
-      return evaluator->evaluate();
-    }
+  if (!_opts->usesPrune()) {
+    return false;
   }
-  return false;
+  // evaluator->evaluate() might access these, so they have to live long enough.
+  // To make that perfectly clear, I added a scope.
+  transaction::BuilderLeaser pathBuilder(_opts->trx());
+  // CRAP
+  aql::AqlValue vertex, edge;
+  aql::AqlValueGuard vertexGuard{vertex, true}, edgeGuard{edge, true};
+  {
+    auto* evaluator = _opts->getPruneEvaluator();
+    if (evaluator->needsVertex()) {
+      // Note: vertexToAqlValue() copies the original vertex into the AqlValue.
+      // This could be avoided with a function that just returns the slice,
+      // as it will stay valid long enough.
+      TRI_ASSERT(_schreierIndex < _schreier.size());
+      vertex = _traverser->fetchVertexAqlValue(_schreier[_schreierIndex].vertex, _currentDepth);
+      evaluator->injectVertex(vertex.slice());
+    }
+    if (evaluator->needsEdge()) {
+      // Note: edgeToAqlValue() copies the original edge into the AqlValue.
+      // This could be avoided with a function that just returns the slice,
+      // as it will stay valid long enough.
+      edge = edgeToAqlValue(_schreierIndex);
+      evaluator->injectEdge(edge.slice());
+    }
+    if (evaluator->needsPath()) {
+      VPackSlice path = pathToIndexToSlice(*pathBuilder.get(), _schreierIndex);
+      evaluator->injectPath(path);
+    }
+    return evaluator->evaluate();
+  }
 }

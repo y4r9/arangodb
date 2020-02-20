@@ -57,7 +57,7 @@ aql::AqlValue ClusterTraverserCache::fetchEdgeAqlResult(EdgeDocumentToken const&
   return aql::AqlValue(VPackSlice(token.vpack()));  // will copy slice
 }
 
-aql::AqlValue ClusterTraverserCache::fetchVertexAqlResult(arangodb::velocypack::StringRef id) {
+aql::AqlValue ClusterTraverserCache::fetchVertexAqlValue(arangodb::velocypack::StringRef id, uint64_t depth) {
   // FIXME: this is only used for ShortestPath, where the shortestpath stuff
   // uses _edges to store its vertices
   TRI_ASSERT(ServerState::instance()->isCoordinator());

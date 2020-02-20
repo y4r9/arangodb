@@ -29,6 +29,7 @@
 #include "Cluster/ServerState.h"
 #include "Graph/EdgeDocumentToken.h"
 #include "Graph/BaseOptions.h"
+#include "Graph/Traverser.h"
 #include "Logger/LogMacros.h"
 #include "Logger/Logger.h"
 #include "Logger/LoggerStream.h"
@@ -58,6 +59,7 @@ void TraverserCache::clear() {
   _stringHeap.clear();
   _persistedStrings.clear();
   _mmdr.clear();
+  _resultBuilder.clear();
 }
 
 VPackSlice TraverserCache::lookupToken(EdgeDocumentToken const& idToken) {
@@ -85,13 +87,23 @@ VPackSlice TraverserCache::lookupToken(EdgeDocumentToken const& idToken) {
   return VPackSlice(_mmdr.vpack());
 }
 
-VPackSlice TraverserCache::lookupVertexInCollection(arangodb::velocypack::StringRef id) {
+VPackSlice TraverserCache::lookupVertexInCollection(arangodb::velocypack::StringRef id, uint64_t depth) {
+  bool produceVertex;
+
   if (!_baseOptions->produceVertices()) {
     // this traversal does not produce any vertices
+    produceVertex = false;
+  } else if (depth != traverser::Traverser::DepthUnknown) {
+    produceVertex = (depth >= _baseOptions->vertexProductionMinLevel() && 
+                     depth <= _baseOptions->vertexProductionMaxLevel());
+  } else {
+    produceVertex = true;
+  }
+
+  if (!produceVertex) {
     return arangodb::velocypack::Slice::nullSlice();
   }
 
-  // TRI_ASSERT(!ServerState::instance()->isCoordinator());
   size_t pos = id.find('/');
   if (pos == std::string::npos || pos + 1 == id.size()) {
     // Invalid input. If we get here somehow we managed to store invalid
@@ -111,7 +123,7 @@ VPackSlice TraverserCache::lookupVertexInCollection(arangodb::velocypack::String
   }
 
   Result res;
-  if (_baseOptions->vertexProjections().empty()) {
+  if (_baseOptions->vertexProjections().empty() || true) {
     res = _trx->documentFastPathLocal(collectionName, id.substr(pos + 1), _mmdr, true);
     if (res.ok()) {
       ++_insertedDocuments;
@@ -147,7 +159,7 @@ void TraverserCache::insertEdgeIntoResult(EdgeDocumentToken const& idToken,
 }
 
 void TraverserCache::insertVertexIntoResult(arangodb::velocypack::StringRef idString, VPackBuilder& builder) {
-  builder.add(lookupVertexInCollection(idString));
+  builder.add(lookupVertexInCollection(idString, traverser::Traverser::DepthUnknown));
 }
 
 aql::AqlValue TraverserCache::fetchEdgeAqlResult(EdgeDocumentToken const& idToken) {
@@ -155,8 +167,8 @@ aql::AqlValue TraverserCache::fetchEdgeAqlResult(EdgeDocumentToken const& idToke
   return aql::AqlValue(lookupToken(idToken));
 }
 
-aql::AqlValue TraverserCache::fetchVertexAqlResult(arangodb::velocypack::StringRef idString) {
-  return aql::AqlValue(lookupVertexInCollection(idString));
+aql::AqlValue TraverserCache::fetchVertexAqlValue(arangodb::velocypack::StringRef idString, uint64_t depth) {
+  return aql::AqlValue(lookupVertexInCollection(idString, depth));
 }
 
 arangodb::velocypack::StringRef TraverserCache::persistString(arangodb::velocypack::StringRef idString) {
