@@ -60,6 +60,8 @@ static const VPackSlice   testDatabaseArgs = testDatabaseBuilder.slice();
 
 static void VerifyAttributes(VPackSlice result, std::string const& colName,
                              std::string const& sName) {
+  int *foo = nullptr;
+  *foo = 1;
   ASSERT_TRUE(result.isObject());
 
   VPackSlice col = result.get(colName);

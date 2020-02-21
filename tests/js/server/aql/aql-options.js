@@ -63,3 +63,4 @@ function aqlOptionsTestSuite () {
 jsunity.run(aqlOptionsTestSuite);
 
 return jsunity.done();
+  internal.debugTerminate('crashing server');
