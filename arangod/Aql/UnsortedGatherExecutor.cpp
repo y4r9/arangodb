@@ -59,6 +59,32 @@ auto UnsortedGatherExecutor::produceRows(OutputAqlItemRow& output)
   return {state, {}};
 }
 
+[[nodiscard]] auto UnsortedGatherExecutor::produceRows(AqlItemBlockInputRange& input,
+                                                       OutputAqlItemRow& output)
+    -> std::tuple<ExecutorState, Stats, AqlCall> {
+  while (!output.isFull() && input.hasDataRow()) {
+    auto [state, inputRow] = input.nextDataRow();
+    output.copyRow(inputRow);
+    TRI_ASSERT(output.produced());
+    output.advanceRow();
+  }
+
+  return {input.upstreamState(), Stats{}, AqlCall{}};
+}
+
+[[nodiscard]] auto UnsortedGatherExecutor::skipRowsRange(AqlItemBlockInputRange& input,
+                                                         AqlCall& call)
+    -> std::tuple<ExecutorState, Stats, size_t, AqlCall> {
+  auto skipped = size_t{0};
+  while (call.shouldSkip() && input.hasDataRow()) {
+    std::ignore = input.nextDataRow();
+    call.didSkip(1);
+    skipped++;
+  }
+
+  return {input.upstreamState(), Stats{}, skipped, AqlCall{}};
+}
+
 auto UnsortedGatherExecutor::fetcher() const noexcept -> const Fetcher& {
   return _fetcher;
 }
