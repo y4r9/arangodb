@@ -410,6 +410,8 @@ class UpsertNode : public ModificationNode {
     vars.emplace(_insertVariable);
     vars.emplace(_updateVariable);
   }
+  
+  bool getReferencedAttributes(Variable const* v, std::unordered_set<std::string>& attributes) const override;
 
   Variable const* inDocVariable() const { return _inDocVariable; }
 

@@ -1951,10 +1951,6 @@ bool SubqueryNode::isModificationSubquery() const {
   return false;
 }
 
-bool SubqueryNode::getReferencedAttributes(Variable const* v, std::unordered_set<std::string>& attributes) const {
-  return getSubquery()->getReferencedAttributes(v, attributes);
-}
-
 /// @brief replace the out variable, so we can adjust the name.
 void SubqueryNode::replaceOutVariable(Variable const* var) {
   _outVariable = var;

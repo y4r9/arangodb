@@ -619,6 +619,9 @@ bool IndexNode::getReferencedAttributes(Variable const* v, std::unordered_set<st
   if (vars.find(v) == vars.end()) {
     return true;
   }
+  if (_condition == nullptr) {
+    return true;
+  }
   return Ast::getReferencedAttributes(_condition->root(), v, attributes);
 }
 

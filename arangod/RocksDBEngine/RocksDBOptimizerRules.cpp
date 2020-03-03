@@ -115,18 +115,56 @@ void RocksDBOptimizerRules::reduceExtractionToProjectionRule(
 
     attributes.clear();
     bool stop = false;
+    bool optimize = false;
     ExecutionNode* current = n->getFirstParent();
     while (current != nullptr) {
       if (!current->getReferencedAttributes(v, attributes)) {
         stop = true;
         break;
       }
+      if (current->getType() == EN::REMOVE) { 
+        RemoveNode const* removeNode = ExecutionNode::castTo<RemoveNode const*>(current);
+        if (removeNode->inVariable() == v) {
+          optimize = true;
+        }
+      } else if (current->getType() == EN::UPDATE || current->getType() == EN::REPLACE) {
+        UpdateReplaceNode const* modificationNode =
+            ExecutionNode::castTo<UpdateReplaceNode const*>(current);
+
+        if (modificationNode->inKeyVariable() == v &&
+            modificationNode->inDocVariable() != v) {
+          optimize = true;
+        }
+      } else if (current->getType() == EN::CALCULATION) {
+        Expression* exp = ExecutionNode::castTo<CalculationNode const*>(current)->expression();
+
+        AstNode const* node = exp->node();
+        if (node != nullptr) {
+          vars.clear();
+          current->getVariablesUsedHere(vars);
+
+          if (vars.find(v) != vars.end()) {
+            optimize = true;
+          }
+        }
+      } else if (current->getType() == EN::INDEX) {
+        Condition const* condition =
+            ExecutionNode::castTo<IndexNode const*>(current)->condition();
+        if (condition != nullptr && condition->root() != nullptr) {
+          vars.clear();
+          current->getVariablesUsedHere(vars);
+
+          if (vars.find(v) != vars.end()) {
+            optimize = true;
+          }
+        }
+      }
 
       current = current->getFirstParent();
     }
 
     // projections are currently limited (arbitrarily to 5 attributes)
-    if (!stop && !attributes.empty() && attributes.size() <= 5) {
+    if (!stop && optimize && !attributes.empty() && attributes.size() <= 5) {
       if (n->getType() == ExecutionNode::ENUMERATE_COLLECTION &&
           std::find(attributes.begin(), attributes.end(), StaticStrings::IdString) ==
               attributes.end()) {
@@ -339,10 +377,17 @@ void RocksDBOptimizerRules::reduceTraversalExtractionToProjectionRule(
         checkVariableUsage(n->getFirstParent(), v, attributes)) {
       t->options()->setVertexProjections(std::move(attributes));
       modified = true;
-
+    }
+   
+    // restrict vertex production to the required levels
+    if (v != nullptr &&
+        !usesPathVertices &&
+        t->pruneExpression() == nullptr) { 
       auto* opts = static_cast<traverser::TraverserOptions*>(t->options());
-      t->options()->setVertexProductionLevels(opts->minDepth, opts->maxDepth);
-      // LOG_DEVEL << "MIN: " << opts->minDepth << ", MAX: " << opts->maxDepth;
+      if (opts->uniqueVertices == traverser::TraverserOptions::UniquenessLevel::NONE) { 
+        t->options()->setVertexProductionLevels(opts->minDepth, opts->maxDepth);
+      }
+      modified = true;
     }
     
     // check traversal's edge output variable

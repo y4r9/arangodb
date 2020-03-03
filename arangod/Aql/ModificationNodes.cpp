@@ -532,6 +532,22 @@ std::unique_ptr<ExecutionBlock> UpsertNode::createBlock(
     return std::make_unique<SingleRowUpsertExecutionBlock>(&engine, this, std::move(infos));
   }
 }
+  
+bool UpsertNode::getReferencedAttributes(Variable const* v, std::unordered_set<std::string>& attributes) const {
+  return false;
+  ::arangodb::containers::HashSet<Variable const*> vars;
+  
+  if (v == _inDocVariable && _outVariableOld != nullptr) {
+    if (isVarUsedLater(_outVariableOld)) {
+      return false;
+    }
+  }
+  getVariablesUsedHere(vars);
+  if (vars.find(v) != vars.end()) {
+    return false;
+  }
+  return true;
+}
 
 /// @brief clone ExecutionNode recursively
 ExecutionNode* UpsertNode::clone(ExecutionPlan* plan, bool withDependencies,

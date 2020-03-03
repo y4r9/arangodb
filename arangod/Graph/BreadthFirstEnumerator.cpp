@@ -186,7 +186,7 @@ bool BreadthFirstEnumerator::next() {
 
 arangodb::aql::AqlValue BreadthFirstEnumerator::lastVertexToAqlValue() {
   TRI_ASSERT(_lastReturned < _schreier.size());
-  return _traverser->fetchVertexAqlValue(_schreier[_lastReturned].vertex, _currentDepth);
+  return _traverser->fetchVertexAqlValue(_schreier[_lastReturned].vertex, _currentDepth + 1);
 }
 
 arangodb::aql::AqlValue BreadthFirstEnumerator::lastEdgeToAqlValue() {
@@ -314,7 +314,7 @@ bool BreadthFirstEnumerator::shouldPrune() {
       // This could be avoided with a function that just returns the slice,
       // as it will stay valid long enough.
       TRI_ASSERT(_schreierIndex < _schreier.size());
-      vertex = _traverser->fetchVertexAqlValue(_schreier[_schreierIndex].vertex, _currentDepth);
+      vertex = _traverser->fetchVertexAqlValue(_schreier[_schreierIndex].vertex, _currentDepth + 1);
       evaluator->injectVertex(vertex.slice());
     }
     if (evaluator->needsEdge()) {
