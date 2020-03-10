@@ -64,8 +64,9 @@ bool MerkleTree<BranchingBits, LockStripes>::Node::operator==(Node const& other)
 }
 
 template <std::size_t const BranchingBits, std::size_t const LockStripes>
-constexpr std::size_t MerkleTree<BranchingBits, LockStripes>::nodeCountAtDepth(std::size_t maxDepth) {
-  return static_cast<std::size_t>(1) << (BranchingBits * maxDepth);
+constexpr std::size_t MerkleTree<BranchingBits, LockStripes>::nodeCountAtDepth(std::uint64_t maxDepth) {
+  return static_cast<std::size_t>(1)
+         << (BranchingBits * static_cast<std::size_t>(maxDepth));
 }
 class TestNodeCountAtDepth : public MerkleTree<3, 64> {
   static_assert(nodeCountAtDepth(0) == 1);
@@ -77,8 +78,10 @@ class TestNodeCountAtDepth : public MerkleTree<3, 64> {
 };
 
 template <std::size_t const BranchingBits, std::size_t const LockStripes>
-constexpr std::size_t MerkleTree<BranchingBits, LockStripes>::nodeCountUpToDepth(std::size_t maxDepth) {
-  return ((static_cast<std::size_t>(1) << (BranchingBits * (maxDepth + 1))) - 1) /
+constexpr std::size_t MerkleTree<BranchingBits, LockStripes>::nodeCountUpToDepth(std::uint64_t maxDepth) {
+  return ((static_cast<std::size_t>(1)
+           << (BranchingBits * (static_cast<std::size_t>(maxDepth) + 1))) -
+          1) /
          (BranchingFactor - 1);
 }
 class TestNodeCountUpToDepth : public MerkleTree<3, 64> {
@@ -91,17 +94,17 @@ class TestNodeCountUpToDepth : public MerkleTree<3, 64> {
 };
 
 template <std::size_t const BranchingBits, std::size_t const LockStripes>
-constexpr std::size_t MerkleTree<BranchingBits, LockStripes>::allocationSize(std::size_t maxDepth) {
+constexpr std::size_t MerkleTree<BranchingBits, LockStripes>::allocationSize(std::uint64_t maxDepth) {
   return MetaSize + (NodeSize * nodeCountUpToDepth(maxDepth));
 }
 
 template <std::size_t const BranchingBits, std::size_t const LockStripes>
-constexpr std::size_t MerkleTree<BranchingBits, LockStripes>::log2ceil(std::size_t n) {
-  if (n > (std::numeric_limits<std::size_t>::max() / 2)) {
-    return 8 * sizeof(std::size_t) - 1;
+constexpr std::uint64_t MerkleTree<BranchingBits, LockStripes>::log2ceil(std::uint64_t n) {
+  if (n > (std::numeric_limits<std::uint64_t>::max() / 2)) {
+    return 8 * sizeof(std::uint64_t) - 1;
   }
-  std::size_t i = 1;
-  for (; (static_cast<std::size_t>(1) << i) < n; ++i) {
+  std::uint64_t i = 1;
+  for (; (static_cast<std::uint64_t>(1) << i) < n; ++i) {
   }
   return i;
 }
@@ -117,13 +120,13 @@ class TestLog2Ceil : public MerkleTree<3, 64> {
   static_assert(log2ceil(16) == 4);
   static_assert(log2ceil(17) == 5);
   // ...
-  static_assert(log2ceil((std::numeric_limits<std::size_t>::max() / 2) + 1) ==
-                8 * sizeof(std::size_t) - 1);
+  static_assert(log2ceil((std::numeric_limits<std::uint64_t>::max() / 2) + 1) ==
+                8 * sizeof(std::uint64_t) - 1);
 };
 
 template <std::size_t const BranchingBits, std::size_t const LockStripes>
-constexpr std::size_t MerkleTree<BranchingBits, LockStripes>::minimumFactorFor(
-    std::size_t current, std::size_t target) {
+constexpr std::uint64_t MerkleTree<BranchingBits, LockStripes>::minimumFactorFor(
+    std::uint64_t current, std::uint64_t target) {
   if (target < current) {
     throw std::invalid_argument("Was expecting target >= current.");
   }
@@ -137,9 +140,9 @@ constexpr std::size_t MerkleTree<BranchingBits, LockStripes>::minimumFactorFor(
     return 2;
   }
 
-  std::size_t rawFactor = target / current;
-  std::size_t correctedFactor = static_cast<std::size_t>(1)
-                                << log2ceil(rawFactor + 1);  // force power of 2
+  std::uint64_t rawFactor = target / current;
+  std::uint64_t correctedFactor = static_cast<std::uint64_t>(1)
+                                  << log2ceil(rawFactor + 1);  // force power of 2
   TRI_ASSERT(NumberUtils::isPowerOf2(correctedFactor));
   TRI_ASSERT(target >= (current * correctedFactor / 2));
   return correctedFactor;
@@ -164,7 +167,7 @@ class TestMinimumFactorFor : public MerkleTree<3, 64> {
 };
 
 template <std::size_t const BranchingBits, std::size_t const LockStripes>
-std::size_t MerkleTree<BranchingBits, LockStripes>::defaultRange(std::size_t maxDepth) {
+std::uint64_t MerkleTree<BranchingBits, LockStripes>::defaultRange(std::uint64_t maxDepth) {
   // start with 64 revisions per leaf; this is arbitrary, but the key is we want
   // to start with a relatively fine-grained tree so we can differentiate well,
   // but we don't want to go so small that we have to resize immediately
@@ -224,7 +227,7 @@ MerkleTree<BranchingBits, LockStripes>::deserialize(velocypack::Slice slice) {
   if (!read.isNumber()) {
     return tree;
   }
-  std::size_t maxDepth = read.getNumber<std::size_t>();
+  std::uint64_t maxDepth = read.getNumber<std::uint64_t>();
 
   read = slice.get(StaticStrings::RevisionTreeRangeMax);
   if (!read.isString()) {
@@ -232,8 +235,8 @@ MerkleTree<BranchingBits, LockStripes>::deserialize(velocypack::Slice slice) {
   }
   velocypack::ValueLength l;
   char const* p = read.getString(l);
-  std::size_t rangeMax = basics::HybridLogicalClock::decodeTimeStamp(p, l);
-  if (rangeMax == std::numeric_limits<std::size_t>::max()) {
+  std::uint64_t rangeMax = basics::HybridLogicalClock::decodeTimeStamp(p, l);
+  if (rangeMax == std::numeric_limits<std::uint64_t>::max()) {
     return tree;
   }
 
@@ -242,8 +245,8 @@ MerkleTree<BranchingBits, LockStripes>::deserialize(velocypack::Slice slice) {
     return tree;
   }
   p = read.getString(l);
-  std::size_t rangeMin = basics::HybridLogicalClock::decodeTimeStamp(p, l);
-  if (rangeMin == std::numeric_limits<std::size_t>::max()) {
+  std::uint64_t rangeMin = basics::HybridLogicalClock::decodeTimeStamp(p, l);
+  if (rangeMin == std::numeric_limits<std::uint64_t>::max()) {
     return tree;
   }
 
@@ -262,7 +265,7 @@ MerkleTree<BranchingBits, LockStripes>::deserialize(velocypack::Slice slice) {
       tree.reset();
       return tree;
     }
-    std::size_t count = read.getNumber<std::size_t>();
+    std::uint64_t count = read.getNumber<std::uint64_t>();
 
     read = nodeSlice.get(StaticStrings::RevisionTreeHash);
     if (!read.isString()) {
@@ -270,8 +273,8 @@ MerkleTree<BranchingBits, LockStripes>::deserialize(velocypack::Slice slice) {
       return tree;
     }
     p = nodeSlice.get(StaticStrings::RevisionTreeHash).getString(l);
-    std::size_t hash = basics::HybridLogicalClock::decodeTimeStamp(p, l);
-    if (hash == std::numeric_limits<std::size_t>::max()) {
+    std::uint64_t hash = basics::HybridLogicalClock::decodeTimeStamp(p, l);
+    if (hash == std::numeric_limits<std::uint64_t>::max()) {
       tree.reset();
       return tree;
     }
@@ -288,8 +291,9 @@ MerkleTree<BranchingBits, LockStripes>::deserialize(velocypack::Slice slice) {
 }
 
 template <std::size_t const BranchingBits, std::size_t const LockStripes>
-MerkleTree<BranchingBits, LockStripes>::MerkleTree(std::size_t maxDepth, std::size_t rangeMin,
-                                                   std::size_t rangeMax) {
+MerkleTree<BranchingBits, LockStripes>::MerkleTree(std::uint64_t maxDepth,
+                                                   std::uint64_t rangeMin,
+                                                   std::uint64_t rangeMax) {
   if (maxDepth < 2) {
     throw std::invalid_argument("Must specify a maxDepth >= 2.");
   }
@@ -347,33 +351,33 @@ MerkleTree<BranchingBits, LockStripes>& MerkleTree<BranchingBits, LockStripes>::
 }
 
 template <std::size_t const BranchingBits, std::size_t const LockStripes>
-std::size_t MerkleTree<BranchingBits, LockStripes>::count() const {
+std::uint64_t MerkleTree<BranchingBits, LockStripes>::count() const {
   std::shared_lock<std::shared_mutex> guard(_bufferLock);
   std::unique_lock<std::mutex> lock(this->lock(0));
   return node(0).count;
 }
 
 template <std::size_t const BranchingBits, std::size_t const LockStripes>
-std::size_t MerkleTree<BranchingBits, LockStripes>::rootValue() const {
+std::uint64_t MerkleTree<BranchingBits, LockStripes>::rootValue() const {
   std::shared_lock<std::shared_mutex> guard(_bufferLock);
   std::unique_lock<std::mutex> lock(this->lock(0));
   return node(0).hash;
 }
 
 template <std::size_t const BranchingBits, std::size_t const LockStripes>
-std::pair<std::size_t, std::size_t> MerkleTree<BranchingBits, LockStripes>::range() const {
+std::pair<std::uint64_t, std::uint64_t> MerkleTree<BranchingBits, LockStripes>::range() const {
   std::shared_lock<std::shared_mutex> guard(_bufferLock);
   return {meta().rangeMin, meta().rangeMax};
 }
 
 template <std::size_t const BranchingBits, std::size_t const LockStripes>
-std::size_t MerkleTree<BranchingBits, LockStripes>::maxDepth() const {
+std::uint64_t MerkleTree<BranchingBits, LockStripes>::maxDepth() const {
   std::shared_lock<std::shared_mutex> guard(_bufferLock);
   return meta().maxDepth;
 }
 
 template <std::size_t const BranchingBits, std::size_t const LockStripes>
-void MerkleTree<BranchingBits, LockStripes>::insert(std::size_t key, std::size_t value) {
+void MerkleTree<BranchingBits, LockStripes>::insert(std::uint64_t key, std::uint64_t value) {
   std::shared_lock<std::shared_mutex> guard(_bufferLock);
   if (key < meta().rangeMin) {
     throw std::out_of_range("Cannot insert, key " + std::to_string(key) +
@@ -392,16 +396,17 @@ void MerkleTree<BranchingBits, LockStripes>::insert(std::size_t key, std::size_t
 }
 
 template <std::size_t const BranchingBits, std::size_t const LockStripes>
-void MerkleTree<BranchingBits, LockStripes>::insert(std::vector<std::size_t> const& keys) {
+void MerkleTree<BranchingBits, LockStripes>::insert(std::vector<std::uint64_t> const& keys) {
   if (keys.empty()) {
     return;
   }
 
-  std::vector<std::size_t> sortedKeys = keys;
+  // sort vector to improve array access pattern
+  std::vector<std::uint64_t> sortedKeys = keys;
   std::sort(sortedKeys.begin(), sortedKeys.end());
 
-  std::size_t minKey = sortedKeys[0];
-  std::size_t maxKey = sortedKeys[sortedKeys.size() - 1];
+  std::uint64_t minKey = sortedKeys[0];
+  std::uint64_t maxKey = sortedKeys[sortedKeys.size() - 1];
 
   std::unique_lock<std::shared_mutex> guard(_bufferLock);
 
@@ -422,7 +427,7 @@ void MerkleTree<BranchingBits, LockStripes>::insert(std::vector<std::size_t> con
 }
 
 template <std::size_t const BranchingBits, std::size_t const LockStripes>
-void MerkleTree<BranchingBits, LockStripes>::remove(std::size_t key, std::size_t value) {
+void MerkleTree<BranchingBits, LockStripes>::remove(std::uint64_t key, std::uint64_t value) {
   std::shared_lock<std::shared_mutex> guard(_bufferLock);
   if (key < meta().rangeMin || key >= meta().rangeMax) {
     throw std::out_of_range("Cannot remove, key out of current range.");
@@ -432,16 +437,16 @@ void MerkleTree<BranchingBits, LockStripes>::remove(std::size_t key, std::size_t
 }
 
 template <std::size_t const BranchingBits, std::size_t const LockStripes>
-void MerkleTree<BranchingBits, LockStripes>::remove(std::vector<std::size_t> const& keys) {
+void MerkleTree<BranchingBits, LockStripes>::remove(std::vector<std::uint64_t> const& keys) {
   if (keys.empty()) {
     return;
   }
 
-  std::vector<std::size_t> sortedKeys = keys;
+  std::vector<std::uint64_t> sortedKeys = keys;
   std::sort(sortedKeys.begin(), sortedKeys.end());
 
-  std::size_t minKey = sortedKeys[0];
-  std::size_t maxKey = sortedKeys[sortedKeys.size() - 1];
+  std::uint64_t minKey = sortedKeys[0];
+  std::uint64_t maxKey = sortedKeys[sortedKeys.size() - 1];
 
   std::unique_lock<std::shared_mutex> guard(_bufferLock);
 
@@ -469,36 +474,13 @@ std::unique_ptr<MerkleTree<BranchingBits, LockStripes>> MerkleTree<BranchingBits
 }
 
 template <std::size_t const BranchingBits, std::size_t const LockStripes>
-std::vector<std::pair<std::size_t, std::size_t>> MerkleTree<BranchingBits, LockStripes>::diff(
+std::vector<std::pair<std::uint64_t, std::uint64_t>> MerkleTree<BranchingBits, LockStripes>::diff(
     MerkleTree<BranchingBits, LockStripes>& other) {
-  std::shared_lock<std::shared_mutex> guard1(_bufferLock);
-  std::shared_lock<std::shared_mutex> guard2(other._bufferLock);
+  std::shared_lock<std::shared_mutex> guard(_bufferLock);
+  std::shared_lock<std::shared_mutex> guardOther(other._bufferLock);
+  prepareDiff(other, guard, guardOther);
 
-  if (this->meta().maxDepth != other.meta().maxDepth) {
-    throw std::invalid_argument("Expecting two trees with same maxDepth.");
-  }
-
-  if (this->meta().rangeMin != other.meta().rangeMin) {
-    throw std::invalid_argument("Expecting two trees with same rangeMin.");
-  }
-
-  while (this->meta().rangeMax != other.meta().rangeMax) {
-    if (this->meta().rangeMax < other.meta().rangeMax) {
-      // grow this to match other range
-      guard1.unlock();
-      this->grow(other.meta().rangeMax - 1);
-      guard1.lock();
-    } else {
-      // grow other to match this range
-      guard2.unlock();
-      other.grow(this->meta().rangeMax - 1);
-      guard2.lock();
-    }
-    // loop to repeat check to make sure someone else didn't grow while we
-    // switched between shared/exclusive locks
-  }
-
-  std::vector<std::pair<std::size_t, std::size_t>> result;
+  std::vector<std::pair<std::uint64_t, std::uint64_t>> result;
   std::queue<std::size_t> candidates;
   candidates.emplace(0);
 
@@ -516,7 +498,8 @@ std::vector<std::pair<std::size_t, std::size_t>> MerkleTree<BranchingBits, LockS
           if (!equalAtIndex(other, child)) {
             // actually work with key ranges now
             std::size_t chunk = child - nodeCountUpToDepth(meta().maxDepth - 1);
-            std::pair<std::size_t, std::size_t> range = chunkRange(chunk, meta().maxDepth);
+            std::pair<std::uint64_t, std::uint64_t> range =
+                chunkRange(chunk, meta().maxDepth);
             if (!result.empty() && result.back().second >= range.first - 1) {
               // we are in a continuous range here, just extend it
               result.back().second = range.second;
@@ -537,7 +520,7 @@ template <std::size_t const BranchingBits, std::size_t const LockStripes>
 std::string MerkleTree<BranchingBits, LockStripes>::toString() const {
   std::shared_lock<std::shared_mutex> guard(_bufferLock);
   std::string output("{");
-  for (std::size_t depth = 0; depth <= meta().maxDepth; ++depth) {
+  for (std::uint64_t depth = 0; depth <= meta().maxDepth; ++depth) {
     output.append(std::to_string(depth));
     output.append(": [");
     for (std::size_t chunk = 0; chunk < nodeCountAtDepth(depth); ++chunk) {
@@ -558,11 +541,11 @@ std::string MerkleTree<BranchingBits, LockStripes>::toString() const {
 
 template <std::size_t const BranchingBits, std::size_t const LockStripes>
 void MerkleTree<BranchingBits, LockStripes>::serialize(velocypack::Builder& output,
-                                                       std::size_t maxDepth) const {
+                                                       std::uint64_t maxDepth) const {
   std::unique_lock<std::shared_mutex> guard(_bufferLock);
   TRI_ASSERT(output.isEmpty());
   char ridBuffer[11];
-  std::size_t depth = std::min(maxDepth, meta().maxDepth);
+  std::uint64_t depth = std::min(maxDepth, meta().maxDepth);
 
   velocypack::ObjectBuilder topLevelGuard(&output);
   output.add(StaticStrings::RevisionTreeVersion, velocypack::Value(::CurrentVersion));
@@ -638,8 +621,8 @@ std::mutex& MerkleTree<BranchingBits, LockStripes>::lock(std::size_t index) cons
 }
 
 template <std::size_t const BranchingBits, std::size_t const LockStripes>
-std::size_t MerkleTree<BranchingBits, LockStripes>::index(std::size_t key,
-                                                          std::size_t depth) const {
+std::size_t MerkleTree<BranchingBits, LockStripes>::index(std::uint64_t key,
+                                                          std::uint64_t depth) const {
   // not thread-safe, lock buffer from outside
   TRI_ASSERT(depth <= meta().maxDepth);
   TRI_ASSERT(key >= meta().rangeMin);
@@ -650,37 +633,38 @@ std::size_t MerkleTree<BranchingBits, LockStripes>::index(std::size_t key,
     return 0;
   }
 
-  std::size_t offset = key - meta().rangeMin;
-  std::size_t chunkSizeAtDepth = (meta().rangeMax - meta().rangeMin) /
-                                 (static_cast<std::size_t>(1) << (BranchingBits * depth));
-  std::size_t chunk = offset / chunkSizeAtDepth;
+  std::uint64_t offset = key - meta().rangeMin;
+  std::uint64_t chunkSizeAtDepth =
+      (meta().rangeMax - meta().rangeMin) /
+      (static_cast<std::uint64_t>(1) << (BranchingBits * depth));
+  std::size_t chunk = static_cast<std::size_t>(offset / chunkSizeAtDepth);
 
   return chunk + nodeCountUpToDepth(depth - 1);
 }
 
 template <std::size_t const BranchingBits, std::size_t const LockStripes>
-void MerkleTree<BranchingBits, LockStripes>::modify(std::size_t key, std::size_t value,
-                                                    bool isInsert) {
+void MerkleTree<BranchingBits, LockStripes>::modify(std::uint64_t key,
+                                                    std::uint64_t value, bool isInsert) {
   // not thread-safe, shared-lock buffer from outside
-  for (std::size_t depth = 0; depth <= meta().maxDepth; ++depth) {
+  for (std::uint64_t depth = 0; depth <= meta().maxDepth; ++depth) {
     modifyLocal(depth, key, value, isInsert, true);
   }
 }
 
 template <std::size_t const BranchingBits, std::size_t const LockStripes>
-void MerkleTree<BranchingBits, LockStripes>::modify(std::vector<std::size_t> const& keys,
+void MerkleTree<BranchingBits, LockStripes>::modify(std::vector<std::uint64_t> const& keys,
                                                     bool isInsert) {
   // not thread-safe, unique-lock buffer from outside
-  for (std::size_t depth = 0; depth <= meta().maxDepth; ++depth) {
-    for (std::size_t key : keys) {
+  for (std::uint64_t depth = 0; depth <= meta().maxDepth; ++depth) {
+    for (std::uint64_t key : keys) {
       modifyLocal(depth, key, TRI_FnvHashPod(key), isInsert, false);
     }
   }
 }
 
 template <std::size_t const BranchingBits, std::size_t const LockStripes>
-void MerkleTree<BranchingBits, LockStripes>::modifyLocal(std::size_t depth,
-                                                         std::size_t key, std::size_t value,
+void MerkleTree<BranchingBits, LockStripes>::modifyLocal(std::uint64_t depth,
+                                                         std::uint64_t key, std::uint64_t value,
                                                          bool isInsert, bool doLock) {
   // only use via modify
   std::size_t index = this->index(key, depth);
@@ -701,20 +685,20 @@ void MerkleTree<BranchingBits, LockStripes>::modifyLocal(std::size_t depth,
 }
 
 template <std::size_t const BranchingBits, std::size_t const LockStripes>
-void MerkleTree<BranchingBits, LockStripes>::grow(std::size_t key) {
+void MerkleTree<BranchingBits, LockStripes>::grow(std::uint64_t key) {
   std::unique_lock<std::shared_mutex> guard(_bufferLock);
   // no need to lock nodes as we have an exclusive lock on the buffer
 
-  std::size_t rangeMin = meta().rangeMin;
-  std::size_t rangeMax = meta().rangeMax;
+  std::uint64_t rangeMin = meta().rangeMin;
+  std::uint64_t rangeMax = meta().rangeMax;
   if (key < rangeMax) {
     // someone else resized already while we were waiting for the lock
     return;
   }
 
-  std::size_t factor = minimumFactorFor(rangeMax - rangeMin, key - rangeMin);
+  std::uint64_t factor = minimumFactorFor(rangeMax - rangeMin, key - rangeMin);
 
-  for (std::size_t depth = 1; depth <= meta().maxDepth; ++depth) {
+  for (std::uint64_t depth = 1; depth <= meta().maxDepth; ++depth) {
     // iterate over all nodes and left-combine, (skipping the first, identity)
     std::size_t offset = nodeCountUpToDepth(depth - 1);
     for (std::size_t index = 1; index < nodeCountAtDepth(depth); ++index) {
@@ -731,6 +715,36 @@ void MerkleTree<BranchingBits, LockStripes>::grow(std::size_t key) {
 }
 
 template <std::size_t const BranchingBits, std::size_t const LockStripes>
+void MerkleTree<BranchingBits, LockStripes>::prepareDiff(
+    MerkleTree<BranchingBits, LockStripes>& other,
+    std::shared_lock<std::shared_mutex>& guard,
+    std::shared_lock<std::shared_mutex>& guardOther) {
+  if (this->meta().maxDepth != other.meta().maxDepth) {
+    throw std::invalid_argument("Expecting two trees with same maxDepth.");
+  }
+
+  if (this->meta().rangeMin != other.meta().rangeMin) {
+    throw std::invalid_argument("Expecting two trees with same rangeMin.");
+  }
+
+  while (this->meta().rangeMax != other.meta().rangeMax) {
+    if (this->meta().rangeMax < other.meta().rangeMax) {
+      // grow this to match other range
+      guard.unlock();
+      this->grow(other.meta().rangeMax - 1);
+      guard.lock();
+    } else {
+      // grow other to match this range
+      guardOther.unlock();
+      other.grow(this->meta().rangeMax - 1);
+      guardOther.lock();
+    }
+    // loop to repeat check to make sure someone else didn't grow while we
+    // switched between shared/exclusive locks
+  }
+}
+
+template <std::size_t const BranchingBits, std::size_t const LockStripes>
 bool MerkleTree<BranchingBits, LockStripes>::equalAtIndex(
     MerkleTree<BranchingBits, LockStripes> const& other, std::size_t index) const {
   // not fully thread-safe, lock buffer from outside
@@ -742,21 +756,21 @@ bool MerkleTree<BranchingBits, LockStripes>::equalAtIndex(
 template <std::size_t const BranchingBits, std::size_t const LockStripes>
 bool MerkleTree<BranchingBits, LockStripes>::childrenAreLeaves(std::size_t index) {
   // not thread-safe, lock buffer from outside
-  std::size_t maxDepth = meta().maxDepth;
+  std::uint64_t maxDepth = meta().maxDepth;
   return index >= nodeCountUpToDepth(maxDepth - 2) &&
          index < nodeCountUpToDepth(maxDepth - 1);
 }
 
 template <std::size_t const BranchingBits, std::size_t const LockStripes>
-std::pair<std::size_t, std::size_t> MerkleTree<BranchingBits, LockStripes>::chunkRange(
-    std::size_t chunk, std::size_t depth) {
+std::pair<std::uint64_t, std::uint64_t> MerkleTree<BranchingBits, LockStripes>::chunkRange(
+    std::size_t chunk, std::uint64_t depth) {
   // not thread-safe, lock buffer from outside
-  std::size_t rangeMin = meta().rangeMin;
-  std::size_t rangeMax = meta().rangeMax;
-  std::size_t chunkSizeAtDepth =
-      (rangeMax - rangeMin) / (static_cast<std::size_t>(1) << (BranchingBits * depth));
-  return std::make_pair(rangeMin + (chunkSizeAtDepth * chunk),
-                        rangeMin + (chunkSizeAtDepth * (chunk + 1)) - 1);
+  std::uint64_t rangeMin = meta().rangeMin;
+  std::uint64_t rangeMax = meta().rangeMax;
+  std::uint64_t chunkSizeAtDepth =
+      (rangeMax - rangeMin) / (static_cast<std::uint64_t>(1) << (BranchingBits * depth));
+  return std::make_pair(rangeMin + (chunkSizeAtDepth * static_cast<uint64_t>(chunk)),
+                        rangeMin + (chunkSizeAtDepth * (static_cast<uint64_t>(chunk) + 1)) - 1);
 }
 
 template <std::size_t const BranchingBits, std::size_t const LockStripes>

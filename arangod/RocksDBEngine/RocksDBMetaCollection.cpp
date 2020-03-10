@@ -491,7 +491,7 @@ Result RocksDBMetaCollection::rebuildRevisionTree() {
     SingleCollectionTransaction trx(ctxt, _logicalCollection, AccessMode::Type::READ);
     auto* state = RocksDBTransactionState::toState(&trx);
 
-    std::vector<std::size_t> revisions;
+    std::vector<TRI_voc_rid_t> revisions;
     auto iter = getReplicationIterator(ReplicationIterator::Ordering::Revision, trx);
     if (!iter) {
       LOG_TOPIC("d1e54", WARN, arangodb::Logger::ENGINES)
@@ -529,7 +529,7 @@ Result RocksDBMetaCollection::rebuildRevisionTree() {
     ro.iterate_upper_bound = &end;
     ro.fill_cache = false;
 
-    std::vector<std::size_t> revisions;
+    std::vector<TRI_voc_rid_t> revisions;
     auto* db = rocksutils::globalRocksDB();
     auto iter = db->NewIterator(ro, documentBounds.columnFamily());
     for (iter->Seek(documentBounds.start());
@@ -573,8 +573,8 @@ void RocksDBMetaCollection::removeRevisionTreeBlocker(TRI_voc_tid_t transactionI
 }
 
 void RocksDBMetaCollection::bufferUpdates(rocksdb::SequenceNumber seq,
-                                          std::vector<std::size_t>&& inserts,
-                                          std::vector<std::size_t>&& removals) {
+                                          std::vector<TRI_voc_rid_t>&& inserts,
+                                          std::vector<TRI_voc_rid_t>&& removals) {
   if (!_logicalCollection.syncByRevision()) {
     return;
   }
@@ -622,8 +622,8 @@ rocksdb::SequenceNumber RocksDBMetaCollection::applyUpdates(rocksdb::SequenceNum
 
   rocksdb::SequenceNumber appliedSeq = 0;
   Result res = basics::catchVoidToResult([&]() -> void {
-    std::multimap<rocksdb::SequenceNumber, std::vector<std::size_t>>::const_iterator insertIt;
-    std::multimap<rocksdb::SequenceNumber, std::vector<std::size_t>>::const_iterator removeIt;
+    std::multimap<rocksdb::SequenceNumber, std::vector<TRI_voc_rid_t>>::const_iterator insertIt;
+    std::multimap<rocksdb::SequenceNumber, std::vector<TRI_voc_rid_t>>::const_iterator removeIt;
     {
       std::unique_lock<std::mutex> guard(_revisionBufferLock);
       insertIt = _revisionInsertBuffers.begin();
@@ -656,8 +656,8 @@ rocksdb::SequenceNumber RocksDBMetaCollection::applyUpdates(rocksdb::SequenceNum
     }
 
     while (true) {
-      std::vector<std::size_t> inserts;
-      std::vector<std::size_t> removals;
+      std::vector<TRI_voc_rid_t> inserts;
+      std::vector<TRI_voc_rid_t> removals;
       // find out if we have buffers to apply
       {
         bool haveInserts = insertIt != _revisionInsertBuffers.end() &&
@@ -714,8 +714,8 @@ Result RocksDBMetaCollection::applyUpdatesForTransaction(containers::RevisionTre
   }
 
   Result res = basics::catchVoidToResult([&]() -> void {
-    std::multimap<rocksdb::SequenceNumber, std::vector<std::size_t>>::const_iterator insertIt;
-    std::multimap<rocksdb::SequenceNumber, std::vector<std::size_t>>::const_iterator removeIt;
+    std::multimap<rocksdb::SequenceNumber, std::vector<TRI_voc_rid_t>>::const_iterator insertIt;
+    std::multimap<rocksdb::SequenceNumber, std::vector<TRI_voc_rid_t>>::const_iterator removeIt;
     {
       std::unique_lock<std::mutex> guard(_revisionBufferLock);
       insertIt = _revisionInsertBuffers.begin();
@@ -747,8 +747,8 @@ Result RocksDBMetaCollection::applyUpdatesForTransaction(containers::RevisionTre
     }
 
     while (true) {
-      std::vector<std::size_t> const* inserts = nullptr;
-      std::vector<std::size_t> const* removals = nullptr;
+      std::vector<TRI_voc_rid_t> const* inserts = nullptr;
+      std::vector<TRI_voc_rid_t> const* removals = nullptr;
       // find out if we have buffers to apply
       {
         bool haveInserts = insertIt != _revisionInsertBuffers.end() &&

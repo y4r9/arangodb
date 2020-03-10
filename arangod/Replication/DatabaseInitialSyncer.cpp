@@ -92,7 +92,7 @@ std::string const kDataString = "data";
 
 arangodb::Result removeRevisions(arangodb::transaction::Methods& trx,
                                  arangodb::LogicalCollection& collection,
-                                 std::vector<std::size_t>& toRemove,
+                                 std::vector<TRI_voc_rid_t>& toRemove,
                                  arangodb::InitialSyncerIncrementalSyncStats& stats) {
   using arangodb::PhysicalCollection;
   using arangodb::Result;
@@ -110,7 +110,7 @@ arangodb::Result removeRevisions(arangodb::transaction::Methods& trx,
   options.ignoreRevs = true;
   options.isRestore = true;
 
-  for (std::size_t rid : toRemove) {
+  for (TRI_voc_rid_t rid : toRemove) {
     double t = TRI_microtime();
     auto r = physical->remove(trx, arangodb::LocalDocumentId::create(rid), mdr, options,
                               /*lock*/ false, nullptr, nullptr);
@@ -132,7 +132,8 @@ arangodb::Result fetchRevisions(arangodb::transaction::Methods& trx,
                                 arangodb::DatabaseInitialSyncer::Configuration& config,
                                 arangodb::Syncer::SyncerState& state,
                                 arangodb::LogicalCollection& collection,
-                                std::string const& leader, std::vector<std::size_t>& toFetch,
+                                std::string const& leader,
+                                std::vector<TRI_voc_rid_t>& toFetch,
                                 arangodb::InitialSyncerIncrementalSyncStats& stats) {
   using arangodb::PhysicalCollection;
   using arangodb::RestReplicationHandler;
@@ -1370,11 +1371,11 @@ Result DatabaseInitialSyncer::fetchCollectionSyncByRevisions(arangodb::LogicalCo
 
 
   // diff with local tree
-  //std::pair<std::size_t, std::size_t> fullRange = treeMaster->range();
   std::unique_ptr<containers::RevisionTree> treeLocal =
       physical->revisionTree(*trx);
   physical->removeRevisionTreeBlocker(blockerId);
-  std::vector<std::pair<std::size_t, std::size_t>> ranges = treeMaster->diff(*treeLocal);
+  std::vector<std::pair<TRI_voc_rid_t, TRI_voc_rid_t>> ranges =
+      treeMaster->diff(*treeLocal);
   if (ranges.empty()) {
     // no differences, done!
     setProgress("no differences between two revision trees, ending");
@@ -1401,7 +1402,7 @@ Result DatabaseInitialSyncer::fetchCollectionSyncByRevisions(arangodb::LogicalCo
                       "&batchId=" + std::to_string(_config.batch.id);
     auto headers = replutils::createHeaders();
     std::unique_ptr<httpclient::SimpleHttpResult> response;
-    std::size_t requestResume = ranges[0].first;  // start with beginning
+    TRI_voc_rid_t requestResume = ranges[0].first;  // start with beginning
     TRI_ASSERT(requestResume);
     TRI_voc_rid_t iterResume = static_cast<TRI_voc_rid_t>(requestResume);
     std::size_t chunk = 0;
@@ -1411,13 +1412,13 @@ Result DatabaseInitialSyncer::fetchCollectionSyncByRevisions(arangodb::LogicalCo
       return Result(TRI_ERROR_INTERNAL, "could not get replication iterator");
     }
 
-    std::vector<std::size_t> toFetch;
-    std::vector<std::size_t> toRemove;
+    std::vector<TRI_voc_rid_t> toFetch;
+    std::vector<TRI_voc_rid_t> toRemove;
     const uint64_t documentsFound = treeLocal->count();
     RevisionReplicationIterator& local =
         *static_cast<RevisionReplicationIterator*>(iter.get());
 
-    while (requestResume < std::numeric_limits<std::size_t>::max()) {
+    while (requestResume < std::numeric_limits<TRI_voc_rid_t>::max()) {
       if (isAborted()) {
         return Result(TRI_ERROR_REPLICATION_APPLIER_STOPPED);
       }
@@ -1466,7 +1467,7 @@ Result DatabaseInitialSyncer::fetchCollectionSyncByRevisions(arangodb::LogicalCo
                           _config.master.endpoint + batchUrl +
                           ": response field 'resume' is not a number");
       }
-      requestResume = resumeSlice.isNone() ? std::numeric_limits<std::size_t>::max()
+      requestResume = resumeSlice.isNone() ? std::numeric_limits<TRI_voc_rid_t>::max()
                                            : resumeSlice.getNumber<std::size_t>();
 
       VPackSlice const rangesSlice = slice.get("ranges");
@@ -1600,7 +1601,7 @@ Result DatabaseInitialSyncer::fetchCollectionSyncByRevisions(arangodb::LogicalCo
     if (res.fail()) {
       return res;
     }
-    TRI_ASSERT(requestResume == std::numeric_limits<std::size_t>::max());
+    TRI_ASSERT(requestResume == std::numeric_limits<TRI_voc_rid_t>::max());
   }
 
   setProgress(
