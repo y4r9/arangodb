@@ -68,7 +68,7 @@ static const std::string GetAllDocs =
 
 using CursorType = arangodb::transaction::Methods::CursorType;
 
-class EnumerateCollectionExecutorTest : public AqlExecutorTestCase<true> {
+class EnumerateCollectionExecutorTest : public AqlExecutorTestCase<false> {
  protected:
   ExecutionState state;
   AqlItemBlockManager itemBlockManager;
@@ -373,7 +373,7 @@ TEST_P(EnumerateCollectionExecutorTestProduce, DISABLED_produce_all_documents) {
                               {R"(null)"},
                               {R"(null)"}})*/
       .expectedState(ExecutionState::DONE)
-      .addConsumer<EnumerateCollectionExecutor>(std::move(makeInfos()))
+      .addConsumer<EnumerateCollectionExecutor>(makeInfos())
       .run();
 }
 
@@ -381,7 +381,10 @@ TEST_P(EnumerateCollectionExecutorTestProduce, DISABLED_produce_all_documents) {
 TEST_P(EnumerateCollectionExecutorTestProduce, DISABLED_produce_5_documents) {
   auto [split] = GetParam();
 
+  uint64_t numberOfDocumentsToInsert = 10;
   std::vector<std::string> queryResults;
+  // auto vpackOptions = insertDocuments(numberOfDocumentsToInsert, queryResults);
+  std::ignore = insertDocuments(numberOfDocumentsToInsert, queryResults);
 
   makeExecutorTestHelper<1, 1>()
       .setInputValue({{RowBuilder<1>{R"({ "cid" : "1337", "name": "UnitTestCollection" })"}}})
@@ -391,7 +394,7 @@ TEST_P(EnumerateCollectionExecutorTestProduce, DISABLED_produce_5_documents) {
       .expectSkipped(0)
       .expectOutput({0}, {{R"(null)"}, {R"(null)"}, {R"(null)"}, {R"(null)"}, {R"(null)"}})
       .expectedState(ExecutionState::HASMORE)
-      .addConsumer<EnumerateCollectionExecutor>(std::move(makeInfos()))
+      .addConsumer<EnumerateCollectionExecutor>(makeInfos())
       .run();
 }
 
@@ -399,7 +402,9 @@ TEST_P(EnumerateCollectionExecutorTestProduce, DISABLED_produce_5_documents) {
 TEST_P(EnumerateCollectionExecutorTestProduce, DISABLED_skip_5_documents_default) {
   auto [split] = GetParam();
 
+  uint64_t numberOfDocumentsToInsert = 10;
   std::vector<std::string> queryResults;
+  std::ignore = insertDocuments(numberOfDocumentsToInsert, queryResults);
 
   makeExecutorTestHelper<1, 1>()
       .setInputValue({{RowBuilder<1>{R"({ "cid" : "1337", "name":
@@ -409,7 +414,7 @@ TEST_P(EnumerateCollectionExecutorTestProduce, DISABLED_skip_5_documents_default
       .expectSkipped(5)
       .expectOutput({0}, {{R"(null)"}, {R"(null)"}, {R"(null)"}, {R"(null)"}, {R"(null)"}})
       .expectedState(ExecutionState::DONE)
-      .addConsumer<EnumerateCollectionExecutor>(std::move(makeInfos()))
+      .addConsumer<EnumerateCollectionExecutor>(makeInfos())
       .run();
 }
 

@@ -214,7 +214,7 @@ class KShortestPathsFinder : public ShortestPathFinder {
   // reset the shortest paths finder; this is mainly needed because the
   // finder is part of the KShortestPathsExecutorInfos, and hence not
   // recreated when a cursor is initialised.
-  void clear();
+  void clear() override;
 
   // This is here because we inherit from ShortestPathFinder (to get the destroyEngines function)
   // TODO: Remove
