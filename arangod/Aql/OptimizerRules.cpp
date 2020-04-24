@@ -3967,9 +3967,6 @@ auto arangodb::aql::createDistributeNodeFor(ExecutionPlan& plan, ExecutionNode* 
       TRI_ASSERT(traversalNode->isDisjoint());
       collection = traversalNode->collection();
       inputVariable = traversalNode->inVariable();
-      // TODO:
-      // If the traversal node uses a constant start vertex, then this will be
-      // nullptr, hence we'll have to stunt around this.
       TRI_ASSERT(inputVariable);
       alternativeVariable = inputVariable;
       allowSpecifiedKeys = true;
@@ -3990,9 +3987,6 @@ auto arangodb::aql::createDistributeNodeFor(ExecutionPlan& plan, ExecutionNode* 
       TRI_ASSERT(shortestPathNode->isDisjoint());
       collection = shortestPathNode->collection();
       inputVariable = shortestPathNode->startInVariable();
-      // TODO:
-      // If the traversal node uses a constant start vertex, then this will be
-      // nullptr, hence we'll have to stunt around this.
       TRI_ASSERT(inputVariable);
       alternativeVariable = inputVariable;
       allowSpecifiedKeys = true;
@@ -4058,6 +4052,7 @@ auto arangodb::aql::insertDistributeGatherSnippet(ExecutionPlan& plan,
   // create, and register a distribute node
   DistributeNode* distNode = createDistributeNodeFor(plan, at);
   TRI_ASSERT(distNode != nullptr);
+TRI_ASSERT(deps.size() == 1);
   distNode->addDependency(deps[0]);
 
   // TODO: This dance is only needed to extract vocbase for
@@ -4085,6 +4080,7 @@ auto arangodb::aql::insertDistributeGatherSnippet(ExecutionPlan& plan,
   auto* gatherNode = createGatherNodeFor(plan, distNode);
   gatherNode->addDependency(remoteNode);
 
+TRI_ASSERT(parents.size() < 2);
   // Song and dance to deal with at being the root of a plan or a subquery
   if (parents.empty()) {
     if (snode) {
