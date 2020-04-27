@@ -205,7 +205,8 @@ RocksDBEngine::RocksDBEngine(application_features::ApplicationServer& server)
 #endif
       _useThrottle(true),
       _useReleasedTick(false),
-      _debugLogging(false) {
+      _debugLogging(false),
+      _useEdgeCache(true) {
 
   startsAfter<BasicFeaturePhaseServer>();
   // inherits order from StorageEngine but requires "RocksDBOption" that is used
@@ -318,6 +319,10 @@ void RocksDBEngine::collectOptions(std::shared_ptr<options::ProgramOptions> opti
                      "true to enable rocksdb debug logging",
                      new BooleanParameter(&_debugLogging),
                      arangodb::options::makeFlags(arangodb::options::Flags::Hidden));
+  
+  options->addOption("--rocksdb.use-edge-cache",
+                     "use in-memory cache for edge (EXPERIMENTAL)",
+                     new BooleanParameter(&_useEdgeCache));
 
   options->addOption(
       "--rocksdb.wal-archive-size-limit",
@@ -803,6 +808,8 @@ void RocksDBEngine::start() {
   if (!systemDatabaseExists()) {
     addSystemDatabase();
   }
+
+  LOG_TOPIC("46557", INFO, Logger::ENGINES) << "in-memory cache for edges is " << (useEdgeCache() ? "enabled" : "disabled");
 }
 
 void RocksDBEngine::beginShutdown() {
