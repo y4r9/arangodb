@@ -32,9 +32,11 @@ window.ArangoDocument = Backbone.Collection.extend({
     });
   },
 
-  addDocument: function (collectionID, key) {
+  addDocument: function (collectionID, header, data) {
     var self = this;
-    self.createTypeDocument(collectionID, key);
+    // TODO add checks
+    var doc = { ...header, ...data };
+    self.createTypeDocument(collectionID, doc);
   },
 
   createTypeEdge: function (collectionID, from, to, key, callback) {
@@ -69,29 +71,29 @@ window.ArangoDocument = Backbone.Collection.extend({
     });
   },
 
-  createTypeDocument: function (collectionID, key, callback, returnNew,
-                                smartJoinAttribute, smartJoinAttributeValue,
-                                smartGraphAttribute, smartGraphAttributeValue) {
-    var newDocument = {};
+   // createTypeDocument: function (collectionID, key, callback, returnNew,
+   //                               smartJoinAttribute, smartJoinAttributeValue,
+   //                               smartGraphAttribute, smartGraphAttributeValue) {
+   // var newDocument = {};
 
-    if (smartJoinAttribute && smartJoinAttributeValue && key) {
-      // case: smartJoin, bot value are needed and NOT optional
-      newDocument._key = smartJoinAttributeValue + ':' + key;
-      newDocument[smartJoinAttribute] = smartJoinAttributeValue;
-    } else if (smartGraphAttribute && smartGraphAttributeValue) {
-      // case: smartGraph with value
-      // other to smartJoin, we can:
-      // 1.) Create without smartGraphAttribute and without smartGraphAttributeValue
-      // 2.) Create only with smartGraphAttributeValue
-      if (key) {
-        newDocument._key = smartGraphAttributeValue + ':' + key;
-      }
-      newDocument[smartGraphAttribute] = smartGraphAttributeValue;
-    } else if (key) {
-      newDocument._key = key;
-    }
+   // if (smartJoinAttribute && smartJoinAttributeValue && key) {
+   //   // case: smartJoin, bot value are needed and NOT optional
+   //   newDocument._key = smartJoinAttributeValue + ':' + key;
+   //   newDocument[smartJoinAttribute] = smartJoinAttributeValue;
+   // } else if (smartGraphAttribute && smartGraphAttributeValue) {
+   //   // case: smartGraph with value
+   //   // other to smartJoin, we can:
+   //   // 1.) Create without smartGraphAttribute and without smartGraphAttributeValue
+   //   // 2.) Create only with smartGraphAttributeValue
+   //   if (key) {
+   //     newDocument._key = smartGraphAttributeValue + ':' + key;
+   //   }
+   //   newDocument[smartGraphAttribute] = smartGraphAttributeValue;
+   // } else if (key) {
+   //   newDocument._key = key;
+   // }
+  createTypeDocument: function (collectionID, newDocument, callback, returnNew) {
     newDocument = JSON.stringify(newDocument);
-
     var url = arangoHelper.databaseUrl('/_api/document?collection=' + encodeURIComponent(collectionID));
 
     if (returnNew) {
@@ -106,6 +108,7 @@ window.ArangoDocument = Backbone.Collection.extend({
       contentType: 'application/json',
       processData: false,
       success: function (data) {
+        console.log(data);
         if (returnNew) {
           callback(false, data);
         } else {
