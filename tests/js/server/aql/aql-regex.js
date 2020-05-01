@@ -70,6 +70,7 @@ function ahuacatlRegexTestSuite () {
 ////////////////////////////////////////////////////////////////////////////////
     
     testRegexMatch : function () {
+	    require('internal').sleep(1000);
       var values = [
         [ '^test$', 0 ],
         [ '^test\\d+$', 1000 ],
