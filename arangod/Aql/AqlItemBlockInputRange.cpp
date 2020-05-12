@@ -42,13 +42,6 @@ AqlItemBlockInputRange::AqlItemBlockInputRange(ExecutorState state, std::size_t 
   TRI_ASSERT(index <= _block->size());
 }
 
-AqlItemBlockInputRange::AqlItemBlockInputRange(ExecutorState state, std::size_t skipped,
-                                               arangodb::aql::SharedAqlItemBlockPtr&& block,
-                                               std::size_t index) noexcept
-    : _block{std::move(block)}, _rowIndex{index}, _finalState{state}, _skipped{skipped} {
-  TRI_ASSERT(index <= _block->size());
-}
-
 SharedAqlItemBlockPtr AqlItemBlockInputRange::getBlock() const noexcept {
   return _block;
 }

@@ -38,10 +38,6 @@ class AqlItemBlockInputRange {
   AqlItemBlockInputRange(ExecutorState, std::size_t skipped,
                          arangodb::aql::SharedAqlItemBlockPtr const&, std::size_t startIndex);
 
-  AqlItemBlockInputRange(ExecutorState, std::size_t skipped,
-                         arangodb::aql::SharedAqlItemBlockPtr&&,
-                         std::size_t startIndex) noexcept;
-
   arangodb::aql::SharedAqlItemBlockPtr getBlock() const noexcept;
 
   ExecutorState upstreamState() const noexcept;
