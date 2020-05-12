@@ -154,7 +154,7 @@ auto ConstFetcher::execute(AqlCallStack& stack)
     SkipResult skipped{};
     skipped.didSkip(call.getSkipCount());
     return {ExecutionState::DONE, skipped,
-            DataRange{ExecutorState::DONE, call.getSkipCount(), resultBlock, 0}};
+            DataRange{ExecutorState::DONE, call.getSkipCount(), resultBlock}};
   }
 
   SharedAqlItemBlockPtr resultBlock = _blockForPassThrough;
@@ -187,7 +187,7 @@ auto ConstFetcher::execute(AqlCallStack& stack)
 
   // Slowest path need to slice, this unfortunately requires copy of data
   resultBlock = resultBlock->slice(sliceIndexes);
-  return {resState, skipped, DataRange{rangeState, call.getSkipCount(), resultBlock, 0}};
+  return {resState, skipped, DataRange{rangeState, call.getSkipCount(), resultBlock}};
 }
 
 void ConstFetcher::injectBlock(SharedAqlItemBlockPtr block) {

@@ -291,7 +291,7 @@ class ShortestPathExecutorTest
                       std::move(parameters._source), std::move(parameters._target)),
         finder(static_cast<FakePathFinder&>(executorInfos.finder())),
         inputBlock(buildBlock<2>(itemBlockManager, std::move(parameters._inputMatrix))),
-        input(AqlItemBlockInputRange(ExecutorState::DONE, 0, inputBlock, 0)),
+        input(AqlItemBlockInputRange(ExecutorState::DONE, 0, inputBlock)),
         fakeUnusedBlock(VPackParser::fromJson("[]")),
         fetcher(itemBlockManager, fakeUnusedBlock->steal(), false),
         testee(fetcher, executorInfos) {

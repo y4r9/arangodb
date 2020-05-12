@@ -85,15 +85,13 @@ SingleRowFetcher<passBlocksThrough>::execute(AqlCallStack& stack) {
             AqlItemBlockInputRange{ExecutorState::DONE, skipped.getSkipCount()}};
   }
 
-  auto [start, end] = block->getRelevantRange();
   if (state == ExecutionState::HASMORE) {
     TRI_ASSERT(block != nullptr);
     return {state, skipped,
-            AqlItemBlockInputRange{ExecutorState::HASMORE,
-                                   skipped.getSkipCount(), block, start}};
+            AqlItemBlockInputRange{ExecutorState::HASMORE, skipped.getSkipCount(), block}};
   }
   return {state, skipped,
-          AqlItemBlockInputRange{ExecutorState::DONE, skipped.getSkipCount(), block, start}};
+          AqlItemBlockInputRange{ExecutorState::DONE, skipped.getSkipCount(), block}};
 }
 
 template <BlockPassthrough passBlocksThrough>

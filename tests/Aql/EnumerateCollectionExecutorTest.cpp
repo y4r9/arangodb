@@ -129,7 +129,7 @@ TEST_F(EnumerateCollectionExecutorTest, the_produce_datarange_empty) {
 
   SharedAqlItemBlockPtr inBlock = buildBlock<1>(itemBlockManager, {{}});
 
-  AqlItemBlockInputRange inputRange{ExecutorState::DONE, 0, inBlock, 0};
+  AqlItemBlockInputRange inputRange{ExecutorState::DONE, 0, inBlock};
   OutputAqlItemRow output(std::move(block), registerInfos.getOutputRegisters(),
                           registerInfos.registersToKeep(),
                           registerInfos.registersToClear());
@@ -149,7 +149,7 @@ TEST_F(EnumerateCollectionExecutorTest, the_skip_datarange_empty) {
 
   SharedAqlItemBlockPtr inBlock = buildBlock<1>(itemBlockManager, {{}});
 
-  AqlItemBlockInputRange inputRange{ExecutorState::DONE, 0, inBlock, 0};
+  AqlItemBlockInputRange inputRange{ExecutorState::DONE, 0, inBlock};
   OutputAqlItemRow output(std::move(block), registerInfos.getOutputRegisters(),
                           registerInfos.registersToKeep(),
                           registerInfos.registersToClear());
@@ -190,7 +190,7 @@ TEST_F(EnumerateCollectionExecutorTest, the_produce_datarange) {
   SCOPED_TRACE(insertQueryC);
   AssertQueryHasResult(vocbase, insertQueryC, VPackSlice::emptyArraySlice());
 
-  AqlItemBlockInputRange inputRange{ExecutorState::DONE, 0, inBlock, 0};
+  AqlItemBlockInputRange inputRange{ExecutorState::DONE, 0, inBlock};
   OutputAqlItemRow output(std::move(block), registerInfos.getOutputRegisters(),
                           registerInfos.registersToKeep(),
                           registerInfos.registersToClear());
@@ -233,7 +233,7 @@ TEST_F(EnumerateCollectionExecutorTest, the_skip_datarange) {
   SCOPED_TRACE(insertQueryC);
   AssertQueryHasResult(vocbase, insertQueryC, VPackSlice::emptyArraySlice());
    */
-  AqlItemBlockInputRange inputRange{ExecutorState::DONE, 0, inBlock, 0};
+  AqlItemBlockInputRange inputRange{ExecutorState::DONE, 0, inBlock};
   OutputAqlItemRow output(std::move(block), registerInfos.getOutputRegisters(),
                           registerInfos.registersToKeep(),
                           registerInfos.registersToClear());

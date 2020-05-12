@@ -65,9 +65,8 @@ AqlItemBlockInputRange& AqlItemBlockInputMatrix::getInputRange() {
     _lastRange = {AqlItemBlockInputRange{upstreamState()}};
   } else {
     SharedAqlItemBlockPtr blockPtr = _aqlItemMatrix->getBlock(_currentBlockRowIndex);
-    auto [start, end] = blockPtr->getRelevantRange();
     ExecutorState state = incrBlockIndex();
-    _lastRange = {state, 0, std::move(blockPtr), start};
+    _lastRange = {state, 0, std::move(blockPtr)};
   }
   return _lastRange;
 }

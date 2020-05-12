@@ -61,7 +61,7 @@ class InputRangeTest : public AqlExecutorTestCase<> {
  protected:
   auto buildRange(ExecutorState state, SharedAqlItemBlockPtr block) -> Range {
     if constexpr (std::is_same_v<Range, AqlItemBlockInputRange>) {
-      return AqlItemBlockInputRange{state, 0, block, 0};
+      return AqlItemBlockInputRange{state, 0, block};
     }
     if constexpr (std::is_same_v<Range, AqlItemBlockInputMatrix>) {
       _matrix.clear();
@@ -106,7 +106,7 @@ class InputRangeTest : public AqlExecutorTestCase<> {
               }
             }
           }
-          AqlItemBlockInputRange splitRange{state, 0, copiedBlock , 0};
+          AqlItemBlockInputRange splitRange{state, 0, copiedBlock};
           res.setDependency(index, splitRange);
         }
       }

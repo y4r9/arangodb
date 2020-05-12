@@ -67,7 +67,7 @@ class IdExecutorTestCombiner : public AqlExecutorTestCaseWithParam<TestParam> {
     }
     SharedAqlItemBlockPtr block = buildBlock<1>(manager(), std::move(matrix));
     TRI_ASSERT(getCall().getSkipCount() == 0);
-    return AqlItemBlockInputRange{getUpstreamState(), 0, block, 0};
+    return AqlItemBlockInputRange{getUpstreamState(), 0, block};
   }
 
   auto doCount() -> bool {
