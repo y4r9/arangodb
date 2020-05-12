@@ -31,19 +31,19 @@ using namespace arangodb;
 using namespace arangodb::aql;
 
 AqlItemBlockInputRange::AqlItemBlockInputRange(ExecutorState state, std::size_t skipped)
-    : _finalState{state}, _skipped{skipped} {
+    : _finalState{state}, _skippedArray{skipped} {
   TRI_ASSERT(!hasDataRow());
 }
 
 AqlItemBlockInputRange::AqlItemBlockInputRange(ExecutorState state, std::size_t skipped,
                                                arangodb::aql::SharedAqlItemBlockPtr const& block)
-    : _block{block}, _finalState{state}, _skipped{skipped} {
+    : _block{block}, _finalState{state}, _skippedArray{skipped} {
   TRI_ASSERT(_rowIndex <= _block->size());
 }
 
 AqlItemBlockInputRange::AqlItemBlockInputRange(ExecutorState state, std::size_t skipped,
                                                arangodb::aql::SharedAqlItemBlockPtr&& block) noexcept
-    : _block{std::move(block)}, _finalState{state}, _skipped{skipped} {
+    : _block{std::move(block)}, _finalState{state}, _skippedArray{skipped} {
   TRI_ASSERT(_rowIndex <= _block->size());
 }
 
@@ -153,20 +153,28 @@ ExecutorState AqlItemBlockInputRange::nextState() const noexcept {
   }
 }
 
+auto AqlItemBlockInputRange::modSkipValue() -> size_t& {
+  TRI_ASSERT(_posInSkippedArray < _skippedArray.size());
+  return _skippedArray[_posInSkippedArray];
+}
+
 auto AqlItemBlockInputRange::skip(std::size_t const toSkip) noexcept -> std::size_t {
-  auto const skipCount = std::min(_skipped, toSkip);
-  _skipped -= skipCount;
+  auto& skipped = modSkipValue();
+  auto const skipCount = std::min(skipped, toSkip);
+  skipped -= skipCount;
   return skipCount;
 }
 
 auto AqlItemBlockInputRange::skippedInFlight() const noexcept -> std::size_t {
-  return _skipped;
+  TRI_ASSERT(_posInSkippedArray < _skippedArray.size());
+  return _skippedArray[_posInSkippedArray];
 }
 
 auto AqlItemBlockInputRange::skipAll() noexcept -> std::size_t {
-  auto const skipped = _skipped;
-  _skipped = 0;
-  return skipped;
+  auto& origin = modSkipValue();
+  auto const copy = origin;
+  origin = 0;
+  return copy;
 }
 
 auto AqlItemBlockInputRange::countDataRows() const noexcept -> std::size_t {

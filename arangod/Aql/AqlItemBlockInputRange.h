@@ -96,12 +96,15 @@ class AqlItemBlockInputRange {
   template <LookAhead doPeek, RowType type>
   ExecutorState nextState() const noexcept;
 
+  [[nodiscard]] size_t& modSkipValue();
+
  private:
   arangodb::aql::SharedAqlItemBlockPtr _block{nullptr};
   std::size_t _rowIndex{};
   ExecutorState _finalState{ExecutorState::HASMORE};
   // How many rows were skipped upstream
-  std::size_t _skipped{};
+  std::vector<std::size_t> _skippedArray{};
+  std::size_t _posInSkippedArray{0};
 };
 
 }  // namespace arangodb::aql

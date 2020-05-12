@@ -58,12 +58,13 @@ class SkipResult {
 
     auto merge(SkipBatch const& other) noexcept -> void;
 
+    auto getSkipBatches() const noexcept -> MyVector<size_t> const&;
+
     auto operator==(SkipBatch const& b) const noexcept -> bool;
     auto operator!=(SkipBatch const& b) const noexcept -> bool;
 
    private:
     MyVector<size_t> _entries{0};
-    size_t _current{0};
   };
 
  public:
@@ -77,6 +78,8 @@ class SkipResult {
   SkipResult& operator=(const SkipResult&) = default;
 
   auto getSkipCount() const noexcept -> size_t;
+
+  auto getSkipBatches() const noexcept -> MyVector<size_t> const&;
 
   auto didSkip(size_t skipped) -> void;
 

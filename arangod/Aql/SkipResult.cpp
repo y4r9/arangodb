@@ -74,14 +74,12 @@ auto SkipResult::SkipBatch::fromVelocyPack(VPackSlice slice) -> arangodb::Result
 
 auto SkipResult::SkipBatch::getSkipCount() const noexcept -> size_t {
   TRI_ASSERT(!_entries.empty());
-  TRI_ASSERT(_current < _entries.size());
-  return _entries[_current];
+  return _entries.back();
 }
 
 auto SkipResult::SkipBatch::didSkip(size_t skipped) -> void {
   TRI_ASSERT(!_entries.empty());
-  TRI_ASSERT(_current < _entries.size());
-  _entries[_current] += skipped;
+  _entries.back() += skipped;
 }
 
 auto SkipResult::SkipBatch::toVelocyPack(VPackBuilder& builder) const noexcept -> void {
@@ -96,7 +94,6 @@ auto SkipResult::SkipBatch::reset() -> void {
   TRI_ASSERT(!_entries.empty());
   _entries.clear();
   _entries.emplace_back(0);
-  _current = 0;
 }
 
 auto SkipResult::SkipBatch::merge(SkipBatch const& other) noexcept -> void {
@@ -106,6 +103,10 @@ auto SkipResult::SkipBatch::merge(SkipBatch const& other) noexcept -> void {
   for (size_t i = 0; i < other._entries.size(); ++i) {
     _entries[i] += other._entries[i];
   }
+}
+
+auto SkipResult::SkipBatch::getSkipBatches() const noexcept -> MyVector<size_t> const& {
+  return _entries;
 }
 
 auto SkipResult::SkipBatch::operator==(SkipBatch const& b) const noexcept -> bool {
@@ -132,6 +133,12 @@ auto SkipResult::getSkipCount() const noexcept -> size_t {
   TRI_ASSERT(!_skipped.empty());
   return _skipped.back().getSkipCount();
 }
+
+auto SkipResult::getSkipBatches() const noexcept -> MyVector<size_t> const& {
+      TRI_ASSERT(!_skipped.empty());
+  return _skipped.back().getSkipBatches();
+}
+
 
 auto SkipResult::didSkip(size_t skipped) -> void {
   TRI_ASSERT(!_skipped.empty());
