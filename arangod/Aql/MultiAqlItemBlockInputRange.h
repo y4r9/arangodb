@@ -63,7 +63,7 @@ class MultiAqlItemBlockInputRange {
   auto isDone() const -> bool;
   auto state() const -> ExecutorState;
 
-  auto resizeOnce(ExecutorState state, size_t skipped, size_t nrInputRanges) -> void;
+  auto resizeOnce(ExecutorState state, size_t nrInputRanges) -> void;
 
   [[nodiscard]] auto getBlock(size_t dependency = 0) const noexcept -> SharedAqlItemBlockPtr;
 

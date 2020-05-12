@@ -30,18 +30,18 @@
 using namespace arangodb;
 using namespace arangodb::aql;
 
-AqlItemBlockInputRange::AqlItemBlockInputRange(ExecutorState state, std::size_t skipped)
+AqlItemBlockInputRange::AqlItemBlockInputRange(ExecutorState state,  std::vector<std::size_t> const& skipped)
     : _finalState{state}, _skippedArray{skipped} {
   TRI_ASSERT(!hasDataRow());
 }
 
-AqlItemBlockInputRange::AqlItemBlockInputRange(ExecutorState state, std::size_t skipped,
+AqlItemBlockInputRange::AqlItemBlockInputRange(ExecutorState state, std::vector<std::size_t> const& skipped,
                                                arangodb::aql::SharedAqlItemBlockPtr const& block)
     : _block{block}, _finalState{state}, _skippedArray{skipped} {
   TRI_ASSERT(_rowIndex <= _block->size());
 }
 
-AqlItemBlockInputRange::AqlItemBlockInputRange(ExecutorState state, std::size_t skipped,
+AqlItemBlockInputRange::AqlItemBlockInputRange(ExecutorState state, std::vector<std::size_t> const& skipped,
                                                arangodb::aql::SharedAqlItemBlockPtr&& block) noexcept
     : _block{std::move(block)}, _finalState{state}, _skippedArray{skipped} {
   TRI_ASSERT(_rowIndex <= _block->size());

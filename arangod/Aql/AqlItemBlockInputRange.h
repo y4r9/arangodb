@@ -33,12 +33,12 @@ class ShadowAqlItemRow;
 
 class AqlItemBlockInputRange {
  public:
-  explicit AqlItemBlockInputRange(ExecutorState state, std::size_t skipped = 0);
+  explicit AqlItemBlockInputRange(ExecutorState state, std::vector<std::size_t> const& skipped = {0});
 
-  AqlItemBlockInputRange(ExecutorState, std::size_t skipped,
+  AqlItemBlockInputRange(ExecutorState, std::vector<std::size_t> const& skipped,
                          arangodb::aql::SharedAqlItemBlockPtr const&);
 
-  AqlItemBlockInputRange(ExecutorState, std::size_t skipped,
+  AqlItemBlockInputRange(ExecutorState, std::vector<std::size_t> const& skipped,
                          arangodb::aql::SharedAqlItemBlockPtr&&) noexcept;
 
   arangodb::aql::SharedAqlItemBlockPtr getBlock() const noexcept;

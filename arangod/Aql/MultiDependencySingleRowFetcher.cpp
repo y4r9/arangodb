@@ -342,11 +342,11 @@ auto MultiDependencySingleRowFetcher::executeForDependency(size_t const dependen
   _dependencyStates.at(dependency) = state;
 
   if (block == nullptr) {
-    return {state, skipped, AqlItemBlockInputRange{execState, skipped.getSkipCount()}};
+    return {state, skipped, AqlItemBlockInputRange{execState, skipped.getSkipBatches()}};
   }
   TRI_ASSERT(block != nullptr);
   return {state, skipped,
-          AqlItemBlockInputRange{execState, skipped.getSkipCount(), block}};
+          AqlItemBlockInputRange{execState, skipped.getSkipBatches(), block}};
 }
 
 auto MultiDependencySingleRowFetcher::execute(AqlCallStack const& stack,

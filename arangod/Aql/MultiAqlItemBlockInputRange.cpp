@@ -53,13 +53,13 @@ MultiAqlItemBlockInputRange::MultiAqlItemBlockInputRange(ExecutorState state) {
   _inputs.resize(1, AqlItemBlockInputRange{state});
 }
 
-auto MultiAqlItemBlockInputRange::resizeOnce(ExecutorState state, size_t skipped,
+auto MultiAqlItemBlockInputRange::resizeOnce(ExecutorState state,
                                              size_t nrInputRanges) -> void {
   // Is expected to be called exactly once to set the number of dependencies.
   // We never want to reduce the number of dependencies.
   TRI_ASSERT(_inputs.size() <= nrInputRanges);
   TRI_ASSERT(nrInputRanges > 0);
-  _inputs.resize(nrInputRanges, AqlItemBlockInputRange{state, skipped});
+  _inputs.resize(nrInputRanges, AqlItemBlockInputRange{state});
 }
 
 auto MultiAqlItemBlockInputRange::upstreamState(size_t const dependency) const

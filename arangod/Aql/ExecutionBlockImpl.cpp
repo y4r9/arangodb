@@ -1767,7 +1767,7 @@ template <class Executor>
 void ExecutionBlockImpl<Executor>::init() {
   TRI_ASSERT(!_initialized);
   if constexpr (isMultiDepExecutor<Executor>) {
-    _lastRange.resizeOnce(ExecutorState::HASMORE, 0, _dependencies.size());
+    _lastRange.resizeOnce(ExecutorState::HASMORE, _dependencies.size());
     _rowFetcher.init();
   }
 }
