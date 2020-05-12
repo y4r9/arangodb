@@ -31,45 +31,137 @@
 
 using namespace arangodb::aql;
 
+auto SkipResult::SkipBatch::fromVelocyPack(VPackSlice slice) -> arangodb::ResultT<SkipBatch> {
+  if (!slice.isArray()) {
+    auto message = std::string{
+        "When deserializating AqlExecuteResult: When reading skipped: "
+        "Unexpected type "};
+    message += slice.typeName();
+    return Result(TRI_ERROR_TYPE_ERROR, std::move(message));
+  }
+  if (slice.isEmptyArray()) {
+    auto message = std::string{
+        "When deserializating AqlExecuteResult: When reading skipped: "
+        "Got an empty list of skipped values."};
+    return Result(TRI_ERROR_TYPE_ERROR, std::move(message));
+  }
+  try {
+    SkipBatch res;
+    res._entries.clear();
+    res._entries.reserve(slice.length());
+    auto it = VPackArrayIterator(slice);
+    while (it.valid()) {
+      auto val = it.value();
+      if (!val.isInteger()) {
+        auto message = std::string{
+            "When deserializating AqlExecuteResult: When reading skipped: "
+            "Unexpected type "};
+        message += slice.typeName();
+        return Result(TRI_ERROR_TYPE_ERROR, std::move(message));
+      }
+      res._entries.emplace_back(val.getNumber<std::size_t>());
+      ++it;
+    }
+    return {res};
+  } catch (velocypack::Exception const& ex) {
+    auto message = std::string{
+        "When deserializating AqlExecuteResult: When reading skipped: "};
+    message += ex.what();
+    return Result(TRI_ERROR_TYPE_ERROR, std::move(message));
+  }
+}
+
+
+auto SkipResult::SkipBatch::getSkipCount() const noexcept -> size_t {
+  TRI_ASSERT(!_entries.empty());
+  TRI_ASSERT(_current < _entries.size());
+  return _entries[_current];
+}
+
+auto SkipResult::SkipBatch::didSkip(size_t skipped) -> void {
+  TRI_ASSERT(!_entries.empty());
+  TRI_ASSERT(_current < _entries.size());
+  _entries[_current] += skipped;
+}
+
+auto SkipResult::SkipBatch::toVelocyPack(VPackBuilder& builder) const noexcept -> void {
+  VPackArrayBuilder guard(&builder);
+  TRI_ASSERT(!_entries.empty());
+  for (auto const& s : _entries) {
+    builder.add(VPackValue(s));
+  }
+}
+
+auto SkipResult::SkipBatch::reset() -> void {
+  TRI_ASSERT(!_entries.empty());
+  _entries.clear();
+  _entries.emplace_back(0);
+  _current = 0;
+}
+
+auto SkipResult::SkipBatch::merge(SkipBatch const& other) noexcept -> void {
+  // The other side can only be larger
+  TRI_ASSERT(other._entries.size() >= _entries.size());
+  _entries.reserve(other._entries.size());
+  for (size_t i = 0; i < other._entries.size(); ++i) {
+    _entries[i] += other._entries[i];
+  }
+}
+
+auto SkipResult::SkipBatch::operator==(SkipBatch const& b) const noexcept -> bool {
+  if (_entries.size() != b._entries.size()) {
+    return false;
+  }
+  for (size_t i = 0; i < _entries.size(); ++i) {
+    if (_entries[i] != b._entries[i]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+auto SkipResult::SkipBatch::operator!=(SkipBatch const& b) const noexcept -> bool {
+  return !(*this == b);
+}
+
 SkipResult::SkipResult() {}
 
 SkipResult::SkipResult(SkipResult const& other) : _skipped{other._skipped} {}
 
 auto SkipResult::getSkipCount() const noexcept -> size_t {
   TRI_ASSERT(!_skipped.empty());
-  return _skipped.back();
+  return _skipped.back().getSkipCount();
 }
 
 auto SkipResult::didSkip(size_t skipped) -> void {
   TRI_ASSERT(!_skipped.empty());
-  _skipped.back() += skipped;
+  _skipped.back().didSkip(skipped);
 }
 
 auto SkipResult::didSkipSubquery(size_t skipped, size_t depth) -> void {
   TRI_ASSERT(!_skipped.empty());
   TRI_ASSERT(_skipped.size() > depth + 1);
   size_t index = _skipped.size() - depth - 2;
-  size_t& localSkip = _skipped.at(index);
-  localSkip += skipped;
+  _skipped.at(index).didSkip(skipped);
 }
 
 auto SkipResult::getSkipOnSubqueryLevel(size_t depth) -> size_t {
   TRI_ASSERT(!_skipped.empty());
   TRI_ASSERT(_skipped.size() > depth);
-  return _skipped.at(depth);
+  return _skipped.at(depth).getSkipCount();
 }
 
 auto SkipResult::nothingSkipped() const noexcept -> bool {
   TRI_ASSERT(!_skipped.empty());
   return std::all_of(_skipped.begin(), _skipped.end(),
-                     [](size_t const& e) -> bool { return e == 0; });
+                     [](auto const& e) -> bool { return e.getSkipCount() == 0; });
 }
 
 auto SkipResult::toVelocyPack(VPackBuilder& builder) const noexcept -> void {
   VPackArrayBuilder guard(&builder);
   TRI_ASSERT(!_skipped.empty());
   for (auto const& s : _skipped) {
-    builder.add(VPackValue(s));
+    s.toVelocyPack(builder);
   }
 }
 
@@ -89,20 +181,15 @@ auto SkipResult::fromVelocyPack(VPackSlice slice) -> arangodb::ResultT<SkipResul
   }
   try {
     SkipResult res;
+    res._skipped.clear();
+    res._skipped.reserve(slice.length());
     auto it = VPackArrayIterator(slice);
     while (it.valid()) {
-      auto val = it.value();
-      if (!val.isInteger()) {
-        auto message = std::string{
-            "When deserializating AqlExecuteResult: When reading skipped: "
-            "Unexpected type "};
-        message += slice.typeName();
-        return Result(TRI_ERROR_TYPE_ERROR, std::move(message));
+      auto batch = SkipBatch::fromVelocyPack(it.value());
+      if (batch.fail()) {
+        return batch.result();
       }
-      if (!it.isFirst()) {
-        res.incrementSubquery();
-      }
-      res.didSkip(val.getNumber<std::size_t>());
+      res._skipped.emplace_back(std::move(batch.get()));
       ++it;
     }
     return {res};
@@ -114,7 +201,7 @@ auto SkipResult::fromVelocyPack(VPackSlice slice) -> arangodb::ResultT<SkipResul
   }
 }
 
-auto SkipResult::incrementSubquery() -> void { _skipped.emplace_back(0); }
+auto SkipResult::incrementSubquery() -> void { _skipped.emplace_back(SkipBatch{}); }
 auto SkipResult::decrementSubquery() -> void {
   TRI_ASSERT(!_skipped.empty());
   _skipped.pop_back();
@@ -127,7 +214,7 @@ auto SkipResult::subqueryDepth() const noexcept -> size_t {
 
 auto SkipResult::reset() -> void {
   for (size_t i = 0; i < _skipped.size(); ++i) {
-    _skipped[i] = 0;
+    _skipped[i].reset();
   }
 }
 
@@ -142,7 +229,7 @@ auto SkipResult::merge(SkipResult const& other, bool excludeTopLevel) noexcept -
       // Do not copy top level
       continue;
     }
-    _skipped[i] += other._skipped[i];
+    _skipped[i].merge(other._skipped[i]);
   }
 }
 
@@ -151,7 +238,7 @@ auto SkipResult::mergeOnlyTopLevel(SkipResult const& other) noexcept -> void {
   while (other.subqueryDepth() > subqueryDepth()) {
     incrementSubquery();
   }
-  _skipped.back() += other._skipped.back();
+  _skipped.back().merge(other._skipped.back());
 }
 
 auto SkipResult::operator+=(SkipResult const& b) noexcept -> SkipResult& {

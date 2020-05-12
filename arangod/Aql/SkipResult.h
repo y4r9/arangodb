@@ -40,6 +40,32 @@ class Slice;
 namespace arangodb::aql {
 
 class SkipResult {
+  template <class T>
+  using MyVector = std::vector<T>;
+
+ private:
+  class SkipBatch {
+   public:
+    static auto fromVelocyPack(velocypack::Slice) -> arangodb::ResultT<SkipBatch>;
+
+    auto didSkip(size_t skipped) -> void;
+
+    auto getSkipCount() const noexcept -> size_t;
+
+    auto toVelocyPack(arangodb::velocypack::Builder& builder) const noexcept -> void;
+
+    auto reset() -> void;
+
+    auto merge(SkipBatch const& other) noexcept -> void;
+
+    auto operator==(SkipBatch const& b) const noexcept -> bool;
+    auto operator!=(SkipBatch const& b) const noexcept -> bool;
+
+   private:
+    MyVector<size_t> _entries{0};
+    size_t _current{0};
+  };
+
  public:
   static auto fromVelocyPack(velocypack::Slice) -> arangodb::ResultT<SkipResult>;
 
@@ -79,7 +105,7 @@ class SkipResult {
   auto operator!=(SkipResult const& b) const noexcept -> bool;
 
  private:
-  std::vector<size_t> _skipped{0};
+  MyVector<SkipBatch> _skipped{SkipBatch{}};
 };
 
 std::ostream& operator<<(std::ostream&, arangodb::aql::SkipResult const&);
