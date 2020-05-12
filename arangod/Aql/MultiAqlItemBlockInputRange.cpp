@@ -48,11 +48,9 @@ namespace {
 }
 
 
-MultiAqlItemBlockInputRange::MultiAqlItemBlockInputRange(ExecutorState state,
-                                                         std::size_t skipped,
-                                                         std::size_t nrInputRanges) {
-  _inputs.resize(nrInputRanges, AqlItemBlockInputRange{state, skipped});
-  TRI_ASSERT(nrInputRanges > 0);
+MultiAqlItemBlockInputRange::MultiAqlItemBlockInputRange(ExecutorState state) {
+
+  _inputs.resize(1, AqlItemBlockInputRange{state});
 }
 
 auto MultiAqlItemBlockInputRange::resizeOnce(ExecutorState state, size_t skipped,

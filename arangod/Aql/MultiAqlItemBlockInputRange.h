@@ -32,16 +32,7 @@ namespace arangodb::aql {
 
 class MultiAqlItemBlockInputRange {
  public:
-  explicit MultiAqlItemBlockInputRange(ExecutorState state, std::size_t skipped = 0,
-                                       std::size_t nrInputRanges = 1);
-
-  MultiAqlItemBlockInputRange(ExecutorState, std::size_t skipped,
-                              arangodb::aql::SharedAqlItemBlockPtr const&,
-                              std::size_t startIndex);
-
-  MultiAqlItemBlockInputRange(ExecutorState, std::size_t skipped,
-                              arangodb::aql::SharedAqlItemBlockPtr&&,
-                              std::size_t startIndex) noexcept;
+  explicit MultiAqlItemBlockInputRange(ExecutorState state);
 
   ExecutorState upstreamState(size_t const dependency) const noexcept;
   bool upstreamHasMore(size_t const dependency) const noexcept;
