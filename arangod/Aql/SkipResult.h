@@ -52,6 +52,8 @@ class SkipResult {
 
     auto getSkipCount() const noexcept -> size_t;
 
+    auto nextSubqueryRun() -> void;
+
     auto toVelocyPack(arangodb::velocypack::Builder& builder) const noexcept -> void;
 
     auto reset() -> void;
@@ -98,6 +100,8 @@ class SkipResult {
   auto subqueryDepth() const noexcept -> size_t;
 
   auto reset() -> void;
+
+  auto nextSubqueryRun() -> void;
 
   auto merge(SkipResult const& other, bool excludeTopLevel) noexcept -> void;
   auto mergeOnlyTopLevel(SkipResult const& other) noexcept -> void;

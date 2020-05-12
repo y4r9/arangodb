@@ -1640,6 +1640,7 @@ ExecutionBlockImpl<Executor>::executeWithoutTrace(AqlCallStack stack) {
         if (clientCallList.hasMoreCalls()) {
           // Update to next call and start all over.
           clientCall = clientCallList.popNextCall();
+          _skipped.nextSubqueryRun();
           _execState = ExecState::CHECKCALL;
         } else {
           // We cannot continue, so we are done
@@ -1804,9 +1805,9 @@ auto ExecutionBlockImpl<Executor>::memoizeCall(AqlCall const& call,
       // We can only try to memoize the first call ever send.
       // Otherwise the call might be influenced by state
       // inside the Executor
-      if (wasCalledWithContinueCall && call.getOffset() == 0 &&
-          !call.needsFullCount() && !call.hasSoftLimit()) {
-        // First draft, we only memoize non-skipping calls
+      if (wasCalledWithContinueCall) {
+        // We only continue if no other executor before has
+        // stopped us.
         _defaultUpstreamRequest = call;
       }
     }

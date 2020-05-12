@@ -77,6 +77,10 @@ auto SkipResult::SkipBatch::getSkipCount() const noexcept -> size_t {
   return _entries.back();
 }
 
+auto SkipResult::SkipBatch::nextSubqueryRun() -> void {
+  _entries.emplace_back(0);
+}
+
 auto SkipResult::SkipBatch::didSkip(size_t skipped) -> void {
   TRI_ASSERT(!_entries.empty());
   _entries.back() += skipped;
@@ -223,6 +227,10 @@ auto SkipResult::reset() -> void {
   for (size_t i = 0; i < _skipped.size(); ++i) {
     _skipped[i].reset();
   }
+}
+
+auto SkipResult::nextSubqueryRun() -> void {
+  _skipped.back().nextSubqueryRun();
 }
 
 auto SkipResult::merge(SkipResult const& other, bool excludeTopLevel) noexcept -> void {

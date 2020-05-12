@@ -106,6 +106,18 @@ std::pair<ExecutorState, ShadowAqlItemRow> AqlItemBlockInputRange::nextShadowRow
     ShadowAqlItemRow row{_block, _rowIndex};
     // Advance the current row.
     _rowIndex++;
+    if (hasDataRow()) {
+      // Need to advance to the next entry in _posInSkippedArray
+      _posInSkippedArray++;
+      TRI_ASSERT(_posInSkippedArray < _skippedArray.size());
+    } else if (hasShadowRow()) {
+      auto shadow = peekShadowRow();
+      if (shadow.isRelevant()) {
+        // Need to advance to the next entry in _posInSkippedArray
+        _posInSkippedArray++;
+        TRI_ASSERT(_posInSkippedArray < _skippedArray.size());
+      }
+    }
     return std::make_pair(nextState<LookAhead::NOW, RowType::SHADOW>(), row);
   }
   return std::make_pair(nextState<LookAhead::NOW, RowType::SHADOW>(),
