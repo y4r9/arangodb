@@ -165,9 +165,6 @@ class AqlItemBlock {
   /// @brief getter for _nrItems
   size_t size() const noexcept;
 
-  /// @brief get the relevant consumable range of the block
-  std::tuple<size_t, size_t> getRelevantRange() const;
-
   /// @brief Number of entries in the matrix. If this changes, the memory usage
   /// must be / in- or decreased appropriately as well.
   /// All entries _data[i] for numEntries() <= i < _data.size() always have to

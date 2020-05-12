@@ -989,21 +989,6 @@ RegisterCount AqlItemBlock::getNrRegs() const noexcept { return _nrRegs; }
 
 size_t AqlItemBlock::size() const noexcept { return _nrItems; }
 
-std::tuple<size_t, size_t> AqlItemBlock::getRelevantRange() const {
-  // NOTE:
-  // Right now we can only support a range of datarows, that ends
-  // In a range of ShadowRows.
-  // After a shadow row, we do NOT know how to continue with
-  // The next Executor.
-  // So we can hardcode to return 0 -> firstShadowRow || endOfBlock
-  if (hasShadowRows()) {
-    auto const& shadows = getShadowRowIndexes();
-    TRI_ASSERT(!shadows.empty());
-    return {0, *shadows.begin()};
-  }
-  return {0, size()};
-}
-
 size_t AqlItemBlock::numEntries() const { return internalNrRegs() * _nrItems; }
 
 size_t AqlItemBlock::capacity() const noexcept { return _data.capacity(); }
