@@ -1640,7 +1640,9 @@ ExecutionBlockImpl<Executor>::executeWithoutTrace(AqlCallStack stack) {
         if (clientCallList.hasMoreCalls()) {
           // Update to next call and start all over.
           clientCall = clientCallList.popNextCall();
-          _skipped.nextSubqueryRun();
+          if constexpr (!std::is_same_v<Executor, SubqueryEndExecutor>) {
+            _skipped.nextSubqueryRun();
+          }
           _execState = ExecState::CHECKCALL;
         } else {
           // We cannot continue, so we are done
