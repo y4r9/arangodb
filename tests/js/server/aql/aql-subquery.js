@@ -503,7 +503,81 @@ function ahuacatlSubqueryTestSuite () {
         db._useDatabase("_system");
         db._drop(dbName);
       }
+    },
+
+    testSkipInSubquery: function () {
+      // This suite tests some combination of skip / fullCount
+      // and subquery
+      const identicalCounts = (num, count) => {
+        const res = []
+        for (let i = 1; i <= num; ++i) {
+          res.push({ i, count });
+        }
+        return res;
+      }
+
+      const nestedCounts = (num, count) => {
+        const res = []
+        for (let i = 1; i <= num; ++i) {
+          const sub = [];
+          for (let k = 3; k <= 6; ++k) {
+            sub.push({ k, count });
+          }
+          res.push({ i, sub });
+        }
+        return res;
+      }
+      let queries = [{
+        query: `
+          FOR i IN 1..6
+            LET count = (
+              FOR j IN 1..20000
+                COLLECT WITH COUNT INTO c
+                RETURN c
+            )[0]
+            RETURN {i, count}
+        `,
+        result: identicalCounts(6, 20000)
+      },
+      {
+        query: `
+          FOR i IN 1..2000
+            LET count = (
+              FOR j IN 1..20000
+                COLLECT WITH COUNT INTO c
+                RETURN c
+            )[0]
+            RETURN {i, count}
+        `,
+        result: identicalCounts(2000, 20000)
+        },
+        {
+          query: `
+            FOR i IN 1..2000
+              LET sub = (
+                FOR k IN 1..10
+                LET count = (
+                  FOR j IN 1..20000
+                    COLLECT WITH COUNT INTO c
+                    RETURN c
+                )[0]
+                LIMIT 2, 3
+                RETURN {k, count}
+              )
+              RETURN {i, sub}
+          `,
+          result: nestedCounts(2000, 20000)
+          },
+      
+      ];
+      for (const { query, result } of queries) {
+        require("internal").print(`Q: ${query}`);
+        const res = db._query(query, {}, {profile: 3}).toArray();
+        assertEqual(res, result, `Failed to get correct result in query ${query}`);
+
+      }
     }
+
   }; 
 }
 
