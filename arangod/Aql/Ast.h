@@ -116,9 +116,14 @@ class Ast {
   /// @brief whether or not query contains any modification operations
   bool containsModificationNode() const;
   void setContainsModificationNode();
+  void setContainsParallelNode();
+  bool willUseV8() const;
+  void setWillUseV8();
+        
+  bool canApplyParallelism() const {
+    return _containsParallelNode && !_willUseV8 && !_containsModificationNode;
+  }
   
-  bool containsParallelNode() const;
-
   /// @brief convert the AST into VelocyPack
   void toVelocyPack(arangodb::velocypack::Builder& builder, bool verbose) const;
 
@@ -201,12 +206,6 @@ class Ast {
   /// @brief create an AST sort element node
   AstNode* createNodeSortElement(AstNode const*, AstNode const*);
   
-  /// @brief create an AST parallel start node
-  AstNode* createNodeParallelStart();
-  
-  /// @brief create an AST parallel end node
-  AstNode* createNodeParallelEnd();
-
   /// @brief create an AST limit node
   AstNode* createNodeLimit(AstNode const*, AstNode const*);
 
@@ -391,6 +390,10 @@ class Ast {
   /// latter
   /// becomes `a + b + 1`
   static AstNode* replaceVariableReference(AstNode*, Variable const*, AstNode const*);
+
+  static size_t validatedParallelism(AstNode const* value);
+
+  static size_t extractParallelism(AstNode const* optionsNode);
 
   /// @brief optimizes the AST
   void validateAndOptimize(transaction::Methods&);
@@ -593,9 +596,12 @@ class Ast {
   /// @brief contains INSERT / UPDATE / REPLACE / REMOVE
   bool _containsModificationNode;
   
-  /// @brief contains PARALLEL_{START, END}
-  bool _containsParrallelNode;
-
+  /// @brief contains a parallel traversal
+  bool _containsParallelNode;
+  
+  /// @brief query makes use of V8 function(s)
+  bool _willUseV8;
+  
   /// @brief a singleton no-op node instance
   static AstNode const NopNode;
 

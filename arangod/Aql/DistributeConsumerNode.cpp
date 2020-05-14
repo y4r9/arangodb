@@ -71,7 +71,7 @@ std::unique_ptr<ExecutionBlock> DistributeConsumerNode::createBlock(
       &engine, this, std::move(registerInfos), std::move(executorInfos));
 }
 
-void DistributeConsumerNode::cloneRegisterPlan(ScatterNode* dependency) {
+void DistributeConsumerNode::cloneRegisterPlan(ExecutionNode* dependency) {
   TRI_ASSERT(hasDependency());
   TRI_ASSERT(getFirstDependency() == dependency);
   _registerPlan = dependency->getRegisterPlan();
