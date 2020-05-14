@@ -2521,7 +2521,7 @@ AsyncNode::AsyncNode(ExecutionPlan* plan, arangodb::velocypack::Slice const& bas
 ExecutionNode::NodeType AsyncNode::getType() const { return ASYNC; }
 
 ExecutionNode* AsyncNode::clone(ExecutionPlan* plan, bool withDependencies,
-                                    bool withProperties) const {
+                                bool withProperties) const {
   return cloneHelper(std::make_unique<AsyncNode>(plan, _id),
                      withDependencies, withProperties);
 }

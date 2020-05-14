@@ -1007,7 +1007,7 @@ class NoResultsNode : public ExecutionNode {
 };
 
 /// @brief class AsyncNode
-class AsyncNode : public ExecutionNode {
+class AsyncNode final : public ExecutionNode {
   friend class ExecutionBlock;
 
   /// @brief constructor with an id
@@ -1034,8 +1034,6 @@ class AsyncNode : public ExecutionNode {
 
   /// @brief the cost of a AsyncNode is whatever is 0
   CostEstimate estimateCost() const override final;
-
-  void cloneRegisterPlan(ExecutionNode* dependency);
 };
 
 namespace materialize {
