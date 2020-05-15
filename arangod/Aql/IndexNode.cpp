@@ -513,7 +513,7 @@ std::unique_ptr<ExecutionBlock> IndexNode::createBlock(
                          _outVariable, isProduceResult(), this->_filter.get(),
                          this->projections(), this->coveringIndexAttributePositions(),
                          std::move(nonConstExpressions), std::move(inVars),
-                         std::move(inRegs), hasV8Expression, _condition->root(),
+                         std::move(inRegs), hasV8Expression, doCount(), _condition->root(),
                          this->getIndexes(), _plan->getAst(), this->options(),
                          _outNonMaterializedIndVars, std::move(outNonMaterializedIndRegs));
 
@@ -589,6 +589,11 @@ CostEstimate IndexNode::estimateCost() const {
     totalCost += costs.estimatedCosts;
   }
 
+  if (doCount()) {
+    // if "count" mode is set, always hard-code the number of results to 1
+    totalItems = 1;
+  }
+
   estimate.estimatedNrItems *= totalItems;
   estimate.estimatedCost += incoming * totalCost;
   return estimate;
@@ -643,24 +648,6 @@ void IndexNode::setLateMaterialized(aql::Variable const* docIdVariable, IndexId 
     _outNonMaterializedIndVars.second.try_emplace(indVars.second.var,
                                                   indVars.second.indexFieldNum);
   }
-}
-
-VariableIdSet IndexNode::getOutputVariables() const {
-  VariableIdSet vars;
-  if (isLateMaterialized()) {
-    TRI_ASSERT(_outNonMaterializedDocId != nullptr);
-    vars.insert(_outNonMaterializedDocId->id);
-    // plan registers for index references
-    for (auto const& fieldVar : _outNonMaterializedIndVars.second) {
-      TRI_ASSERT(fieldVar.first != nullptr);
-      vars.insert(fieldVar.first->id);
-    }
-  } else {
-    TRI_ASSERT(_outVariable != nullptr);
-    vars.insert(_outVariable->id);
-  }
-
-  return vars;
 }
 
 NonConstExpression::NonConstExpression(std::unique_ptr<Expression> exp,
