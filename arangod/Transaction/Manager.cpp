@@ -106,6 +106,18 @@ void Manager::unregisterTransaction(TRI_voc_tid_t transactionId, bool isReadOnly
   TRI_ASSERT(r > 0);
 }
 
+Result Manager::executeUnderTransactionsLock(std::function<void()> const& cb) {
+  if (!_rwLock.tryLockRead()) {
+    return {TRI_ERROR_LOCKED};
+  }
+  auto guard = scopeGuard([this]() {
+    _rwLock.unlockRead();
+  });
+
+  cb();
+  return {};
+}
+
 uint64_t Manager::getActiveTransactionCount() {
   return _nrRunning.load(std::memory_order_relaxed);
 }

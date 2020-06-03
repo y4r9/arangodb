@@ -183,6 +183,10 @@ class Manager final {
     }
   }
 
+  // execute under the transaction lock, so that transactions can't be blocked
+  // while this is running
+  Result executeUnderTransactionsLock(std::function<void()> const& cb);
+
  private:
   /// @brief performs a status change on a transaction using a timeout
   Result statusChangeWithTimeout(TRI_voc_tid_t tid, transaction::Status status);

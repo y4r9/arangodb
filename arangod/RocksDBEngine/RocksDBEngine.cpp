@@ -387,6 +387,16 @@ void RocksDBEngine::start() {
   // it is already decided that rocksdb is used
   TRI_ASSERT(isEnabled());
   TRI_ASSERT(!ServerState::instance()->isCoordinator());
+        
+  LOG_DEVEL << "directory state on startup:";
+  auto filelist = TRI_FullTreeDirectory(_basePath.c_str());
+  std::sort(filelist.begin(), filelist.end());
+  for (auto const& x : filelist) {
+    auto f = basics::FileUtils::buildFilename(_basePath, x);
+    if (!basics::FileUtils::isDirectory(f)) {
+      LOG_DEVEL << "- file: " << x << ", size: " << TRI_SizeFile(f.c_str());
+    }
+  }
 
   if (ServerState::instance()->isAgent() &&
       !server().options()->processingResult().touched(
