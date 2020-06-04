@@ -1136,6 +1136,7 @@ endif ()
 # ZLIB_LIBS
 # ZLIB_INCLUDE_DIR
 
+add_definitions(-DNPERF_CONTEXT) # for RocksDB, here because it affects arangod too
 add_definitions(-DBOOST_UUID_RANDOM_PROVIDER_FORCE_POSIX=1) #fix random provider
 add_definitions(-DBOOST_ALL_NO_LIB=1) #disable boost autolink on windows
 add_subdirectory(3rdParty)
