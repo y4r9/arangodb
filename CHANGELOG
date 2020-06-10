@@ -1,6 +1,9 @@
 v3.6.5 (XXXX-XX-XX)
 -------------------
 
+* Fix restoring old arangodumps from ArangoDB 3.3 and before, which had 
+  index information stored in slightly different places in the dump.
+
 * Updated ArangoDB Starter to 0.14.15.
 
 * Foxx API now respects "idiomatic" flag being explicitly set to false.
