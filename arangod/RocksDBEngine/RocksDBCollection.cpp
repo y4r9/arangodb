@@ -2217,11 +2217,11 @@ void RocksDBCollection::blackListKey(RocksDBKey const& k) const {
 
 /// @brief can use non transactional range delete in write ahead log
 bool RocksDBCollection::canUseRangeDeleteInWal() const {
-  if (ServerState::instance()->isSingleServer()) {
+  //if (ServerState::instance()->isSingleServer()) {
     // disableWalFilePruning is used by createIndex
     return _numIndexCreations.load(std::memory_order_acquire) == 0;
-  }
-  return false;
+  //}
+  //return false;
 }
 
 }  // namespace arangodb
