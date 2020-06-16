@@ -200,7 +200,7 @@ auto TraversalExecutor::doOutput(OutputAqlItemRow& output) -> void {
 auto TraversalExecutor::doSkip(AqlCall& call) -> size_t {
   auto skip = size_t{0};
 
-  while (call.shouldSkip() && _traverser.hasMore() && _traverser.next()) {
+  while (call.needSkipMore() && _traverser.hasMore() && _traverser.next()) {
     TRI_ASSERT(_inputRow.isInitialized());
     skip++;
     call.didSkip(1);

@@ -452,7 +452,7 @@ IResearchViewExecutorBase<Impl, Traits>::skipRowsRange(AqlItemBlockInputRange& i
   TRI_ASSERT(_indexReadBuffer.empty());
   auto& impl = static_cast<Impl&>(*this);
 
-  while (inputRange.hasDataRow() && call.shouldSkip()) {
+  while (inputRange.hasDataRow() && call.needSkipMore()) {
     if (!_inputRow.isInitialized()) {
       auto rowState = ExecutorState::HASMORE;
       std::tie(rowState, _inputRow) = inputRange.peekDataRow();
@@ -476,7 +476,7 @@ IResearchViewExecutorBase<Impl, Traits>::skipRowsRange(AqlItemBlockInputRange& i
     }
     TRI_ASSERT(_indexReadBuffer.empty());
 
-    if (call.shouldSkip()) {
+    if (call.needSkipMore()) {
       // We still need to fetch more
       // trigger refetch of new input row
       std::ignore = inputRange.nextDataRow();

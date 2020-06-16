@@ -165,7 +165,6 @@ struct AqlCall {
     return skippedRows;
   }
 
-  // TODO this is the same as shouldSkip(), remove one of them.
   [[nodiscard]] bool needSkipMore() const noexcept {
     return (0 < getOffset()) || (getLimit() == 0 && needsFullCount());
   }
@@ -193,11 +192,6 @@ struct AqlCall {
   }
 
   bool needsFullCount() const { return fullCount; }
-
-  // TODO this is the same as needSkipMore(), remove one of them.
-  bool shouldSkip() const {
-    return getOffset() > 0 || (getLimit() == 0 && needsFullCount());
-  }
 
   auto requestLessDataThan(AqlCall const& other) const noexcept -> bool;
 };

@@ -213,7 +213,7 @@ std::tuple<ExecutorState, NoStats, size_t, AqlCall> SortExecutor::skipRowsRange(
     return {ExecutorState::DONE, NoStats{}, 0, upstreamCall};
   }
 
-  while (_returnNext < _sortedIndexes.size() && call.shouldSkip()) {
+  while (_returnNext < _sortedIndexes.size() && call.needSkipMore()) {
     InputAqlItemRow inRow = _input->getRow(_sortedIndexes[_returnNext]);
     _returnNext++;
     call.didSkip(1);

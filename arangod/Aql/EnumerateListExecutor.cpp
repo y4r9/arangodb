@@ -160,7 +160,7 @@ std::tuple<ExecutorState, NoStats, size_t, AqlCall> EnumerateListExecutor::skipR
   size_t skipped = 0;
   bool offsetPhase = (call.getOffset() > 0);
 
-  while (inputRange.hasDataRow() && call.shouldSkip()) {
+  while (inputRange.hasDataRow() && call.needSkipMore()) {
     if (_inputArrayLength == _inputArrayPosition) {
       // we reached either the end of an array
       // or are in our first loop iteration

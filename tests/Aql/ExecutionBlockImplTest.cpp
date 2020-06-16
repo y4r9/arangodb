@@ -1240,7 +1240,7 @@ class ExecutionBlockImplExecuteIntegrationTest
       skipAsserter.gotCalled(call);
 
       size_t skipped = 0;
-      while (inputRange.hasDataRow() && call.shouldSkip()) {
+      while (inputRange.hasDataRow() && call.needSkipMore()) {
         auto const& [state, input] = inputRange.nextDataRow();
         EXPECT_TRUE(input.isInitialized());
         skipped++;
@@ -1585,7 +1585,7 @@ TEST_P(ExecutionBlockImplExecuteIntegrationTest, test_call_forwarding_implement_
           AqlCall& call) -> std::tuple<ExecutorState, NoStats, size_t, AqlCall> {
     skipState.gotCalled(call);
     size_t skipped = 0;
-    while (inputRange.hasDataRow() && call.shouldSkip()) {
+    while (inputRange.hasDataRow() && call.needSkipMore()) {
       auto const& [state, input] = inputRange.nextDataRow();
       EXPECT_TRUE(input.isInitialized());
       skipped++;
