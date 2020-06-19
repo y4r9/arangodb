@@ -1351,7 +1351,6 @@ Result RocksDBCollection::insert(arangodb::transaction::Methods* trx,
       return res;
     }
   }
-    
   
   int r = transaction::Methods::validateSmartJoinAttribute(_logicalCollection, newSlice);
 
@@ -1359,7 +1358,6 @@ Result RocksDBCollection::insert(arangodb::transaction::Methods* trx,
     res.reset(r);
     return res;
   }
-        
 
   LocalDocumentId const documentId = ::generateDocumentId(_logicalCollection, revisionId);
 
@@ -1435,7 +1433,7 @@ Result RocksDBCollection::update(transaction::Methods* trx,
     }
   }
 
-  if (newSlice.length() <= 1) {  // TODO move above ?!
+  if (newSlice.length() <= 1) { 
     // shortcut. no need to do anything
     resultMdr.setManaged(oldDoc.begin());
     TRI_ASSERT(!resultMdr.empty());
@@ -1455,7 +1453,6 @@ Result RocksDBCollection::update(transaction::Methods* trx,
   if (res.fail()) {
     return res;
   }
-  LocalDocumentId const newDocumentId = ::generateDocumentId(_logicalCollection, revisionId);
 
   if (_isDBServer) {
     // Need to check that no sharding keys have changed:
@@ -1476,7 +1473,20 @@ Result RocksDBCollection::update(transaction::Methods* trx,
     }
   }
 
+  LocalDocumentId const newDocumentId = ::generateDocumentId(_logicalCollection, revisionId);
   VPackSlice const newDoc(builder->slice());
+  
+  // prevent re-inserting the same document (same key, same revision id) for 
+  // collections with new revision-based format
+  if (options.isRestore && 
+      _logicalCollection.usesRevisionsAsDocumentIds() &&
+      oldDocumentId.id() == revisionId) {
+    // for synchronous replication or when restoring via arangodump, if the
+    // document already exists locally with the same _key and same _rev value,
+    // we can assume it is the same thing, but it is something we don't expect
+    return Result(TRI_ERROR_INTERNAL, "duplicate document detected in restore update operation");
+  }
+
   RocksDBSavePoint guard(trx, TRI_VOC_DOCUMENT_OPERATION_UPDATE);
 
   auto* state = RocksDBTransactionState::toState(trx);
@@ -1485,6 +1495,17 @@ Result RocksDBCollection::update(transaction::Methods* trx,
   res = updateDocument(trx, oldDocumentId, oldDoc, newDocumentId, newDoc, options);
 
   if (res.ok()) {
+    bool hasPerformedIntermediateCommit = false;
+    auto result = state->addOperation(_logicalCollection.id(), revisionId,
+                                      TRI_VOC_DOCUMENT_OPERATION_UPDATE,
+                                      hasPerformedIntermediateCommit);
+
+    if (result.fail()) {
+      THROW_ARANGO_EXCEPTION(result);
+    }
+
+    guard.finish(hasPerformedIntermediateCommit);
+    
     trackWaitForSync(trx, options);
 
     if (options.returnNew) {
@@ -1501,17 +1522,6 @@ Result RocksDBCollection::update(transaction::Methods* trx,
     } else {
       previousMdr.clearData();
     }
-
-    bool hasPerformedIntermediateCommit = false;
-    auto result = state->addOperation(_logicalCollection.id(), revisionId,
-                                      TRI_VOC_DOCUMENT_OPERATION_UPDATE,
-                                      hasPerformedIntermediateCommit);
-
-    if (result.fail()) {
-      THROW_ARANGO_EXCEPTION(result);
-    }
-
-    guard.finish(hasPerformedIntermediateCommit);
   }
 
   return res;
@@ -1529,10 +1539,13 @@ Result RocksDBCollection::replace(transaction::Methods* trx,
     return TRI_ERROR_ARANGO_DOCUMENT_KEY_BAD;
   }
 
+  // check if document with that key already exists
   auto const oldDocumentId = primaryIndex()->lookupKey(trx, VPackStringRef(keySlice));
   if (!oldDocumentId.isSet()) {
     return TRI_ERROR_ARANGO_DOCUMENT_NOT_FOUND;
   }
+  // document with that key exists!
+
   std::string* prevBuffer = previousMdr.setManaged();
   // uses either prevBuffer or avoids memcpy (if read hits block cache)
   rocksdb::PinnableSlice previousPS(prevBuffer);
@@ -1554,7 +1567,7 @@ Result RocksDBCollection::replace(transaction::Methods* trx,
       return res;
     }
   }
-
+  
   // merge old and new values
   TRI_voc_rid_t revisionId;
   bool const isEdgeCollection = (TRI_COL_TYPE_EDGE == _logicalCollection.type());
@@ -1565,6 +1578,7 @@ Result RocksDBCollection::replace(transaction::Methods* trx,
   if (res.fail()) {
     return res;
   }
+  
   LocalDocumentId const newDocumentId = ::generateDocumentId(_logicalCollection, revisionId);
 
   if (_isDBServer) {
@@ -1577,10 +1591,10 @@ Result RocksDBCollection::replace(transaction::Methods* trx,
       return Result(TRI_ERROR_CLUSTER_MUST_NOT_CHANGE_SMART_JOIN_ATTRIBUTE);
     }
   }
-
+  
   VPackSlice const newDoc(builder->slice());
 
-  if (options.validate && options.isSynchronousReplicationFrom.empty()) {
+  if (options.validate && !options.isRestore && options.isSynchronousReplicationFrom.empty()) {
     res = _logicalCollection.validate(newDoc, oldDoc,
                                       trx->transactionContextPtr()->getVPackOptions());
     if (res.fail()) {
@@ -1588,14 +1602,37 @@ Result RocksDBCollection::replace(transaction::Methods* trx,
     }
   }
 
+  // prevent re-inserting the same document (same key, same revision id) for 
+  // collections with new revision-based format
+  if (options.isRestore && 
+      _logicalCollection.usesRevisionsAsDocumentIds() &&
+      oldDocumentId.id() == revisionId) {
+    // for synchronous replication or when restoring via arangodump, if the
+    // document already exists locally with the same _key and same _rev value,
+    // we can assume it is the same thing, but it is something we don't expect
+    return Result(TRI_ERROR_INTERNAL, "duplicate document detected in restore replace operation");
+  }
+
+  // from this point on we are really replacing
   RocksDBSavePoint guard(trx, TRI_VOC_DOCUMENT_OPERATION_REPLACE);
 
   auto* state = RocksDBTransactionState::toState(trx);
   // add possible log statement under guard
   state->prepareOperation(_logicalCollection.id(), revisionId, TRI_VOC_DOCUMENT_OPERATION_REPLACE);
   res = updateDocument(trx, oldDocumentId, oldDoc, newDocumentId, newDoc, options);
-
+  
   if (res.ok()) {
+    bool hasPerformedIntermediateCommit = false;
+    auto result = state->addOperation(_logicalCollection.id(), revisionId,
+                                      TRI_VOC_DOCUMENT_OPERATION_REPLACE,
+                                      hasPerformedIntermediateCommit);
+
+    if (result.fail()) {
+      THROW_ARANGO_EXCEPTION(result);
+    }
+
+    guard.finish(hasPerformedIntermediateCommit);
+    
     trackWaitForSync(trx, options);
 
     if (options.returnNew) {
@@ -1612,17 +1649,6 @@ Result RocksDBCollection::replace(transaction::Methods* trx,
     } else {
       previousMdr.clearData();
     }
-
-    bool hasPerformedIntermediateCommit = false;
-    auto result = state->addOperation(_logicalCollection.id(), revisionId,
-                                      TRI_VOC_DOCUMENT_OPERATION_REPLACE,
-                                      hasPerformedIntermediateCommit);
-
-    if (result.fail()) {
-      THROW_ARANGO_EXCEPTION(result);
-    }
-
-    guard.finish(hasPerformedIntermediateCommit);
   }
 
   return res;
@@ -1884,6 +1910,20 @@ Result RocksDBCollection::insertDocument(arangodb::transaction::Methods* trx,
   RocksDBMethods* mthds = state->rocksdbMethods();
   // disable indexing in this transaction if we are allowed to
   IndexingDisabler disabler(mthds, state->isSingleOperation());
+
+#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
+  if (options.isRestore && 
+      _logicalCollection.usesRevisionsAsDocumentIds()) {
+    // assert that no such document with the target revision exists in the database.
+    // the extra lookup here is neither desired nor efficient, it is just here
+    // to check how often it occurs in practice.
+    transaction::StringLeaser buffer(trx);
+    rocksdb::PinnableSlice ps(buffer.get());
+    if (!mthds->Get(RocksDBColumnFamily::documents(), key.get()->string(), &ps).IsNotFound()) {
+      return Result(TRI_ERROR_INTERNAL, "duplicate document detected in restore insert operation");
+    }
+  }
+#endif
 
   TRI_ASSERT(key->containsLocalDocumentId(documentId));
   rocksdb::Status s =
