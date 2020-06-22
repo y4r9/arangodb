@@ -1911,20 +1911,6 @@ Result RocksDBCollection::insertDocument(arangodb::transaction::Methods* trx,
   // disable indexing in this transaction if we are allowed to
   IndexingDisabler disabler(mthds, state->isSingleOperation());
 
-#ifdef ARANGODB_ENABLE_MAINTAINER_MODE
-  if (options.isRestore && 
-      _logicalCollection.usesRevisionsAsDocumentIds()) {
-    // assert that no such document with the target revision exists in the database.
-    // the extra lookup here is neither desired nor efficient, it is just here
-    // to check how often it occurs in practice.
-    transaction::StringLeaser buffer(trx);
-    rocksdb::PinnableSlice ps(buffer.get());
-    if (!mthds->Get(RocksDBColumnFamily::documents(), key.get()->string(), &ps).IsNotFound()) {
-      return Result(TRI_ERROR_INTERNAL, "duplicate document detected in restore insert operation");
-    }
-  }
-#endif
-
   TRI_ASSERT(key->containsLocalDocumentId(documentId));
   rocksdb::Status s =
       mthds->PutUntracked(RocksDBColumnFamily::documents(), key.ref(),
