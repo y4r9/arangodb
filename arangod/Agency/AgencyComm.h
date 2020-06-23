@@ -30,6 +30,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <unordered_map>
 #include <utility>
@@ -313,19 +314,13 @@ class AgencyCommResult {
 
   [[nodiscard]] int errorCode() const;
 
-  [[nodiscard]] std::string_view errorMessage() const;
+  [[nodiscard]] std::string errorMessage() const;
 
   [[nodiscard]] std::string errorDetails() const;
 
   [[nodiscard]] std::string const& location() const { return _location; }
 
-  std::string body() const {
-    if (_vpack != nullptr) {
-      return slice().toJson();
-    } else {
-      return "";
-    }
-  }
+  [[nodiscard]] std::string body() const;
 
   [[nodiscard]] bool sent() const;
 
@@ -337,23 +332,7 @@ class AgencyCommResult {
     _vpack = vpack;
   }
 
-  [[nodiscard]] Result asResult() const {
-    if (successful()) {
-      return Result{};
-    } else if (auto const err = parseBodyError(); err.has_value()) {
-      return Result{err->first, std::string{err->second}};
-    } else if (_statusCode > 0) {
-      if (!_message.empty()) {
-        return Result{_statusCode, _message};
-      } else if (!_connected) {
-        return Result{_statusCode, "unable to connect to agency"};
-      } else {
-        return Result{_statusCode};
-      }
-    } else {
-      return Result{TRI_ERROR_INTERNAL};
-    }
-  }
+  [[nodiscard]] Result asResult() const;
 
   void toVelocyPack(VPackBuilder& builder) const;
 
@@ -607,7 +586,7 @@ class AgencyComm {
 
   AgencyCommResult sendServerState(double timeout);
 
-  std::string_view version();
+  std::string version();
 
   AgencyCommResult dump();
 
