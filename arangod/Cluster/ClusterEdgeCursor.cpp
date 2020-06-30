@@ -47,13 +47,10 @@ ClusterEdgeCursor::ClusterEdgeCursor(arangodb::velocypack::StringRef vertexId, u
       _httpRequests(0) {
   TRI_ASSERT(_cache != nullptr);
   auto trx = _opts->trx();
-  transaction::BuilderLeaser leased(trx);
-  transaction::BuilderLeaser b(trx);
-
-  b->add(VPackValuePair(vertexId.data(), vertexId.length(), VPackValueType::String));
-  fetchEdgesFromEngines(*trx, _cache->engines(), b->slice(), depth,
-                        _cache->cache(), _edgeList, _cache->datalake(),
-                        _cache->filteredDocuments(), _cache->insertedDocuments());
+  Result res = fetchEdgesFromEngines(*trx, *_cache, _opts, vertexId, depth, _edgeList);
+  if (res.fail()) {
+    THROW_ARANGO_EXCEPTION(res);
+  }
   _httpRequests += _cache->engines()->size();
 }
 
@@ -70,8 +67,13 @@ ClusterEdgeCursor::ClusterEdgeCursor(arangodb::velocypack::StringRef vertexId, b
   transaction::BuilderLeaser b(trx);
 
   b->add(VPackValuePair(vertexId.data(), vertexId.length(), VPackValueType::String));
-  fetchEdgesFromEngines(*trx, _cache->engines(), b->slice(), backward, _cache->cache(),
-                        _edgeList, _cache->datalake(), _cache->insertedDocuments());
+  int maybeError =
+      fetchEdgesFromEngines(*trx, _cache->engines(), b->slice(), backward,
+                            _cache->cache(), _edgeList, _cache->datalake(),
+                            _cache->insertedDocuments());
+  if (maybeError != TRI_ERROR_NO_ERROR) {
+    THROW_ARANGO_EXCEPTION(maybeError);
+  }
   _httpRequests += _cache->engines()->size();
 }
 

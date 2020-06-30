@@ -1047,6 +1047,35 @@ function testOpenDiamondDfsUniqueEdgesUniqueVerticesNone(testGraph) {
   checkResIsValidDfsOf(expectedPathsAsTree, actualPaths);
 }
 
+function testOpenDiamondDfsLabelVariableForwarding(testGraph) {
+  assertTrue(testGraph.name().startsWith(protoGraphs.openDiamond.name()));
+  
+  const ruleList = [["-all"], ["+all"], ["-all", "+optimize-traversals"], ["+all", "-optimize-traversals"]];
+  for (const rules of ruleList) {
+    const query = `
+        LET label = NOOPT(100)
+        FOR v, e, p IN 0..3 OUTBOUND "${testGraph.vertex('A')}"
+          GRAPH "${testGraph.name()}"
+          FILTER p.edges[0].distance != label
+        RETURN p.vertices[* RETURN CURRENT.key]
+      `;
+
+    const expectedPathsAsTree =
+      new Node("A", [
+        new Node("C", [
+          new Node("D", [
+            new Node("E"),
+            new Node("F"),
+          ]),
+        ])
+      ]);
+    const res = db._query(query, {},  { optimizer: { rules } });
+    const actualPaths = res.toArray();
+
+    checkResIsValidDfsOf(expectedPathsAsTree, actualPaths);
+  }
+}
+
 function testOpenDiamondBfsUniqueVerticesPath(testGraph) {
   assertTrue(testGraph.name().startsWith(protoGraphs.openDiamond.name()));
   const query = aql`
@@ -1249,6 +1278,122 @@ function testOpenDiamondBfsUniqueEdgesUniqueNoneVerticesGlobal(testGraph) {
   const actualPaths = res.toArray();
 
   checkResIsValidGlobalBfsOf(expectedVertices, actualPaths);
+}
+
+function testOpenDiamondBfsLabelVariableForwarding(testGraph) {
+  assertTrue(testGraph.name().startsWith(protoGraphs.openDiamond.name()));
+  
+  const ruleList = [["-all"], ["+all"], ["-all", "+optimize-traversals"], ["+all", "-optimize-traversals"]];
+  for (const rules of ruleList) {
+    const query = `
+        LET label = NOOPT(100)
+        FOR v, e, p IN 0..3 OUTBOUND "${testGraph.vertex('A')}"
+          GRAPH "${testGraph.name()}" OPTIONS { bfs: true }
+          FILTER p.edges[0].distance != label
+        RETURN p.vertices[* RETURN CURRENT.key]
+      `;
+
+    const expectedPathsAsTree =
+      new Node("A", [
+        new Node("C", [
+          new Node("D", [
+            new Node("E"),
+            new Node("F"),
+          ]),
+        ])
+      ]);
+    const res = db._query(query, {},  { optimizer: { rules } });
+    const actualPaths = res.toArray();
+
+    checkResIsValidDfsOf(expectedPathsAsTree, actualPaths);
+  }
+}
+
+
+function testOpenDiamondShortestPath(testGraph) {
+  assertTrue(testGraph.name().startsWith(protoGraphs.openDiamond.name()));
+  const query = aql`
+        FOR v, e IN OUTBOUND SHORTEST_PATH ${testGraph.vertex('A')} TO ${testGraph.vertex('F')}  
+        GRAPH ${testGraph.name()} 
+        RETURN v.key
+      `;
+
+  const allowedPaths = [
+    ["A", "B", "D", "F"],
+    ["A", "C", "D", "F"]
+  ];
+
+  const res = db._query(query);
+  const actualPath = res.toArray();
+
+  assertResIsContainedInPathList(allowedPaths, actualPath);
+}
+
+function testOpenDiamondShortestPathEnabledWeightCheck(testGraph) {
+  assertTrue(testGraph.name().startsWith(protoGraphs.openDiamond.name()));
+  const query = aql`
+        FOR v, e IN OUTBOUND SHORTEST_PATH ${testGraph.vertex('A')} TO ${testGraph.vertex('F')}
+        GRAPH ${testGraph.name()} 
+        OPTIONS {weightAttribute: ${testGraph.weightAttribute()}}
+        RETURN v.key
+      `;
+
+  const allowedPaths = [
+    ["A", "C", "D", "F"]
+  ];
+
+  const res = db._query(query);
+  const actualPath = res.toArray();
+
+  assertResIsContainedInPathList(allowedPaths, actualPath);
+}
+
+function testOpenDiamondKShortestPathWithMultipleLimits(testGraph) {
+  assertTrue(testGraph.name().startsWith(protoGraphs.openDiamond.name()));
+  const limits = [1, 2, 3, 4];
+
+  _.each(limits, function (limit) {
+    const query = aql`
+        FOR p IN OUTBOUND K_SHORTEST_PATHS ${testGraph.vertex('A')} TO ${testGraph.vertex('F')}  
+        GRAPH ${testGraph.name()}
+        LIMIT ${limit}
+        RETURN p.vertices[* RETURN CURRENT.key]
+      `;
+
+    const allowedPaths = [
+      ["A", "B", "D", "F"],
+      ["A", "C", "D", "F"]
+    ];
+
+    const res = db._query(query);
+    const actualPath = res.toArray();
+
+    checkResIsValidKShortestPathListNoWeights(allowedPaths, actualPath, limit);
+  });
+}
+
+function testOpenDiamondKShortestPathEnabledWeightCheckLimit1(testGraph) {
+  assertTrue(testGraph.name().startsWith(protoGraphs.openDiamond.name()));
+  const limits = [1, 2, 3];
+  _.each(limits, (limit) => {
+    const query = aql`
+        FOR p IN OUTBOUND K_SHORTEST_PATHS ${testGraph.vertex('A')} TO ${testGraph.vertex('F')}
+        GRAPH ${testGraph.name()} 
+        OPTIONS {weightAttribute: ${testGraph.weightAttribute()}}
+        LIMIT ${limit}
+        RETURN {vertices: p.vertices[*].key, weight: p.weight}
+      `;
+
+    const allowedPaths = [
+      {vertices: ["A", "C", "D", "F"], weight: 3},
+      {vertices: ["A", "B", "D", "F"], weight: 102}
+    ];
+
+    const res = db._query(query);
+    const actualPath = res.toArray();
+
+    checkResIsValidKShortestPathListWeights(allowedPaths, actualPath, limit);
+  });
 }
 
 function testSmallCircleDfsUniqueVerticesPath(testGraph) {
@@ -3302,6 +3447,7 @@ const testsByGraph = {
     testOpenDiamondDfsUniqueEdgesNone,
     testOpenDiamondDfsUniqueEdgesUniqueVerticesPath,
     testOpenDiamondDfsUniqueEdgesUniqueVerticesNone,
+    testOpenDiamondDfsLabelVariableForwarding,
     testOpenDiamondBfsUniqueVerticesPath,
     testOpenDiamondBfsUniqueVerticesNone,
     testOpenDiamondBfsUniqueVerticesGlobal,
@@ -3310,7 +3456,12 @@ const testsByGraph = {
     testOpenDiamondBfsUniqueEdgesUniqueVerticesPath,
     testOpenDiamondBfsUniqueEdgesUniqueVerticesNone,
     testOpenDiamondBfsUniqueEdgesUniquePathVerticesGlobal,
-    testOpenDiamondBfsUniqueEdgesUniqueNoneVerticesGlobal
+    testOpenDiamondBfsUniqueEdgesUniqueNoneVerticesGlobal,
+    testOpenDiamondBfsLabelVariableForwarding,
+    testOpenDiamondShortestPath,
+    testOpenDiamondShortestPathEnabledWeightCheck,
+    testOpenDiamondKShortestPathWithMultipleLimits,
+    testOpenDiamondKShortestPathEnabledWeightCheckLimit1
   },
   smallCircle: {
     testSmallCircleDfsUniqueVerticesPath,

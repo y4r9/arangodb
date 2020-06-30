@@ -64,6 +64,7 @@ class ClusterEdgeCursor : public graph::EdgeCursor {
   arangodb::graph::ClusterTraverserCache* _cache;
   size_t _httpRequests;
 };
+
 }  // namespace traverser
 }  // namespace arangodb
 

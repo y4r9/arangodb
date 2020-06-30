@@ -281,7 +281,15 @@ void BaseEngine::getVertexData(VPackSlice vertex, VPackBuilder& builder) {
 BaseTraverserEngine::BaseTraverserEngine(TRI_vocbase_t& vocbase,
                                          std::shared_ptr<transaction::Context> const& ctx,
                                          VPackSlice info, bool needToLock)
-    : BaseEngine(vocbase, ctx, info, needToLock), _opts(nullptr) {}
+    : BaseEngine(vocbase, ctx, info, needToLock), _opts(nullptr), _variables(nullptr) {
+  TRI_ASSERT(_query != nullptr);
+  if (_query == nullptr) {
+    THROW_ARANGO_EXCEPTION_MESSAGE(TRI_ERROR_INTERNAL_AQL,
+                                   "Failed to extract query from slice");
+  }
+  _variables = _query->ast()->variables();
+  TRI_ASSERT(_variables != nullptr);
+}
 
 BaseTraverserEngine::~BaseTraverserEngine() = default;
 
@@ -401,6 +409,30 @@ void BaseTraverserEngine::getVertexData(VPackSlice vertex, size_t depth,
   builder.add("readIndex", VPackValue(read));
   builder.add("filtered", VPackValue(0));
   builder.close();
+}
+
+aql::VariableGenerator const* BaseTraverserEngine::variables() const {
+  return _variables;
+}
+
+void BaseTraverserEngine::injectVariables(VPackSlice variableSlice) {
+  if (variableSlice.isArray()) {
+    _opts->clearVariableValues();
+    for (auto const& pair : VPackArrayIterator(variableSlice)) {
+      if ((!pair.isArray()) || pair.length() != 2) {
+        // Invalid communication. Skip
+        TRI_ASSERT(false);
+        continue;
+      }
+      auto varId =
+          arangodb::basics::VelocyPackHelper::getNumericValue<aql::VariableId>(pair.at(0),
+                                                                          "id", 0);
+      aql::Variable* var = variables()->getVariable(varId);
+      TRI_ASSERT(var != nullptr);
+      aql::AqlValue val(pair.at(1).start());
+      _opts->setVariableValue(var, val);
+    }
+  }
 }
 
 ShortestPathEngine::ShortestPathEngine(TRI_vocbase_t& vocbase,

@@ -2767,6 +2767,7 @@ void AstNode::changeMember(size_t i, AstNode* node) {
 }
 
 void AstNode::removeMemberUnchecked(size_t i) {
+  TRI_ASSERT(members.size() > 0);
   TRI_ASSERT(!hasFlag(AstNodeFlagType::FLAG_FINALIZED));
   members.erase(members.begin() + i);
 }

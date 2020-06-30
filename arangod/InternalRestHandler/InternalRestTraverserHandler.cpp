@@ -194,6 +194,10 @@ void InternalRestTraverserHandler::queryEngine() {
         // Save Cast BaseTraverserEngines are all of type TRAVERSER
         auto eng = static_cast<BaseTraverserEngine*>(engine);
         TRI_ASSERT(eng != nullptr);
+        
+        VPackSlice variables = body.get("variables");
+        eng->injectVariables(variables);
+
         eng->getEdges(keysSlice, depthSlice.getNumericValue<size_t>(), result);
         break;
       }

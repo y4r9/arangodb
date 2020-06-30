@@ -44,10 +44,12 @@ class Context;
 namespace aql {
 class Collections;
 class Query;
+class VariableGenerator;
 }  // namespace aql
 
 namespace graph {
 struct ShortestPathOptions;
+class EdgeCursor;
 }
 
 namespace velocypack {
@@ -127,8 +129,15 @@ class BaseTraverserEngine : public BaseEngine {
 
   EngineType getType() const override { return TRAVERSER; }
 
+  // Inject all variables from VPack information
+  void injectVariables(arangodb::velocypack::Slice variables);
+
+  aql::VariableGenerator const* variables() const;
+
  protected:
   std::unique_ptr<traverser::TraverserOptions> _opts;
+  std::vector<std::unique_ptr<graph::EdgeCursor>> _cursors;
+  aql::VariableGenerator const* _variables;
 };
 
 class ShortestPathEngine : public BaseEngine {
