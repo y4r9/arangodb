@@ -1,4 +1,5 @@
 /*jshint globalstrict:true, strict:true, esnext: true */
+/*global print */
 
 "use strict";
 
@@ -237,6 +238,71 @@ const checkResIsValidGlobalBfsOf = (expectedVertices, actualPaths) => {
   assertEqual(expectedVertices, actualVertices, messages.join('; '));
 };
 
+
+const assertResIsContainedInPathList = (allowedPaths, actualPath) => {
+  const pathFound =
+    undefined !== _.find(allowedPaths, (path) => _.isEqual(path, actualPath));
+  if (!pathFound) {
+    print("ShortestPath result not as expected!");
+    print("Allowed paths are: ");
+    print(allowedPaths);
+    print("Actual returned path is: ");
+    print(actualPath);
+  }
+
+  assertTrue(pathFound);
+};
+
+/**
+ * Generates a test function that checks if the result is a valid shortest path result.
+ * - getCost has one parameter (path) and should return is cost
+ *
+ * The returned test function only works for graphs without parallel edges.
+ * allowedPaths must be a set of allowed paths and actualPaths is the result of a kShortestPath query
+ * where limit is set to the limit as in the query.
+ */
+const checkResIsValidKShortestPathListWeightFunc  = (getCost) => {
+  return (allowedPaths, actualPaths, limit) => {
+    // check that we've only got as many paths as requested
+    if (actualPaths.length > limit) {
+      print("Unexpected amount of found paths!");
+      print("Allowed paths are:");
+      print(allowedPaths);
+      print("Actual returned paths are: ");
+      print(actualPaths);
+    }
+    // we're allowed to find less or equal the amount of the set limit
+    assertTrue(actualPaths.length <= limit);
+
+    // assert that there are no duplicate paths (only if there are no parallel edges)
+    const stringifiedPathsSet = new Set(actualPaths.map(JSON.stringify));
+    assertEqual(stringifiedPathsSet.size, actualPaths.length);
+
+    assertTrue(_.isEqual(_.sortBy(allowedPaths, getCost), allowedPaths));
+    assertTrue(allowedPaths.length >= actualPaths.length);
+
+    _.each(actualPaths,  (path, index) => {
+      const cost = getCost(path);
+      const allowedCost = getCost(allowedPaths[index]);
+      if (allowedCost !== cost) {
+        print ("Path length not as expected: ");
+        print(allowedCost , " !== ", cost);
+        if (allowedCost < cost) {
+          print ("Traversal missed a shorter path");
+        }
+      }
+      assertTrue(allowedCost === cost);
+      assertResIsContainedInPathList(allowedPaths, path);
+    });
+  };
+};
+
+const checkResIsValidKShortestPathListNoWeights = checkResIsValidKShortestPathListWeightFunc(
+  (path) => path.length
+);
+const checkResIsValidKShortestPathListWeights = checkResIsValidKShortestPathListWeightFunc(
+  (path) => path.weight
+);
 
 /**
  * @brief Tests the function checkResIsValidDfsOf(), which is used in the tests and
