@@ -783,7 +783,7 @@ Result TailingSyncer::changeCollection(VPackSlice const& slice) {
   if (vocbase == nullptr) {
     if (isDeleted) {
       // not a problem if a collection that is going to be deleted anyway
-      // does not exist on slave
+      // does not exist on follower
       return Result();
     }
 
@@ -795,7 +795,7 @@ Result TailingSyncer::changeCollection(VPackSlice const& slice) {
   if (!col) {
     if (isDeleted) {
       // not a problem if a collection that is going to be deleted anyway
-      // does not exist on slave
+      // does not exist on follower
       return Result();
     }
 
@@ -873,7 +873,7 @@ Result TailingSyncer::changeView(VPackSlice const& slice) {
   if (vocbase == nullptr) {
     if (isDeleted) {
       // not a problem if a view that is going to be deleted anyway
-      // does not exist on slave
+      // does not exist on follower
       return Result();
     }
     return Result(TRI_ERROR_ARANGO_DATABASE_NOT_FOUND);
@@ -890,8 +890,8 @@ Result TailingSyncer::changeView(VPackSlice const& slice) {
 
   if (view == nullptr) {
     if (isDeleted) {
-      // not a problem if a collection that is going to be deleted anyway
-      // does not exist on slave
+      // not a problem if a view that is going to be deleted anyway
+      // does not exist on follower
       return Result();
     }
 
@@ -1073,7 +1073,7 @@ Result TailingSyncer::applyLog(SimpleHttpResult* response, TRI_voc_tick_t firstR
           // we need to trigger cache invalidation
           // because single server has no revisions
           // and never reloads cache from db by itself
-          // so new analyzers will be not usable on slave
+          // so new analyzers will be not usable on follower
           analyzersFeature.invalidate(*vocbase);
         }
       }
@@ -2087,10 +2087,10 @@ void TailingSyncer::checkParallel() {
   }
 
   if (_state.master.engine == "rocksdb") {
-    // master and slave are both on RocksDB... that means we do not need
+    // master and follower are both on RocksDB... that means we do not need
     // to post the list of open transactions every time, and we can
-    // also make the WAL tailing work in parallel on master and slave
-    // in this case, the slave will post the next WAL tailing request
+    // also make the WAL tailing work in parallel on master and follower
+    // in this case, the follower will post the next WAL tailing request
     // to the master in the background while it is applying the already
     // received WAL data from the master. this is only thread-safe if
     // we do not access the list of ongoing transactions in parallel

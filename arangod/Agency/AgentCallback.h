@@ -49,7 +49,7 @@ class AgentCallback final {
   application_features::ApplicationServer* _server;
   Agent* _agent;
   index_t _last;
-  std::string _slaveID;
+  std::string _followerID;
   size_t _toLog;
   double _startTime;
 };

@@ -687,7 +687,7 @@ void DatabaseInitialSyncer::fetchDumpChunk(std::shared_ptr<Syncer::JobSynchroniz
     return;
   }
 
-  // check if master & slave use the same storage engine
+  // check if master & follower use the same storage engine
   // if both use RocksDB, there is no need to use an async request for the
   // initial batch. this is because with RocksDB there is no initial load
   // time for collections as there may be with MMFiles if the collection is
@@ -1855,7 +1855,7 @@ Result DatabaseInitialSyncer::handleCollection(VPackSlice const& parameters,
     if (col == nullptr) {
       return Result(TRI_ERROR_ARANGO_DATA_SOURCE_NOT_FOUND,
                     std::string("cannot dump: ") + collectionMsg +
-                        " not found on slave. Collection info " + parameters.toJson());
+                        " not found on follower. Collection info " + parameters.toJson());
     }
 
     std::string const& masterColl = !masterUuid.empty() ? masterUuid : itoa(masterCid);

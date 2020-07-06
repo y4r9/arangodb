@@ -35,11 +35,11 @@ using namespace arangodb::velocypack;
 AgentCallback::AgentCallback()
     : _server(nullptr), _agent(nullptr), _last(0), _toLog(0), _startTime(0.0) {}
 
-AgentCallback::AgentCallback(Agent* agent, std::string const& slaveID, index_t last, size_t toLog)
+AgentCallback::AgentCallback(Agent* agent, std::string const& followerID, index_t last, size_t toLog)
     : _server(&agent->server()),
       _agent(agent),
       _last(last),
-      _slaveID(slaveID),
+      _followerID(followerID),
       _toLog(toLog),
       _startTime(TRI_microtime()) {}
 
@@ -56,7 +56,7 @@ bool AgentCallback::operator()(arangodb::network::Response const& r) {
         otherTerm = body.get("term").getNumber<term_t>();
       } catch (std::exception const& e) {
         LOG_TOPIC("1b7bb", WARN, Logger::AGENCY) << "Bad callback message received: " << e.what();
-        _agent->reportFailed(_slaveID, _toLog);
+        _agent->reportFailed(_followerID, _toLog);
       }
       if (otherTerm > _agent->term()) {
         _agent->resign(otherTerm);
@@ -64,7 +64,7 @@ bool AgentCallback::operator()(arangodb::network::Response const& r) {
         LOG_TOPIC("7cbce", DEBUG, Logger::CLUSTER)
             << "Got negative answer from follower, will retry later.";
         // This reportFailed will reset _confirmed in Agent fot this follower
-        _agent->reportFailed(_slaveID, _toLog, true);
+        _agent->reportFailed(_followerID, _toLog, true);
       } else {
         Slice senderTimeStamp = body.get("senderTimeStamp");
         if (senderTimeStamp.isInteger()) {
@@ -85,13 +85,13 @@ bool AgentCallback::operator()(arangodb::network::Response const& r) {
         }
 
         LOG_TOPIC("0bfa4", DEBUG, Logger::AGENCY) << "AgentCallback: " << body.toJson();
-        _agent->reportIn(_slaveID, _last, _toLog);
+        _agent->reportIn(_followerID, _last, _toLog);
       }
     }
     LOG_TOPIC("8b0d8", DEBUG, Logger::AGENCY)
         << "Got good callback from AppendEntriesRPC: "
         << "comm_status(" << fuerte::to_string(r.error) << "), last(" << _last << "), follower("
-        << _slaveID << "), time(" << TRI_microtime() - _startTime << ")";
+        << _followerID << "), time(" << TRI_microtime() - _startTime << ")";
   } else {
     if (_server == nullptr ||
         (!_server->isStopping() && (_agent == nullptr || !_agent->isStopping()))) {
@@ -99,10 +99,10 @@ bool AgentCallback::operator()(arangodb::network::Response const& r) {
       LOG_TOPIC("2c712", WARN, Logger::AGENCY)
           << "Got bad callback from AppendEntriesRPC: "
           << "comm_status(" << fuerte::to_string(r.error) << "), last(" << _last << "), follower("
-          << _slaveID << "), time(" << TRI_microtime() - _startTime << ")";
+          << _followerID << "), time(" << TRI_microtime() - _startTime << ")";
     }
     if (_agent != nullptr) {
-      _agent->reportFailed(_slaveID, _toLog);
+      _agent->reportFailed(_followerID, _toLog);
     }
   }
   return true;

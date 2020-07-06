@@ -189,7 +189,7 @@ class Agent final : public arangodb::Thread, public AgentInterface {
   ///        the term alive.
   void sendEmptyAppendEntriesRPC(std::string const& followerId);
 
-  /// @brief 1. Deal with appendEntries to slaves.
+  /// @brief 1. Deal with appendEntries to followers.
   ///        2. Report success of write processes.
   void run() override final;
 
@@ -216,9 +216,9 @@ class Agent final : public arangodb::Thread, public AgentInterface {
   void reportIn(std::string const&, index_t, size_t = 0);
 
   /// @brief Report a failed append entry call from AgentCallback
-  void reportFailed(std::string const& slaveId, size_t toLog, bool sent = false);
+  void reportFailed(std::string const& followerId, size_t toLog, bool sent = false);
 
-  /// @brief Wait for slaves to confirm appended entries
+  /// @brief Wait for followers to confirm appended entries
   AgentInterface::raft_commit_t waitFor(index_t last_entry, double timeout = 10.0) override;
 
   /// @brief Check if everything up to a given index has been committed:

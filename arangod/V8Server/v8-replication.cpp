@@ -169,7 +169,7 @@ static void JS_LastLoggerReplication(v8::FunctionCallbackInfo<v8::Value> const& 
 enum ApplierType { APPLIER_DATABASE, APPLIER_GLOBAL };
 
 ////////////////////////////////////////////////////////////////////////////////
-/// @brief sync data from a remote master
+/// @brief sync data from a remote leader
 ////////////////////////////////////////////////////////////////////////////////
 
 static void SynchronizeReplication(v8::FunctionCallbackInfo<v8::Value> const& args,

@@ -170,7 +170,7 @@ class TailingSyncer : public Syncer {
                                     TRI_voc_tick_t firstRegularTick, uint64_t& ignoreCount,
                                     bool& worked, bool& mustFetchBatch);
 
-  /// @brief determines if we can work in parallel on master and slave
+  /// @brief determines if we can work in parallel on master and follower
   void checkParallel();
 
   arangodb::Result removeSingleDocument(arangodb::LogicalCollection* coll, std::string const& key);
@@ -188,9 +188,9 @@ class TailingSyncer : public Syncer {
   /// @brief whether or not the replication state file has been written at least
   /// once with non-empty values. this is required in situations when the
   /// replication applier is manually started and the master has absolutely no
-  /// new data to provide, and the slave get shut down. in that case, the state
+  /// new data to provide, and the follower gets shut down. in that case, the state
   /// file would never have been written with the initial start tick, so the
-  /// start tick would be lost. re-starting the slave and the replication
+  /// start tick would be lost. re-starting the follower and the replication
   /// applier
   /// with the ticks from the file would then result in a "no start tick
   /// provided"
@@ -220,7 +220,7 @@ class TailingSyncer : public Syncer {
   /// @brief ignore create / drop database
   bool _ignoreDatabaseMarkers;
 
-  /// @brief whether or not master & slave can work in parallel
+  /// @brief whether or not master & follower can work in parallel
   bool _workInParallel;
 
   /// @brief which transactions were open and need to be treated specially

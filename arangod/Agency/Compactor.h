@@ -41,7 +41,7 @@ class Compactor : public arangodb::Thread {
 
   virtual ~Compactor();
 
-  /// @brief 1. Deal with appendEntries to slaves.
+  /// @brief 1. Deal with appendEntries to followers.
   ///        2. Report success of write processes.
   void run() override final;
 

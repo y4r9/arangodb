@@ -342,7 +342,7 @@ void BootstrapFeature::start() {
     auth::UserManager* um = AuthenticationFeature::instance()->userManager();
     if (um != nullptr) {
       // only creates root user if it does not exist, will be overwritten on
-      // slaves
+      // followers
       um->createRootUser();
     }
   }

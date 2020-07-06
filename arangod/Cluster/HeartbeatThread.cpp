@@ -819,7 +819,7 @@ void HeartbeatThread::runSingleServer() {
             << "Leadership vacuum detected, "
             << "attempting a takeover";
 
-        // if we stay a slave, the redirect will be turned on again
+        // if we stay a follower, the redirect will be turned on again
         ServerState::instance()->setServerMode(ServerState::Mode::TRYAGAIN);
         AgencyCommResult result;
         if (leader.isNone()) {
