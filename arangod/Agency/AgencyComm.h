@@ -43,6 +43,7 @@
 #include "Basics/Mutex.h"
 #include "Basics/Result.h"
 #include "GeneralServer/GeneralDefinitions.h"
+#include "Network/MessageId.h"
 #include "Rest/CommonDefines.h"
 #include "RestServer/Metrics.h"
 #include "SimpleHttpClient/GeneralClientConnection.h"
@@ -638,14 +639,16 @@ class AgencyComm {
   bool unlockWrite(std::string const&, double);
 
   AgencyCommResult sendTransactionWithFailover(AgencyTransaction const&,
-                                               double timeout = 0.0);
+                                               double timeout = 0.0,
+                                               network::MessageId = {});
 
   application_features::ApplicationServer& server();
 
   bool ensureStructureInitialized();
 
   AgencyCommResult sendWithFailover(arangodb::rest::RequestType, double,
-                                    std::string const&, velocypack::Slice);
+                                    std::string const&, velocypack::Slice,
+                                    network::MessageId = {});
 
   static void buildInitialAnalyzersSlice(VPackBuilder& builder);
 

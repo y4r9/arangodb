@@ -1509,9 +1509,14 @@ function shutdownInstance (instanceInfo, options, forceTerminate) {
   }
   if (tcpdump !== undefined) {
     print(CYAN + "Stopping tcpdump" + RESET);
+    print(Date() + ' trying killExternal(' + tcpdump.pid + ')');
     killExternal(tcpdump.pid);
+    if (options.sniff === 'sudo') {
+      print(Date() + ' trying sudo kill ' + tcpdump.pid);
+      executeExternal('sudo', ['kill', tcpdump.pid]);
+    }
     try {
-      statusExternal(tcpdump.pid, true);
+      statusExternal(tcpdump.pid, true, 20);
     } catch (x)
     {
       print(Date() + ' wasn\'t able to stop tcpdump: ' + x.message );
@@ -1571,11 +1576,11 @@ function checkClusterAlive(options, instanceInfo, addArgs) {
 
 
   let count = 0;
+  print(Date() + " waiting for instances to start up");
   while (true) {
     ++count;
 
     instanceInfo.arangods.forEach(arangod => {
-      print(Date() + " tickeling cluster node " + arangod.url);
       const reply = download(arangod.url + '/_api/version', '', makeAuthorizationHeaders(instanceInfo.authOpts));
       if (!reply.error && reply.code === 200) {
         arangod.upAndRunning = true;

@@ -32,6 +32,7 @@
 #include "Endpoint/Endpoint.h"
 #include "GeneralRequest.h"
 #include "Logger/Logger.h"
+#include "Network/MessageId.h"
 #include "Rest/CommonDefines.h"
 
 #include <velocypack/Options.h>
@@ -165,6 +166,8 @@ class GeneralResponse {
   }
   
   virtual int deflate(size_t size = 16384) = 0;
+
+  network::MessageId _requestMessageId = {};
 
  protected:
   std::unordered_map<std::string, std::string> _headers;  // headers/metadata map

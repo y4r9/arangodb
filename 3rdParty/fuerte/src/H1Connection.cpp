@@ -32,6 +32,10 @@
 
 #include "debugging.h"
 
+#include <Basics/debugging.h>
+#include <Logger/LogMacros.h>
+#include <Network/MessageId.h>
+
 namespace arangodb { namespace fuerte { inline namespace v1 { namespace http {
 
 namespace fu = ::arangodb::fuerte::v1;
@@ -186,6 +190,10 @@ void H1Connection<ST>::sendRequest(std::unique_ptr<Request> req,
                                    RequestCallback cb) {
   // construct RequestItem
   auto item = std::make_unique<RequestItem>();
+  // LOG_DEVEL << "T" << std::this_thread::get_id() << " [" << __func__ << ":" << __LINE__ << "] "
+  //           << "this == " << std::hex << this
+  //           << ", req == " << req.get()
+  //           << ", item == " << item.get();
   // requestItem->_response later
   item->requestHeader = buildRequestBody(*req);
   item->callback = std::move(cb);
@@ -211,18 +219,25 @@ void H1Connection<ST>::sendRequest(std::unique_ptr<Request> req,
 
   FUERTE_LOG_HTTPTRACE << "queued item: this=" << this << "\n";
 
+  // LOG_DEVEL << "T" << std::this_thread::get_id() << " [" << __func__ << ":" << __LINE__ << "] "
+  //           << "this == " << std::hex << this;
+
   // Note that we have first posted on the queue with std::memory_order_seq_cst
-  // and now we check _active std::memory_order_seq_cst. This prevents a sleeping
-  // barber with the check-set-check combination in `asyncWriteNextRequest`.
-  // If we are the ones to exchange the value to `true`, then we post
-  // on the `_io_context` to activate the connection. Note that the
-  // connection can be in the `Disconnected` or `Connected` or `Failed`
+  // and now we check _active std::memory_order_seq_cst. This prevents a
+  // sleeping barber with the check-set-check combination in
+  // `asyncWriteNextRequest`. If we are the ones to exchange the value to
+  // `true`, then we post on the `_io_context` to activate the connection. Note
+  // that the connection can be in the `Disconnected` or `Connected` or `Failed`
   // state, but not in the `Connecting` state in this case.
   if (!this->_active.exchange(true)) {
+    // LOG_DEVEL << "T" << std::this_thread::get_id() << " [" << __func__ << ":" << __LINE__ << "] "
+    //           << "this == " << std::hex << this;
     this->_io_context->post([self(Connection::shared_from_this())] {
-        auto& me = static_cast<H1Connection<ST>&>(*self);
-        me.activate();
-      });
+      // LOG_DEVEL << "T" << std::this_thread::get_id() << " [sendRequestλ:" << __LINE__ << "] "
+      //           << "self == " << std::hex << self;
+      auto& me = static_cast<H1Connection<ST>&>(*self);
+      me.activate();
+    });
   }
 }
 
@@ -424,6 +439,8 @@ void H1Connection<ST>::asyncWriteNextRequest() {
   
   _item.reset(ptr);
 
+  // LOG_DEVEL << "T" << std::this_thread::get_id() << " [" << __func__ << ":" << __LINE__ << "] "
+  //           << "this == " << std::hex << this << ", _item == " << _item.get();
   setTimeout(_item->request->timeout(), TimeoutType::WRITE);
   _timeoutOnReadWrite = false;
   _writeStart = std::chrono::steady_clock::now();
@@ -438,12 +455,35 @@ void H1Connection<ST>::asyncWriteNextRequest() {
     buffers[1] = _item->request->payload();
   }
 
+  if (auto const messageId = network::getMessageId(_item->request->header.meta());
+      messageId) {
+    LOG_DEVEL << " [" << __func__ << ":" << __LINE__ << "] "
+              << "Calling asio::async_write for message " << messageId.id();
+  }
+
+  // LOG_DEVEL << "T" << std::this_thread::get_id() << " [" << __func__ << ":" << __LINE__ << "] "
+  //           << "this == " << std::hex << this;
   asio_ns::async_write(
       this->_proto.socket, std::move(buffers),
       [self(Connection::shared_from_this())](
           asio_ns::error_code const& ec, std::size_t nwrite) {
-        static_cast<H1Connection<ST>&>(*self).asyncWriteCallback(ec, nwrite);
+        auto& connection = static_cast<H1Connection<ST>&>(*self);
+        if (auto const messageId = network::getMessageId(connection.item()->request->header.meta());
+            messageId) {
+          LOG_DEVEL << " [" << __func__ << ":" << __LINE__ << "] "
+                    << "async_write called handler for " << messageId.id()
+                    << " with ec = " << ec << ", nwrite = " << nwrite;
+        }
+        // LOG_DEVEL << "T" << std::this_thread::get_id() << " [asyncWriteNextRequestλ:" << __LINE__ << "] "
+        //           << "self == " << std::hex << self.get()
+        //           << ", _item == " << static_cast<H1Connection<ST>&>(*self)._item.get();
+
+        connection.asyncWriteCallback(ec, nwrite);
+        // LOG_DEVEL << "T" << std::this_thread::get_id() << " [asyncWriteNextRequestλ:" << __LINE__ << "] "
+        //           << "self == " << std::hex << self.get();
       });
+  // LOG_DEVEL << "T" << std::this_thread::get_id() << " [" << __func__ << ":" << __LINE__ << "] "
+  //           << "this == " << std::hex << this;
   FUERTE_LOG_HTTPTRACE << "asyncWriteNextRequest: done, this=" << this << "\n";
 }
 
@@ -509,6 +549,12 @@ void H1Connection<ST>::asyncWriteCallback(asio_ns::error_code const& ec,
   // request is written we no longer need data for that
   _item->requestHeader.clear();
 
+  // LOG_DEVEL << "T" << std::this_thread::get_id() << " [" << __func__ << ":" << __LINE__ << "] "
+  //           << "this == " << std::hex << this
+  //           << ", _item == " << _item.get()
+  //           << ", req == " << _item->request.get()
+  //           << ", timePassed = " << std::dec << timePassed.count() << "ms";
+
   // Continue with a read, use the remaining part of the timeout as
   // timeout:
   setTimeout(_item->request->timeout() - timePassed, TimeoutType::READ);    // extend timeout
@@ -525,6 +571,17 @@ void H1Connection<ST>::asyncWriteCallback(asio_ns::error_code const& ec,
 // called by the async_read handler (called from IO thread)
 template <SocketType ST>
 void H1Connection<ST>::asyncReadCallback(asio_ns::error_code const& ec) {
+  if (auto const messageId =
+          network::getMessageId(item()->request->header.meta());
+      messageId) {
+    LOG_DEVEL << " [" << __func__ << ":" << __LINE__ << "] "
+              << "async_read called asyncReadCallback for " << messageId.id()
+              << " with ec = " << ec;
+  }
+  // LOG_DEVEL << "T" << std::this_thread::get_id() << " [" << __func__ <<  ":" << __LINE__ << "] "
+  //           << "this == " << std::hex << this
+  //           << ", ec == " << ec
+  //           << ", _item == " << _item.get();
   this->_reading = false;
   // Do not cancel timeout now, because we might be going on to read!
   if (ec || _item == nullptr) {

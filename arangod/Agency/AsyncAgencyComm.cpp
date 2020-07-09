@@ -56,6 +56,7 @@ struct RequestMeta {
   uint64_t requestId;
   bool skipScheduler;
   unsigned tries;
+  network::MessageId messageId{};
 
   [[nodiscard]] bool isRetryOnNoResponse() const {
     return type == RequestType::READ;
@@ -277,12 +278,15 @@ arangodb::AsyncAgencyComm::FutureResult agencyAsyncSend(AsyncAgencyCommManager& 
 
     auto requestId = meta.requestId;
 
+    // LOG_DEVEL << "T" << std::this_thread::get_id() << " [agencyAsyncSendλ:" << __LINE__ << "] "
+    //           << "requestId == " << requestId;
+
     LOG_TOPIC("aac89", DEBUG, Logger::AGENCYCOMM)
         << "agencyAsyncSend [" << requestId << "] delay done, sending request";
 
     // and fire off the request
     auto future = network::sendRequest(man.pool(), endpoint, meta.method, meta.url,
-                                       std::move(body), opts, meta.headers);
+                                       std::move(body), opts, meta.headers, meta.messageId);
     return std::move(future)
         .thenValue([meta = std::move(meta), endpoint = std::move(endpoint),
                     &man](network::Response&& result) mutable {
@@ -407,16 +411,22 @@ AsyncAgencyComm::FutureResult AsyncAgencyComm::sendWithFailover(
 AsyncAgencyComm::FutureResult AsyncAgencyComm::sendWithFailover(
     arangodb::fuerte::RestVerb method, std::string const& url,
     network::Timeout timeout, RequestType type, std::vector<ClientId> clientIds,
-    velocypack::Buffer<uint8_t>&& body) const {
+    velocypack::Buffer<uint8_t>&& body, network::MessageId messageId) const {
   network::Headers headers;
   uint64_t requestId = _manager.nextRequestId();
+
+  // LOG_DEVEL << "T" << std::this_thread::get_id() << " [" << __func__ << ":" << __LINE__ << "] "
+  //           << "requestId == " << requestId;
 
   return agencyAsyncSend(_manager,
                          RequestMeta({timeout, method, type, url, std::move(clientIds),
                                       std::move(headers), clock::now(), requestId,
-                                      _skipScheduler || _manager.getSkipScheduler(), 0}),
+                                      _skipScheduler || _manager.getSkipScheduler(),
+                                      0, messageId}),
                          std::move(body))
-      .then([requestId](futures::Try<AsyncAgencyCommResult>&& e) {
+      .then([requestId, messageId](futures::Try<AsyncAgencyCommResult>&& e) {
+        LOG_DEVEL_IF(messageId) << "[sendWithFailoverλ:" << __LINE__ << "] "
+                                << "handler called for messageId = " << messageId;
         if (e.hasException()) {
           LOG_TOPIC("aac8b", DEBUG, Logger::AGENCYCOMM)
               << "sendWithFailover [" << requestId << "] had exception during request";
@@ -546,7 +556,8 @@ AsyncAgencyComm::FutureResult AsyncAgencyComm::sendTransaction(
 }
 
 AsyncAgencyComm::FutureResult AsyncAgencyComm::sendWriteTransaction(
-    network::Timeout timeout, velocypack::Buffer<uint8_t>&& body) const {
+    network::Timeout timeout, velocypack::Buffer<uint8_t>&& body,
+    network::MessageId messageId) const {
   std::vector<std::string> clientIds;
   VPackSlice bodySlice(body.data());
   if (bodySlice.isArray()) {
@@ -560,7 +571,8 @@ AsyncAgencyComm::FutureResult AsyncAgencyComm::sendWriteTransaction(
     }
   }
   return sendWithFailover(fuerte::RestVerb::Post, AGENCY_URL_WRITE, timeout,
-                          RequestType::WRITE, std::move(clientIds), std::move(body));
+                          RequestType::WRITE, std::move(clientIds),
+                          std::move(body), messageId);
 }
 
 AsyncAgencyComm::FutureResult AsyncAgencyComm::sendReadTransaction(

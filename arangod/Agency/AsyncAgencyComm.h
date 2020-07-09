@@ -33,10 +33,10 @@
 #include <velocypack/velocypack-aliases.h>
 
 #include "Agency/AgencyComm.h"
-
 #include "Agency/PathComponent.h"
 #include "Basics/ResultT.h"
 #include "Futures/Future.h"
+#include "Network/MessageId.h"
 #include "Network/Methods.h"
 
 namespace arangodb {
@@ -214,7 +214,8 @@ class AsyncAgencyComm final {
   [[nodiscard]] FutureResult deleteKey(network::Timeout timeout, std::string const& path) const;
 
   [[nodiscard]] FutureResult sendWriteTransaction(network::Timeout timeout,
-                                                  velocypack::Buffer<uint8_t>&& body) const;
+                                                  velocypack::Buffer<uint8_t>&& body,
+                                                  network::MessageId = {}) const;
   [[nodiscard]] FutureResult sendReadTransaction(network::Timeout timeout,
                                                  velocypack::Buffer<uint8_t>&& body) const;
   [[nodiscard]] FutureResult sendPollTransaction(network::Timeout timeout, uint64_t index) const;
@@ -236,7 +237,8 @@ class AsyncAgencyComm final {
                                               std::string const& url,
                                               network::Timeout timeout, RequestType type,
                                               std::vector<ClientId> clientIds,
-                                              velocypack::Buffer<uint8_t>&& body) const;
+                                              velocypack::Buffer<uint8_t>&& body,
+                                              network::MessageId = {}) const;
 
   [[nodiscard]] FutureResult sendWithFailover(arangodb::fuerte::RestVerb method,
                                               std::string const& url,

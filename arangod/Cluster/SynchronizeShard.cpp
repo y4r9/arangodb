@@ -229,7 +229,7 @@ static arangodb::Result addShardFollower(
       std::string errorMsg(
         "SynchronizeShard::addShardFollower: Failed to lookup collection ");
       errorMsg += shard;
-      LOG_TOPIC("4a8db", ERR, Logger::MAINTENANCE) << errorMsg;
+      LOG_TOPIC("4a8db", WARN, Logger::MAINTENANCE) << errorMsg;
       return arangodb::Result(TRI_ERROR_ARANGO_DATA_SOURCE_NOT_FOUND, errorMsg);
     }
 

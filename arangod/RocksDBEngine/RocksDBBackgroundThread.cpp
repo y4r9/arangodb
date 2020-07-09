@@ -23,6 +23,7 @@
 #include "RocksDBBackgroundThread.h"
 
 #include "ApplicationFeatures/ApplicationServer.h"
+#include "Aql/Timing.h"
 #include "Basics/ConditionLocker.h"
 #include "Replication/ReplicationClients.h"
 #include "RestServer/DatabaseFeature.h"
@@ -64,17 +65,17 @@ void RocksDBBackgroundThread::run() {
 
     try {
       if (!isStopping()) {
-        double start = TRI_microtime();
+        auto const start = aql::currentSteadyClockValue();
         Result res = _engine.settingsManager()->sync(false);
         if (res.fail()) {
           LOG_TOPIC("a3d0c", WARN, Logger::ENGINES)
               << "background settings sync failed: " << res.errorMessage();
         }
 
-        double end = TRI_microtime();
-        if ((end - start) > 0.75) {
-          LOG_TOPIC("3ad54", WARN, Logger::ENGINES)
-              << "slow background settings sync: " << Logger::FIXED(end - start, 6)
+        auto const duration = aql::elapsedSince(start);
+        if (duration > 0.75) {
+          LOG_TOPIC("3ad54", INFO, Logger::ENGINES)
+              << "slow background settings sync: " << Logger::FIXED(duration, 6)
               << " s";
         }
       }

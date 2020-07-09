@@ -37,6 +37,7 @@
 #include "Logger/LogMacros.h"
 #include "Logger/Logger.h"
 #include "Logger/LoggerStream.h"
+#include "Network/MessageId.h"
 #include "RestServer/DatabaseFeature.h"
 #include "RestServer/SystemDatabaseFeature.h"
 #include "VocBase/LogicalCollection.h"
@@ -277,7 +278,17 @@ DBServerAgencySyncResult DBServerAgencySync::execute() {
                                                AgencySimpleOperationType::INCREMENT_OP));
 
           AgencyWriteTransaction currentTransaction(operations, preconditions);
-          AgencyCommResult r = comm.sendTransactionWithFailover(currentTransaction);
+          auto const messageId = network::createNewMessageId();
+          LOG_DEVEL << "[" << __func__ << ":" << __LINE__ << "] sending transaction with messageId = " << messageId;
+          auto const start = clock::now();
+          AgencyCommResult r = comm.sendTransactionWithFailover(currentTransaction, 0., messageId);
+          auto const end = clock::now();
+          LOG_DEVEL << "[" << __func__ << ":" << __LINE__ << "] sent transaction with messageId = " << messageId;
+          auto const duration = end - start;
+          if (duration > 100s) {
+            LOG_DEVEL << "timeout " << duration.count() << " for messageId = " << messageId;
+            TRI_ASSERT(false);
+          }
           if (!r.successful()) {
             LOG_TOPIC("d73b8", INFO, Logger::MAINTENANCE)
                 << "Error reporting to agency: _statusCode: " << r.errorCode()

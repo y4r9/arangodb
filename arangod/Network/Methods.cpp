@@ -79,7 +79,7 @@ Result Response::combinedResult() const {
 }
 
 auto prepareRequest(RestVerb type, std::string path, VPackBufferUInt8 payload,
-                    RequestOptions const& options, Headers headers) {
+                    RequestOptions const& options, Headers headers, MessageId messageId = {}) {
   auto req = fuerte::createRequest(type, path, options.parameters, std::move(payload));
 
   req->header.database = options.database;
@@ -95,6 +95,9 @@ auto prepareRequest(RestVerb type, std::string path, VPackBufferUInt8 payload,
   TRI_voc_tick_t timeStamp = TRI_HybridLogicalClock();
   req->header.addMeta(StaticStrings::HLCHeader,
                       arangodb::basics::HybridLogicalClock::encodeTimeStamp(timeStamp));
+  if (messageId) {
+    req->header.addMeta(messageIdHeader, std::to_string(messageId.id()));
+  }
 
   req->timeout(std::chrono::duration_cast<std::chrono::milliseconds>(options.timeout));
 
@@ -114,7 +117,8 @@ auto prepareRequest(RestVerb type, std::string path, VPackBufferUInt8 payload,
 /// @brief send a request to a given destination
 FutureRes sendRequest(ConnectionPool* pool, DestinationId dest, RestVerb type,
                       std::string path, velocypack::Buffer<uint8_t> payload,
-                      RequestOptions const& options, Headers headers) {
+                      RequestOptions const& options, Headers headers,
+                      network::MessageId messageId) {
 
   LOG_TOPIC("2713a", DEBUG, Logger::COMMUNICATION)
       << "request to '" << dest
@@ -124,7 +128,10 @@ FutureRes sendRequest(ConnectionPool* pool, DestinationId dest, RestVerb type,
   try {
 
     auto req = prepareRequest(type, std::move(path), std::move(payload),
-                              options, std::move(headers));
+                              options, std::move(headers), messageId);
+
+    // LOG_DEVEL << "T" << std::this_thread::get_id() << " [" << __func__ << ":" << __LINE__ << "] "
+    //           << "req == " << std::hex << req.get();
 
     if (!pool || !pool->config().clusterInfo) {
       LOG_TOPIC("59b95", ERR, Logger::COMMUNICATION)

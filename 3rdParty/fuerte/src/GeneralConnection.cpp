@@ -24,6 +24,8 @@
 
 #include "debugging.h"
 
+#include <Logger/LogMacros.h>
+
 namespace arangodb { namespace fuerte {
 
 template <SocketType ST>
@@ -191,15 +193,24 @@ void GeneralConnection<ST>::asyncReadSome() {
 
   // reserve 32kB in output buffer
   auto mutableBuff = _receiveBuffer.prepare(READ_BLOCK_SIZE);
-  
+
+  // LOG_DEVEL << "T" << std::this_thread::get_id() << " [" << __func__ << ":" << __LINE__ << "] "
+  //           << "this == " << std::hex << this;
+
   _proto.socket.async_read_some(mutableBuff, [self = shared_from_this()]
                                  (auto const& ec, size_t nread) {
     FUERTE_LOG_TRACE << "received " << nread << " bytes\n";
-    
+
     // received data is "committed" from output sequence to input sequence
     auto& me = static_cast<GeneralConnection<ST>&>(*self);
+    // LOG_DEVEL << "T" << std::this_thread::get_id() << " [asyncReadSomeλ:" << __LINE__ << "] "
+    //           << "&me == " << std::hex << &me
+    //           << ", received " << std::dec << nread << " bytes"
+    //           << ", ec == " << ec;
     me._receiveBuffer.commit(nread);
     me.asyncReadCallback(ec);
+    // LOG_DEVEL << "T" << std::this_thread::get_id() << " [asyncReadSomeλ:" << __LINE__ << "] "
+    //           << "&me == " << std::hex << &me;
   });
 }
 

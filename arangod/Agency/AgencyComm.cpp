@@ -965,7 +965,8 @@ bool AgencyComm::unlockWrite(std::string const& key, double timeout) {
 }
 
 AgencyCommResult AgencyComm::sendTransactionWithFailover(AgencyTransaction const& transaction,
-                                                         double timeout) {
+                                                         double timeout,
+                                                         network::MessageId messageId) {
   std::string url = AgencyComm::AGENCY_URL_PREFIX + transaction.path();
 
   VPackBuilder builder;
@@ -981,7 +982,7 @@ AgencyCommResult AgencyComm::sendTransactionWithFailover(AgencyTransaction const
       sendWithFailover(arangodb::rest::RequestType::POST,
                        (timeout == 0.0) ? AgencyCommHelper::CONNECTION_OPTIONS._requestTimeout
                                         : timeout,
-                       url, builder.slice());
+                       url, builder.slice(), messageId);
 
   if (!result.successful() &&
       result.httpCode() != (int)arangodb::rest::ResponseCode::PRECONDITION_FAILED) {
@@ -1172,8 +1173,8 @@ AgencyCommResult toAgencyCommResult(AsyncAgencyCommResult const& result) {
 
 AgencyCommResult AgencyComm::sendWithFailover(arangodb::rest::RequestType method,
                                               double const timeout,
-                                              std::string const& initialUrl,
-                                              VPackSlice inBody) {
+                                              std::string const& initialUrl, VPackSlice inBody,
+                                              network::MessageId messageId) {
   VPackBuffer<uint8_t> buffer;
   {
     VPackBuilder builder(buffer);
@@ -1189,7 +1190,7 @@ AgencyCommResult AgencyComm::sendWithFailover(arangodb::rest::RequestType method
     auto end = std::chrono::steady_clock::now();
 
     _agency_comm_request_time_ms.count(std::chrono::duration_cast<std::chrono::milliseconds>(end - started).count());
-  });
+  })
 
   if (method == arangodb::rest::RequestType::POST) {
     bool isWriteTrans = (initialUrl == ::writeURL);
@@ -1199,7 +1200,7 @@ AgencyCommResult AgencyComm::sendWithFailover(arangodb::rest::RequestType method
           << initialUrl << "'";
       result = comm.withSkipScheduler(true)
                    .sendWriteTransaction(std::chrono::duration<double>(timeout),
-                                         std::move(buffer))
+                                         std::move(buffer), messageId)
                    .get();
     } else {
       LOG_TOPIC("4e44f", TRACE, Logger::AGENCYCOMM) << "sendWithFailover: "

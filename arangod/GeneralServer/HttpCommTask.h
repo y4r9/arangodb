@@ -29,6 +29,8 @@
 #include <velocypack/StringRef.h>
 #include <memory>
 
+#include "Network/MessageId.h"
+
 namespace arangodb {
 class HttpRequest;
 
@@ -72,7 +74,7 @@ class HttpCommTask final : public GeneralCommTask<T> {
   void processRequest();
 
   // called on IO context thread
-  void writeResponse(RequestStatistics::Item stat);
+  void writeResponse(RequestStatistics::Item stat, network::MessageId messageId);
 
  private:
   /// the node http-parser

@@ -31,6 +31,7 @@
 #include "Agency/Agent.h"
 #include "Basics/StaticStrings.h"
 #include "Logger/LogMacros.h"
+#include "Network/MessageId.h"
 #include "Rest/Version.h"
 #include "StorageEngine/EngineSelectorFeature.h"
 #include "Transaction/StandaloneContext.h"
@@ -332,6 +333,16 @@ RestStatus RestAgencyHandler::handleStore() {
 }
 
 RestStatus RestAgencyHandler::handleWrite() {
+  auto const messageId = network::getMessageId(_request->headers());
+  _response->_requestMessageId = messageId;
+
+  LOG_DEVEL_IF(messageId) << "[" << __func__ << ":" << __LINE__ << "] "
+                          << "handleWrite with messageId = " << messageId.id();
+  TRI_DEFER(if (messageId) {
+    LOG_DEVEL_IF(messageId)
+        << "[handleWriteλ:" << __LINE__ << "] "
+        << "handleWrite returns with messageId = " << messageId.id();
+  })
 
   using namespace std::chrono;
   if (_request->requestType() != rest::RequestType::POST) {

@@ -25,6 +25,7 @@
 #include "HttpRequest.h"
 #include "Basics/NumberUtils.h"
 
+#include <Logger/LogMacros.h>
 #include <velocypack/Builder.h>
 #include <velocypack/Options.h>
 #include <velocypack/Parser.h>
@@ -542,6 +543,12 @@ void HttpRequest::setHeaderV2(std::string&& key, std::string&& value) {
       // don't insert this header!!
       return;
     }
+  }
+
+  using namespace std::string_literals;
+  if (key == "x-arango-messageid"s) {
+    LOG_DEVEL << "[" << __func__ << ":" << __LINE__ << "] "
+              << "Found request header during parse with messageId = " << value;
   }
 
   _headers[std::move(key)] = std::move(value);

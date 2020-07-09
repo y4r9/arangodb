@@ -27,6 +27,7 @@
 #include "Basics/StaticStrings.h"
 #include "Futures/Future.h"
 #include "Network/ConnectionPool.h"
+#include "Network/MessageId.h"
 #include "Network/types.h"
 
 #include <fuerte/message.h>
@@ -103,7 +104,7 @@ FutureRes sendRequest(ConnectionPool* pool, DestinationId destination,
                       arangodb::fuerte::RestVerb type, std::string path,
                       velocypack::Buffer<uint8_t> payload = {},
                       RequestOptions const& options = {},
-                      Headers headers = {});
+                      Headers headers = {}, MessageId = {});
 
 /// @brief send a request to a given destination, retry under certain conditions
 /// a retry will be triggered if the connection was lost our could not be established

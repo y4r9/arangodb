@@ -37,6 +37,7 @@
 #include "Statistics/ConnectionStatistics.h"
 #include "Statistics/RequestStatistics.h"
 
+#include <Network/MessageId.h>
 #include <velocypack/velocypack-aliases.h>
 #include <cstring>
 
@@ -346,6 +347,10 @@ static void DTraceHttpCommTaskProcessRequest(size_t) {}
 
 template <SocketType T>
 void HttpCommTask<T>::processRequest() {
+  if (auto const messageId = network::getMessageId(_request->headers()); messageId) {
+    LOG_DEVEL << "[" << __func__ << ":" << __LINE__ << "] "
+              << "Parsed request header with messageId = " << messageId.id();
+  }
 
   DTraceHttpCommTaskProcessRequest((size_t) this);
 
@@ -552,11 +557,25 @@ void HttpCommTask<T>::sendResponse(std::unique_ptr<GeneralResponse> baseRes,
       << "\",\"" << static_cast<int>(response.responseCode()) << "\","
       << Logger::FIXED(totalTime, 6);
 
+  auto const messageId = response._requestMessageId;
+
+  LOG_DEVEL_IF(messageId) << "[" << __func__ << ":" << __LINE__ << "] "
+                          << ", messageId = " << messageId;
+
   // sendResponse is always called from a scheduler thread
   boost::asio::post(this->_protocol->context.io_context,
-    [self = this->shared_from_this(), stat = std::move(stat)]() mutable {
-      static_cast<HttpCommTask<T>&>(*self).writeResponse(std::move(stat));
-    });
+    [self = this->shared_from_this(), stat = std::move(stat), messageId]() mutable {
+                      auto& httpCommTask = static_cast<HttpCommTask<T>&>(*self);
+                      LOG_DEVEL_IF(messageId)
+                          << "[sendResponseλ:" << __LINE__ << "] "
+                          << "self == " << self.get()
+                          << ", messageId = " << messageId;
+                      httpCommTask.writeResponse(std::move(stat), messageId);
+                      LOG_DEVEL_IF(messageId)
+                          << "[sendResponseλ:" << __LINE__ << "] "
+                          << "self == " << self.get()
+                          << ", messageId = " << messageId;
+                    });
 }
 
 #ifdef USE_DTRACE
@@ -574,9 +593,11 @@ static void DTraceHttpCommTaskResponseWritten(size_t) {}
 
 // called on IO context thread
 template <SocketType T>
-void HttpCommTask<T>::writeResponse(RequestStatistics::Item stat) {
+void HttpCommTask<T>::writeResponse(RequestStatistics::Item stat, network::MessageId messageId) {
+  LOG_DEVEL_IF(messageId) << "[" << __func__ << ":" << __LINE__ << "] "
+                             << "this == " << this << ", messageId = " << messageId;
 
-  DTraceHttpCommTaskWriteResponse((size_t) this);
+  DTraceHttpCommTaskWriteResponse((size_t)this);
 
   TRI_ASSERT(!_header.empty());
 
@@ -588,14 +609,27 @@ void HttpCommTask<T>::writeResponse(RequestStatistics::Item stat) {
     buffers[1] = asio_ns::buffer(_response->data(), _response->size());
   }
 
+  LOG_DEVEL_IF(messageId) << "[" << __func__ << ":" << __LINE__ << "] "
+                             << "this == " << this << ", messageId = " << messageId
+      << ", buffers[0].size() == " << buffers[0].size()
+      << ", buffers[1].size() == " << buffers[1].size()
+      << ", size = " << (buffers[0].size() + buffers[1].size());
+
   // FIXME measure performance w/o sync write
   asio_ns::async_write(this->_protocol->socket, buffers,
                        [self = this->shared_from_this(),
-                        stat = std::move(stat)](asio_ns::error_code ec, size_t nwrite) {
+                        stat = std::move(stat), messageId](asio_ns::error_code ec, size_t nwrite) {
 
                          DTraceHttpCommTaskResponseWritten((size_t) self.get());
 
                          auto* thisPtr = static_cast<HttpCommTask<T>*>(self.get());
+
+                         LOG_DEVEL_IF(messageId)
+                             << "[writeResponseλ:" << __LINE__ << "] "
+                             << "self == " << self << ", ec == " << ec
+                             << ", messageId = " << messageId
+                             << ", nwrite == " << nwrite;
+
                          stat.SET_WRITE_END();
                          stat.ADD_SENT_BYTES(nwrite);
 
@@ -608,6 +642,10 @@ void HttpCommTask<T>::writeResponse(RequestStatistics::Item stat) {
                            llhttp_resume(&thisPtr->_parser);
                            thisPtr->asyncReadSome();
                          }
+                         LOG_DEVEL_IF(messageId)
+                             << "[writeResponseλ:" << __LINE__ << "] "
+                             << "self == " << self
+                             << ", messageId = " << messageId;
                        });
 }
 

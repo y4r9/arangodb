@@ -1380,3 +1380,12 @@ message(STATUS "building for git revision: ${ARANGODB_BUILD_REPOSITORY}")
 
 add_custom_target(arangodb
         DEPENDS arangod arangosh arangodump arangoexport arangobackup arangoimport arangorestore)
+#
+#add_executable(test
+#  test.cpp
+#)
+#
+#target_link_libraries(test boost_boost)
+##target_link_libraries(test boost_system)
+##target_link_libraries(test boost_random)
+#target_link_libraries(test bcrypt.lib)

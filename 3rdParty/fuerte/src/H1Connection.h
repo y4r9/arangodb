@@ -162,6 +162,12 @@ class H1Connection final : public fuerte::GeneralConnection<ST> {
   bool _shouldKeepAlive = false;
   bool _messageComplete = false;
   bool _timeoutOnReadWrite = false;   // indicates that a timeout has happened
+
+ public:
+  std::unique_ptr<RequestItem> const& item() const noexcept {
+      return _item;
+  };
+
 };
 }}}}  // namespace arangodb::fuerte::v1::http
 

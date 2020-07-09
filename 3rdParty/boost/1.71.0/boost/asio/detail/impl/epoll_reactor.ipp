@@ -31,6 +31,11 @@
 
 #include <boost/asio/detail/push_options.hpp>
 
+#include <chrono>
+#include <iomanip>
+#include <thread>
+#include <Logger/LogMacros.h>
+
 namespace boost {
 namespace asio {
 namespace detail {
@@ -333,6 +338,7 @@ void epoll_reactor::cancel_ops(socket_type,
     while (reactor_op* op = descriptor_data->op_queue_[i].front())
     {
       op->ec_ = boost::asio::error::operation_aborted;
+      // LOG_DEVEL << "canceled [" << i << "] op == " << op;
       descriptor_data->op_queue_[i].pop();
       ops.push(op);
     }
@@ -371,6 +377,7 @@ void epoll_reactor::deregister_descriptor(socket_type descriptor,
       {
         op->ec_ = boost::asio::error::operation_aborted;
         descriptor_data->op_queue_[i].pop();
+        // LOG_DEVEL << "aborted [" << i << "] op == " << op;
         ops.push(op);
       }
     }
@@ -466,9 +473,19 @@ void epoll_reactor::run(long usec, op_queue<operation>& ops)
     }
   }
 
+  auto const start = std::chrono::steady_clock::now();
+
   // Block on the epoll descriptor.
   epoll_event events[128];
   int num_events = epoll_wait(epoll_fd_, events, 128, timeout);
+
+  auto const end = std::chrono::steady_clock::now();
+  auto const duration = std::chrono::duration<double, std::milli>(end - start);
+
+  //fprintf(stdout, "epoll_wait(,,,%i) took %.3fms\n", timeout, duration);
+  using namespace std::chrono_literals;
+  LOG_DEVEL_IF(duration > 1s) << "T" << std::this_thread::get_id() << " [" << __func__ << ":" << __LINE__ << "] "
+      << "epoll_wait(,,," << timeout << ") took " << std::setprecision(3) << duration.count() << "ms for ops == " << &ops;
 
 #if defined(BOOST_ASIO_ENABLE_HANDLER_TRACKING)
   // Trace the waiting events.
@@ -757,6 +774,7 @@ operation* epoll_reactor::descriptor_state::perform_io(uint32_t events)
       {
         if (reactor_op::status status = op->perform())
         {
+          // LOG_DEVEL << "performed [" << j << "] op == " << op;
           op_queue_[j].pop();
           io_cleanup.ops_.push(op);
           if (status == reactor_op::done_and_exhausted)
