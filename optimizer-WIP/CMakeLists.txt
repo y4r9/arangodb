@@ -13,11 +13,11 @@ target_include_directories(optimizer-test PUBLIC
   ./src/
 )
 
-set_target_properties(arango_optimizer PROPERTIES
-  INTERFACE_INCLUDE_DIRECTORIES "${GTEST_INCLUDES}"
+target_include_directories(arango_optimizer SYSTEM PRIVATE
+  ${CMAKE_SOURCE_DIR}/3rdParty/rocksdb/${ARANGO_ROCKSDB_VERSION}/third-party/gtest-1.8.1/fused-src
 )
-set_target_properties(optimizer-test PROPERTIES
-  INTERFACE_INCLUDE_DIRECTORIES "${GTEST_INCLUDES}"
+target_include_directories(optimizer-test SYSTEM PRIVATE
+  ${CMAKE_SOURCE_DIR}/3rdParty/rocksdb/${ARANGO_ROCKSDB_VERSION}/third-party/gtest-1.8.1/fused-src
 )
 
 add_dependencies(optimizer-test gtest)
