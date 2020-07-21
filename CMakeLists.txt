@@ -1310,6 +1310,8 @@ if (USE_GOOGLE_TESTS)
   add_subdirectory(tests)
 endif ()
 
+add_subdirectory(optimizer-WIP)
+
 add_dependencies(arangobench   zlibstatic)
 if (USE_ENTERPRISE)
   add_dependencies(arangobackup  zlibstatic)

@@ -861,6 +861,7 @@ target_link_libraries(arango_agency arango)
 target_link_libraries(arango_agency arango_iresearch)
 target_link_libraries(arango_agency arango_metrics)
 
+target_link_libraries(arango_aql arango)
 target_link_libraries(arango_aql arango_geo)
 target_link_libraries(arango_aql arango_graph)
 target_link_libraries(arango_aql arango_indexes)
