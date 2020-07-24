@@ -398,6 +398,7 @@ set(LIB_ARANGO_VOCBASE_SOURCES
   VocBase/Identifiers/IndexId.cpp
   VocBase/Identifiers/LocalDocumentId.cpp
   VocBase/Identifiers/ServerId.cpp
+  VocBase/Identifiers/TransactionId.cpp
   VocBase/KeyGenerator.cpp
   VocBase/LogicalCollection.cpp
   VocBase/LogicalDataSource.cpp
@@ -867,6 +868,7 @@ target_link_libraries(arango_aql arango_graph)
 target_link_libraries(arango_aql arango_indexes)
 target_link_libraries(arango_aql arango_iresearch)
 target_link_libraries(arango_aql arango_network)
+target_link_libraries(arango_aql immer)
 
 target_link_libraries(arango_cache arango)
 target_link_libraries(arango_cache boost_system)
