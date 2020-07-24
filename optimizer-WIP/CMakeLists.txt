@@ -2,7 +2,10 @@ cmake_minimum_required(VERSION 3.12)
 
 add_subdirectory(3rdParty/patterns)
 
-FILE(GLOB optimizer_test_files "src/tests/*.cpp")
+FILE(GLOB optimizer_test_files
+  "src/tests/*.cpp"
+  "src/rules/*.cpp"
+  )
 
 add_library(arango_optimizer OBJECT ${optimizer_test_files})
 
