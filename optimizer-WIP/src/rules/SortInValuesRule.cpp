@@ -20,16 +20,64 @@
 
  /*
   * Pattern Alternative:
-  * a) (LET x = <ARRAY> | <SUBQUERY> | <FUNC -> ARRAY>) (*) (FOR) (*) (LET _ = _ IN x | _ NOT IN x)
-  * b) (FOR) (*) (LET _ = _ IN <const array> | _ NOT IN <const array>)
+  * a) (LET x = <ARRAY> | <SUBQUERY> | <FUNC -> ARRAY>) ([^FOR]) (FOR) (*) (LET _ = _ IN x | _ NOT IN x)
+  * b) ([^FOR]) (FOR) (*) (LET _ = _ IN <const array> | _ NOT IN <const array>)
   * 
   * Shall be replaced with:
   * a) (LET x = <ARRAY> | <SUBQUERY> | <FUNC -> ARRAY>) (LET tmp = SORTED_UNIQUE(x)) (*) (FOR) (*) (LET _ = _ IN tmp | _ NOT IN tmp)
   * b) (LET tmp = SORTED_UNIQUE(<const array>)) (FOR) (*) (LET _ = _ IN tmp| _ NOT IN tmp)
   * 
+  * 
+  * 
+  * (Singleton) (*) (RETURN)
   */ 
 
+#include "SortInValuesRule.h"
+#include "Aql/ExecutionNode.h"
+
+#include "mpark/patterns.hpp"
+
 using namespace arangodb::aql;
+
+#ifndef PATTERN_SEQ
+
+#define PATTERN_SEQ(expr) \
+  do {                    \
+#expr;                 \
+  } while (0);
+
+#endif
+
+#ifndef PATTERN_ONE
+
+#define PATTERN_ONE(expr)                            \
+  while (0) {                                        \
+    SingletonNode node(nullptr, ExecutionNodeId(1)); \
+    (void)match(0)(#expr);                           \
+  };
+
+#endif
+
+#ifndef PATTERN_ANY
+
+#define PATTERN_ANY() \
+  do {                    \
+  } while (0);
+
+#endif
+
+#ifndef PATTERN_MANY
+
+#define PATTERN_MANY(expr) \
+  do {                    \
+  expr; \
+  } while (0);
+
+#endif
+
+namespace {
+
+}
 
 void arangodb::aql::sortInValuesRule_Pattern(Optimizer* opt, std::unique_ptr<ExecutionPlan> plan,
                                      OptimizerRule const& rule) {
@@ -41,15 +89,16 @@ void arangodb::aql::sortInValuesRule_Pattern(Optimizer* opt, std::unique_ptr<Exe
   PATTERN_SEQ(
   (
     PATTERN_ONE((
-      pattern(as<SubqueryNode>)) = [](SubqueryNode const& producer) -> std::optional<ExecutionNode> {
+      pattern(as<SubqueryNode>)) = [](SubqueryNode const& it) -> std::optional<SubqueryNode const> {
         // estimate items in subquery
+        SubqueryNode producer = *it.value<SubqueryNode>();
         CostEstimate estimate = producer->getSubquery()->getCost();
         if (estimate.estimatedNrItems >= AstNode::SortNumberThreshold) {
           return producer;
         }
         return std::nullopt;
         
-      }
+      },
       pattern(as<CalculationNode>)) = [](CalculationNode const& producer -> std::optional<ExecutionNode>) {
         AstNode const* testNode = producer.expression()->node();
         switch (testNode->type) {
@@ -71,17 +120,17 @@ void arangodb::aql::sortInValuesRule_Pattern(Optimizer* opt, std::unique_ptr<Exe
     PATTERN_MANY(PATTERN_ANY())
 
     // We need to have actual IN oepration in a separate loop, s.t. we would call it multiple times
-    PATTERN_ONE(pattern(
-      as<EnumerateCollectionNode> = [](auto const& n) -> std::optional<ExecutionNode> {return n;},
-      as<IndexNode> = [](auto const& n) -> std::optional<ExecutionNode> {return n;}
-      as<GraphNode> = [](auto const& n) -> std::optional<ExecutionNode> {return n;}
-      as<EnumerateCollectionNode> = [](auto const& n) -> std::optional<ExecutionNode> {return n;}
-      as<IResarchViewNode> = [](auto const& n) -> std::optional<ExecutionNode> {return n;}
-    ))
+    PATTERN_ONE((pattern(
+      as<EnumerateCollectionNode>) = [](auto const& n) -> std::optional<ExecutionNode> {return n;},
+      pattern(as<IndexNode>) = [](auto const& n) -> std::optional<ExecutionNode> {return n;},
+      pattern(as<GraphNode>) = [](auto const& n) -> std::optional<ExecutionNode> {return n;},
+      pattern(as<EnumerateCollectionNode>) = [](auto const& n) -> std::optional<ExecutionNode> {return n;},
+      pattern(as<IResarchViewNode>) = [](auto const& n) -> std::optional<ExecutionNode> {return n;}
+    )))
 
     PATTERN_MANY(PATTERN_ANY())
 
-    PATTERN_ONE(pattern(as<CalculationNode>()) = []() (CalculationNode const& consumer -> std::optional<std::pair<CalculationNode&, Variable const&>>) {
+    PATTERN_ONE(pattern(as<CalculationNode>()) = [](CalculationNode const& consumer) -> std::optional<std::pair<CalculationNode&, Variable const&>> {
       AstNode const* testNode = producer.expression()->node();
       if (testNode->type == NODE_TYPE_OPERATOR_BINARY_IN || testNode->type == NODE_TYPE_OPERATOR_BINARY_NIN) {
         TRI_ASSERT(testeNode->numMembers(2));
