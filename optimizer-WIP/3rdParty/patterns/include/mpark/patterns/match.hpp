@@ -720,8 +720,8 @@ namespace mpark::patterns {
 
   template <typename... Patterns, typename Values, typename F>
   auto try_match(const Ds<Patterns...> &ds, Values &&values, F &&f) {
-    constexpr bool is_array = std::is_array_v<std::remove_reference_t<Values>>;
-    constexpr bool is_tuple_like = is_tuple_like_v<std::decay_t<Values>>;
+    static constexpr bool is_array = std::is_array_v<std::remove_reference_t<Values>>;
+    static constexpr bool is_tuple_like = is_tuple_like_v<std::decay_t<Values>>;
     if constexpr (!is_array && !is_tuple_like) {
       using Aggregate = std::decay_t<Values>;
       static_assert(std::is_aggregate_v<Aggregate>);

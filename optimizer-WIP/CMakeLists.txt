@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.12)
 
+project(arango_optimizer)
+
 add_subdirectory(3rdParty/patterns)
 
 FILE(GLOB optimizer_test_files
@@ -28,6 +30,7 @@ target_include_directories(optimizer-test SYSTEM PRIVATE
 target_link_libraries(arango_optimizer arango)
 target_link_libraries(arango_optimizer arango_aql)
 target_link_libraries(arango_optimizer gtest)
+target_link_libraries(arango_optimizer immer)
 target_link_libraries(arango_optimizer mpark_patterns)
 target_link_libraries(optimizer-test arango)
 target_link_libraries(optimizer-test arango_aql)

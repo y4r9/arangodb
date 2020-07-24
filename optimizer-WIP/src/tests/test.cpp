@@ -1,16 +1,19 @@
-#include "gtest/gtest.h"
-
-#include "mpark/patterns.hpp"
+#include <string>
 
 #include <Logger/LogMacros.h>
 
-#include <string>
+#include <gtest/gtest.h>
+#include <immer/vector.hpp>
+#include <mpark/patterns.hpp>
 
 namespace {
 
 TEST(FooTest, Bar) {
+  const auto v0 = immer::vector<int>{};
+  const auto v1 = v0.push_back(42);
+
   using namespace std::string_literals;
-  auto const p = std::make_pair(42, "world"s);
+  auto const p = std::make_pair(v1[0], "world"s);
 
   using namespace mpark::patterns;
   IDENTIFIERS(str);
