@@ -6,6 +6,9 @@
 #include <immer/vector.hpp>
 #include <mpark/patterns.hpp>
 
+
+#include "Aql/ExecutionNode.h"
+
 namespace {
 
 TEST(FooTest, Bar) {
@@ -22,4 +25,41 @@ TEST(FooTest, Bar) {
   });
 }
 
+TEST(FooTest, canMatchOnExecutionNodeClass) {
+  using namespace mpark::patterns;
+  using namespace arangodb::aql;
+  
+  std::unique_ptr<ExecutionNode> node =
+      std::make_unique<SingletonNode>(nullptr, ExecutionNodeId(1));
+      
+      auto id = ExecutionNodeId(1);
+
+  const auto v0 = immer::vector<ExecutionNodeId>{};
+  // const auto v1 = v0.push_back(node->getType());
+const auto v1 = v0.push_back(id);
+
+  IDENTIFIERS(n);
+
+  auto didMatch = match(v1[0])(
+    pattern(n) = [](auto const& n) {
+      LOG_DEVEL << "NodeType: ";
+      return true;
+    }
+    
+        /*
+          auto didMatch = match(*(node.get()))(
+    pattern(as<SingletonNode>(n)) = [](auto n) -> bool {
+      LOG_DEVEL << "NodeType: " << n.getTypeString();
+      return true;
+    },
+
+    pattern(_) = [](auto const&) -> bool {
+       //LOG_DEVEL << "NodeType: " << n.getTypeString();
+      return false;
+    }
+    */
+  );
+
+  EXPECT_TRUE(didMatch);
+}
 }  // namespace

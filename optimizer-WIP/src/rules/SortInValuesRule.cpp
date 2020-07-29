@@ -50,10 +50,11 @@ using namespace arangodb::aql;
 
 #ifndef PATTERN_ONE
 
-#define PATTERN_ONE(expr)                            \
-  while (0) {                                        \
-    SingletonNode node(nullptr, ExecutionNodeId(1)); \
-    (void)match(0)(#expr);                           \
+#define PATTERN_ONE(expr)                                             \
+  while (0) {                                                         \
+    std::unique_ptr<ExecutionNode> node =                             \
+        std::make_unique<SingletonNode>(nullptr, ExecutionNodeId(1)); \
+    (void)(match(*(node.get()))(#expr));                              \
   };
 
 #endif
@@ -82,6 +83,7 @@ namespace {
 void arangodb::aql::sortInValuesRule_Pattern(Optimizer* opt, std::unique_ptr<ExecutionPlan> plan,
                                      OptimizerRule const& rule) {
   using namespace mpark::patterns;
+  /*
   // Iterate over all branches, where the MainQuery is a branch
   // and all Subqueries each are a branch
 
@@ -121,11 +123,16 @@ void arangodb::aql::sortInValuesRule_Pattern(Optimizer* opt, std::unique_ptr<Exe
 
     // We need to have actual IN oepration in a separate loop, s.t. we would call it multiple times
     PATTERN_ONE((pattern(
-      as<EnumerateCollectionNode>) = [](auto const& n) -> std::optional<ExecutionNode> {return n;},
-      pattern(as<IndexNode>) = [](auto const& n) -> std::optional<ExecutionNode> {return n;},
-      pattern(as<GraphNode>) = [](auto const& n) -> std::optional<ExecutionNode> {return n;},
-      pattern(as<EnumerateCollectionNode>) = [](auto const& n) -> std::optional<ExecutionNode> {return n;},
-      pattern(as<IResarchViewNode>) = [](auto const& n) -> std::optional<ExecutionNode> {return n;}
+      as<EnumerateCollectionNode>) = [](auto const& n) -> std::optional<ExecutionNode> {
+    return n;},
+      pattern(as<IndexNode>) = [](auto const& n) -> std::optional<ExecutionNode> {
+    return n;},
+      pattern(as<GraphNode>) = [](auto const& n) -> std::optional<ExecutionNode> {
+    return n;},
+      pattern(as<EnumerateCollectionNode>) = [](auto const& n) -> std::optional<ExecutionNode> {
+    return n;},
+      pattern(as<IResarchViewNode>) = [](auto const& n) -> std::optional<ExecutionNode> {
+    return n;}
     )))
 
     PATTERN_MANY(PATTERN_ANY())
@@ -150,4 +157,5 @@ void arangodb::aql::sortInValuesRule_Pattern(Optimizer* opt, std::unique_ptr<Exe
     }
     return true;
   });
+  */
 }  
