@@ -72,7 +72,7 @@ using PathSequence = std::vector<Path>;
 // whether the executor output the correct sequence of rows.
 class FakeKShortestPathsFinder : public KShortestPathsFinder {
  public:
-  FakeKShortestPathsFinder(ShortestPathOptions& options, PathSequence const& kpaths)
+  FakeKShortestPathsFinder(KShortestPathOptions& options, PathSequence const& kpaths)
       : KShortestPathsFinder(options), _kpaths(kpaths), _traversalDone(true) {}
   ~FakeKShortestPathsFinder() = default;
 
@@ -184,7 +184,7 @@ class KShortestPathsExecutorTest
   SharedAqlItemBlockPtr block;
 
   std::unique_ptr<arangodb::aql::Query> fakedQuery;
-  ShortestPathOptions options;
+  KShortestPathOptions options;
 
   RegisterInfos registerInfos;
   KShortestPathsExecutorInfos executorInfos;

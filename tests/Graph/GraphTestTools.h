@@ -40,6 +40,7 @@
 #include "ClusterEngine/ClusterEngine.h"
 #include "Graph/ConstantWeightShortestPathFinder.h"
 #include "Graph/ShortestPathOptions.h"
+#include "Graph/KShortestPathOptions.h"
 #include "Graph/ShortestPathResult.h"
 #include "Random/RandomGenerator.h"
 #include "RestServer/AqlFeature.h"
@@ -273,6 +274,45 @@ struct MockGraphDatabase {
     }
         
     auto spo = std::make_unique<ShortestPathOptions>(*query);
+    spo->setVariable(tmpVar);
+    spo->addLookupInfo(plan, "e", StaticStrings::FromString, _fromCondition->clone(ast));
+    spo->addReverseLookupInfo(plan, "e", StaticStrings::ToString, _toCondition->clone(ast));
+
+    return spo;
+  }
+
+  std::unique_ptr<arangodb::graph::KShortestPathOptions> getKShortestPathOptions(arangodb::aql::Query* query) {
+
+    auto plan = const_cast<arangodb::aql::ExecutionPlan*>(query->plan());
+    auto ast = plan->getAst();
+
+    auto _toCondition = ast->createNodeNaryOperator(NODE_TYPE_OPERATOR_NARY_AND);
+    auto _fromCondition = ast->createNodeNaryOperator(NODE_TYPE_OPERATOR_NARY_AND);
+
+    auto tmpVar = plan->getAst()->variables()->createTemporaryVariable();
+
+    AstNode* tmpId1 = plan->getAst()->createNodeReference(tmpVar);
+    AstNode* tmpId2 = plan->getAst()->createNodeValueString("", 0);
+
+    {
+      auto const* access =
+          ast->createNodeAttributeAccess(tmpId1, StaticStrings::ToString.c_str(),
+                                         StaticStrings::ToString.length());
+      auto const* cond =
+          ast->createNodeBinaryOperator(NODE_TYPE_OPERATOR_BINARY_EQ, access, tmpId2);
+      _toCondition->addMember(cond);
+    }
+
+    {
+      auto const* access =
+          ast->createNodeAttributeAccess(tmpId1, StaticStrings::FromString.c_str(),
+                                         StaticStrings::FromString.length());
+      auto const* cond =
+          ast->createNodeBinaryOperator(NODE_TYPE_OPERATOR_BINARY_EQ, access, tmpId2);
+      _fromCondition->addMember(cond);
+    }
+        
+    auto spo = std::make_unique<KShortestPathOptions>(*query);
     spo->setVariable(tmpVar);
     spo->addLookupInfo(plan, "e", StaticStrings::FromString, _fromCondition->clone(ast));
     spo->addReverseLookupInfo(plan, "e", StaticStrings::ToString, _toCondition->clone(ast));

@@ -44,7 +44,7 @@ class Slice;
 
 namespace graph {
 class EdgeCursor;
-struct ShortestPathOptions;
+struct KShortestPathOptions;
 
 // Inherit from ShortestPathfinder to get destroyEngines and not copy it
 // again.
@@ -211,7 +211,7 @@ class KShortestPathsFinder : public ShortestPathFinder {
   typedef std::unordered_map<VertexRef, FoundVertex> FoundVertexCache;
 
  public:
-  explicit KShortestPathsFinder(ShortestPathOptions& options);
+  explicit KShortestPathsFinder(KShortestPathOptions& options);
   ~KShortestPathsFinder();
 
   // reset the traverser; this is mainly needed because the traverser is
@@ -244,10 +244,14 @@ class KShortestPathsFinder : public ShortestPathFinder {
   TEST_VIRTUAL bool isDone() const { return _traversalDone; }
 
  private:
+
+  // Get options in down casted type
+  KShortestPathOptions const& myOptions() const;
+
   // Compute the first shortest path
   bool computeShortestPath(VertexRef const& start, VertexRef const& end,
                            std::unordered_set<VertexRef> const& forbiddenVertices,
-                           std::unordered_set<Edge> const& forbiddenEdges, Path& result);
+                           std::unordered_set<Edge> const& forbiddenEdges, double maxWeight, Path& result);
   bool computeNextShortestPath(Path& result);
 
   void reconstructPath(Ball const& left, Ball const& right,
@@ -264,6 +268,7 @@ class KShortestPathsFinder : public ShortestPathFinder {
   void advanceFrontier(Ball& source, Ball const& target,
                        std::unordered_set<VertexRef> const& forbiddenVertices,
                        std::unordered_set<Edge> const& forbiddenEdges,
+                       double maxWeight,
                        VertexRef& join, std::optional<double>& currentBest);
 
  private:

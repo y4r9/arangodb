@@ -37,7 +37,7 @@
 #include "Aql/SingleRowFetcher.h"
 #include "Graph/AttributeWeightShortestPathFinder.h"
 #include "Graph/KShortestPathsFinder.h"
-#include "Graph/ShortestPathOptions.h"
+#include "Graph/KShortestPathOptions.h"
 #include "Graph/ShortestPathResult.h"
 #include "Indexes/Index.h"
 #include "Utils/CollectionNameResolver.h"
@@ -302,7 +302,7 @@ std::unique_ptr<ExecutionBlock> KShortestPathsNode::createBlock(
 
   auto registerInfos = createRegisterInfos(std::move(inputRegisters), std::move(outputRegisters));
 
-  auto opts = static_cast<ShortestPathOptions*>(options());
+  auto opts = static_cast<KShortestPathOptions*>(options());
 
   KShortestPathsExecutorInfos::InputVertex sourceInput = ::prepareVertexInput(this, false);
   KShortestPathsExecutorInfos::InputVertex targetInput = ::prepareVertexInput(this, true);
@@ -325,8 +325,8 @@ std::unique_ptr<ExecutionBlock> KShortestPathsNode::createBlock(
 ExecutionNode* KShortestPathsNode::clone(ExecutionPlan* plan, bool withDependencies,
                                          bool withProperties) const {
   TRI_ASSERT(!_optionsBuilt);
-  auto oldOpts = static_cast<ShortestPathOptions*>(options());
-  std::unique_ptr<BaseOptions> tmp = std::make_unique<ShortestPathOptions>(*oldOpts);
+  auto oldOpts = static_cast<KShortestPathOptions*>(options());
+  std::unique_ptr<BaseOptions> tmp = std::make_unique<KShortestPathOptions>(*oldOpts);
   auto c = std::make_unique<KShortestPathsNode>(plan, _id, _vocbase, _edgeColls,
                                                 _vertexColls, _defaultDirection, _directions,
                                                 _inStartVariable, _startVertexId,
@@ -405,10 +405,10 @@ void KShortestPathsNode::prepareOptions() {
 
 auto KShortestPathsNode::options() const -> graph::ShortestPathOptions* {
 #ifdef ARANGODB_ENABLE_MAINTAINER_MODE
-  auto* opts = dynamic_cast<ShortestPathOptions*>(GraphNode::options());
+  auto* opts = dynamic_cast<KShortestPathOptions*>(GraphNode::options());
   TRI_ASSERT((GraphNode::options() == nullptr) == (opts == nullptr));
 #else
-  auto* opts = static_cast<ShortestPathOptions*>(GraphNode::options());
+  auto* opts = static_cast<KShortestPathOptions*>(GraphNode::options());
 #endif
   return opts;
 }

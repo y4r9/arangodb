@@ -70,7 +70,7 @@ class KShortestPathsFinderTest : public ::testing::Test {
   MockGraphDatabase gdb;
 
   std::unique_ptr<arangodb::aql::Query> query;
-  std::unique_ptr<arangodb::graph::ShortestPathOptions> spo;
+  std::unique_ptr<arangodb::graph::KShortestPathOptions> spo;
 
   KShortestPathsFinder* finder;
 
@@ -88,7 +88,7 @@ class KShortestPathsFinderTest : public ::testing::Test {
          {70, 71}, {70, 71}, {70, 71}});
 
     query = gdb.getQuery("RETURN 1", std::vector<std::string>{"v", "e"});
-    spo = gdb.getShortestPathOptions(query.get());
+    spo = gdb.getKShortestPathOptions(query.get());
 
     finder = new KShortestPathsFinder(*spo);
   }
@@ -217,7 +217,7 @@ class KShortestPathsFinderTestWeights : public ::testing::Test {
   MockGraphDatabase gdb;
 
   std::unique_ptr<arangodb::aql::Query> query;
-  std::unique_ptr<arangodb::graph::ShortestPathOptions> spo;
+  std::unique_ptr<arangodb::graph::KShortestPathOptions> spo;
 
   KShortestPathsFinder* finder;
 
@@ -235,7 +235,7 @@ class KShortestPathsFinderTestWeights : public ::testing::Test {
 
     query = gdb.getQuery("RETURN 1", std::vector<std::string>{"v", "e"});
 
-    spo = gdb.getShortestPathOptions(query.get());
+    spo = gdb.getKShortestPathOptions(query.get());
     spo->weightAttribute = "cost";
 
     finder = new KShortestPathsFinder(*spo);

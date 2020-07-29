@@ -56,6 +56,7 @@
 #include "Cluster/ClusterFeature.h"
 #include "Containers/SmallVector.h"
 #include "Graph/ShortestPathOptions.h"
+#include "Graph/KShortestPathOptions.h"
 #include "Graph/TraverserOptions.h"
 #include "Logger/LoggerStream.h"
 #include "Utils/OperationOptions.h"
@@ -265,6 +266,39 @@ std::unique_ptr<graph::BaseOptions> createShortestPathOptions(arangodb::aql::Que
               std::string(value->getStringValue(), value->getStringLength());
         } else if (name == "defaultWeight" && value->isNumericValue()) {
           options->defaultWeight = value->getDoubleValue();
+        }
+      }
+    }
+  }
+
+  return options;
+}
+
+std::unique_ptr<graph::BaseOptions> createKShortestPathOptions(arangodb::aql::QueryContext& query,
+                                                              AstNode const* node) {
+  auto options = std::make_unique<graph::KShortestPathOptions>(query);
+
+  if (node != nullptr && node->type == NODE_TYPE_OBJECT) {
+    size_t n = node->numMembers();
+
+    for (size_t i = 0; i < n; ++i) {
+      auto member = node->getMemberUnchecked(i);
+
+      if (member != nullptr && member->type == NODE_TYPE_OBJECT_ELEMENT) {
+        auto const name = member->getStringRef();
+        auto value = member->getMember(0);
+
+        TRI_ASSERT(value->isConstant());
+
+        if (name == "weightAttribute" && value->isStringValue()) {
+          options->weightAttribute =
+              std::string(value->getStringValue(), value->getStringLength());
+        } else if (name == "defaultWeight" && value->isNumericValue()) {
+          options->defaultWeight = value->getDoubleValue();
+        } else if (name == "minWeight" && value->isNumericValue()) {
+          options->minWeight = value->getDoubleValue();
+        } else if (name == "maxWeight" && value->isNumericValue()) {
+          options->maxWeight = value->getDoubleValue();
         }
       }
     }
@@ -1256,7 +1290,7 @@ ExecutionNode* ExecutionPlan::fromNodeKShortestPaths(ExecutionNode* previous,
   AstNode const* graph = node->getMember(3);
 
   // FIXME: here goes the parameters with k etc
-  auto options = createShortestPathOptions(getAst()->query(), node->getMember(4));
+  auto options = createKShortestPathOptions(getAst()->query(), node->getMember(4));
 
   // First create the node
   auto spNode = new KShortestPathsNode(this, nextId(), &(_ast->query().vocbase()), direction,

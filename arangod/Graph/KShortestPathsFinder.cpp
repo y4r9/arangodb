@@ -27,7 +27,7 @@
 #include "Cluster/ServerState.h"
 #include "Graph/EdgeCursor.h"
 #include "Graph/EdgeDocumentToken.h"
-#include "Graph/ShortestPathOptions.h"
+#include "Graph/KShortestPathOptions.h"
 #include "Graph/ShortestPathResult.h"
 #include "Graph/TraverserCache.h"
 #include "Transaction/Helpers.h"
@@ -41,7 +41,7 @@
 using namespace arangodb;
 using namespace arangodb::graph;
 
-KShortestPathsFinder::KShortestPathsFinder(ShortestPathOptions& options)
+KShortestPathsFinder::KShortestPathsFinder(KShortestPathOptions& options)
     : ShortestPathFinder(options) {
   // cppcheck-suppress *
   _forwardCursor = options.buildCursor(false);
@@ -80,6 +80,7 @@ bool KShortestPathsFinder::startKShortestPathsTraversal(
 bool KShortestPathsFinder::computeShortestPath(VertexRef const& start, VertexRef const& end,
                                                std::unordered_set<VertexRef> const& forbiddenVertices,
                                                std::unordered_set<Edge> const& forbiddenEdges,
+                                               double maxWeight,
                                                Path& result) {
   Ball left(start, FORWARD);
   Ball right(end, BACKWARD);
@@ -96,13 +97,17 @@ bool KShortestPathsFinder::computeShortestPath(VertexRef const& start, VertexRef
 
     // Choose the smaller frontier to expand.
     if (!left.done(currentBest) && (left._frontier.size() < right._frontier.size())) {
-      advanceFrontier(left, right, forbiddenVertices, forbiddenEdges, join, currentBest);
+      advanceFrontier(left, right, forbiddenVertices, forbiddenEdges, maxWeight, join, currentBest);
     } else {
-      advanceFrontier(right, left, forbiddenVertices, forbiddenEdges, join, currentBest);
+      advanceFrontier(right, left, forbiddenVertices, forbiddenEdges, maxWeight, join, currentBest);
     }
   }
 
   if (currentBest.has_value()) {
+    if (currentBest.value() > maxWeight) {
+      // Path to long
+      return false;
+    }
     reconstructPath(left, right, join, result);
     return true;
   } else {
@@ -188,6 +193,7 @@ void KShortestPathsFinder::computeNeighbourhoodOfVertex(VertexRef vertex, Direct
 void KShortestPathsFinder::advanceFrontier(Ball& source, Ball const& target,
                                            std::unordered_set<VertexRef> const& forbiddenVertices,
                                            std::unordered_set<Edge> const& forbiddenEdges,
+                                           double maxWeight,
                                            VertexRef& join,
                                            std::optional<double>& currentBest) {
   VertexRef vr;
@@ -231,7 +237,13 @@ void KShortestPathsFinder::advanceFrontier(Ball& source, Ball const& target,
   if (w != nullptr && w->_done) {
     // The total weight of the found path
     double totalWeight = v->_weight + w->_weight;
-    if (!currentBest.has_value() || totalWeight < currentBest.value()) {
+    if (totalWeight > maxWeight && !currentBest.has_value()) {
+      // Just claim to have a valid path of too large length
+      // will be ignored from caller.
+      join = v->_vertex;
+      currentBest = totalWeight;
+    } else if (!currentBest.has_value() ||
+      totalWeight < currentBest.value()) {
       join = v->_vertex;
       currentBest = totalWeight;
     }
@@ -284,6 +296,10 @@ bool KShortestPathsFinder::computeNextShortestPath(Path& result) {
   bool available = false;
 
   for (size_t i = lastShortestPath._branchpoint; i + 1 < lastShortestPath.length(); ++i) {
+    if (i >= myOptions().maxWeight) {
+      // Cannot find any shorter path
+      continue;
+    }
     auto& spur = lastShortestPath._vertices.at(i);
 
     forbiddenVertices.clear();
@@ -310,7 +326,7 @@ bool KShortestPathsFinder::computeNextShortestPath(Path& result) {
       }
     }
 
-    if (computeShortestPath(spur, _end, forbiddenVertices, forbiddenEdges, tmpPath)) {
+    if (computeShortestPath(spur, _end, forbiddenVertices, forbiddenEdges, myOptions().maxWeight - i, tmpPath)) {
       candidate.clear();
       candidate.append(lastShortestPath, 0, i);
       candidate.append(tmpPath, 0, tmpPath.length() - 1);
@@ -338,36 +354,37 @@ bool KShortestPathsFinder::computeNextShortestPath(Path& result) {
 }
 
 bool KShortestPathsFinder::getNextPath(Path& result) {
-  result.clear();
-
-  // This is for the first time that getNextPath is called
-  if (_shortestPaths.empty()) {
-    if (_start == _end) {
-      TRI_ASSERT(!_start.empty());
-      result._vertices.emplace_back(_start);
-      result._weight = 0;
+  do {
+    result.clear();
+    // This is for the first time that getNextPath is called
+    if (_shortestPaths.empty()) {
+      if (_start == _end) {
+        TRI_ASSERT(!_start.empty());
+        result._vertices.emplace_back(_start);
+        result._weight = 0;
+      } else {
+        // Compute the first shortest path (i.e. the shortest path
+        // between _start and _end!)
+        computeShortestPath(_start, _end, {}, {}, myOptions().maxWeight, result);
+        result._branchpoint = 0;
+      }
     } else {
-      // Compute the first shortest path (i.e. the shortest path
-      // between _start and _end!)
-      computeShortestPath(_start, _end, {}, {}, result);
-      result._branchpoint = 0;
+      // We must not have _start == _end here, because we handle _start == _end
+      computeNextShortestPath(result);
     }
-  } else {
-    // We must not have _start == _end here, because we handle _start == _end
-    computeNextShortestPath(result);
-  }
 
-  if (result.length() > 0) {
-    _shortestPaths.emplace_back(result);
-    _options.fetchVerticesCoordinator(result._vertices);
+    if (result.length() > 0) {
+      _shortestPaths.emplace_back(result);
+      _options.fetchVerticesCoordinator(result._vertices);
 
-    TRI_IF_FAILURE("TraversalOOMPath") {
-      THROW_ARANGO_EXCEPTION(TRI_ERROR_DEBUG);
+      TRI_IF_FAILURE("TraversalOOMPath") {
+        THROW_ARANGO_EXCEPTION(TRI_ERROR_DEBUG);
+      }
+    } else {
+      // If we did not find a path, traversal is done.
+      _traversalDone = true;
     }
-  } else {
-    // If we did not find a path, traversal is done.
-    _traversalDone = true;
-  }
+  } while (!_traversalDone && result._weight < myOptions().minWeight);
   return !_traversalDone;
 }
 
@@ -421,4 +438,8 @@ bool KShortestPathsFinder::getNextPathAql(arangodb::velocypack::Builder& result)
 bool KShortestPathsFinder::skipPath() {
   Path path;
   return getNextPath(path);
+}
+
+KShortestPathOptions const& KShortestPathsFinder::myOptions() const {
+  return static_cast<KShortestPathOptions&>(options());
 }
