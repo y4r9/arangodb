@@ -160,8 +160,8 @@ MasterContext::ContinuationResult MasterContext::postGlobalSuperstep(bool allVer
     auto res = greenspun::Evaluate(_airMachine, phase.onHalt.slice(), onHaltResult);
     if (res.fail()) {
       LOG_TOPIC("ac23e", ERR, Logger::PREGEL)
-        << "onHalt program of phase `" << phase.name <<
-        "` returned and error: " << res.error().toString();
+          << "onHalt program of phase `" << phase.name
+          << "` returned and error: " << res.error().toString();
       return ContinuationResult::ABORT;
     }
 

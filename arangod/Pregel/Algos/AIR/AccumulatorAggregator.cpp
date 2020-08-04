@@ -30,9 +30,10 @@ namespace arangodb::pregel::algos::accumulators {
 
 VertexAccumulatorAggregator::VertexAccumulatorAggregator(AccumulatorOptions const& opts,
                                                          bool persists)
-  : fake(), accumulator(instantiateAccumulator(fake, opts)), permanent(persists) {
+    : fake(), accumulator(instantiateAccumulator(fake, opts)), permanent(persists) {
   if (accumulator == nullptr) {
-    THROW_ARANGO_EXCEPTION_MESSAGE(TRI_ERROR_BAD_PARAMETER, "Failed to create global vertex accumulator.");
+    THROW_ARANGO_EXCEPTION_MESSAGE(
+        TRI_ERROR_BAD_PARAMETER, "Failed to create global vertex accumulator.");
   }
 }
 
@@ -47,7 +48,7 @@ void VertexAccumulatorAggregator::parseAggregate(arangodb::velocypack::Slice con
   accumulator->setBySlice(slice);
 }
 
-void const* VertexAccumulatorAggregator::getAggregatedValue() const  {
+void const* VertexAccumulatorAggregator::getAggregatedValue() const {
   LOG_DEVEL << "VertexAccumulatorAggregator::getAggregatedValue";
   return accumulator->getValuePointer();
 }
