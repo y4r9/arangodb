@@ -35,6 +35,9 @@ MasterContext::MasterContext(VertexAccumulators const* algorithm)
 
   _airMachine.setFunctionMember("goto-phase", &MasterContext::air_GotoPhase, this);
   _airMachine.setFunctionMember("finish", &MasterContext::air_Finish, this);
+  _airMachine.setFunction("vertex-count", &MasterContext::air_VertexCount, this);
+  _airMachine.setFunction("accum-ref", &MasterContext::air_AccumRef, this);
+  _airMachine.setFunction("accum-set!", &MasterContext::air_AccumSet, this);
 }
 
 greenspun::EvalResult MasterContext::air_GotoPhase(greenspun::Machine& ctx,
@@ -46,7 +49,9 @@ greenspun::EvalResult MasterContext::air_GotoPhase(greenspun::Machine& ctx,
       if (!gotoPhase(v.stringView())) {
         return greenspun::EvalError("Unknown phase `" +
                                     std::string{v.stringView()} + "`");
-      };
+      } else {
+        return {};
+      }
     }
   }
 
@@ -140,8 +145,8 @@ MasterContext::ContinuationResult MasterContext::postGlobalSuperstep(bool allVer
     auto res = greenspun::Evaluate(_airMachine, phase.onHalt.slice(), onHaltResult);
     if (res.fail()) {
       LOG_TOPIC("ac23e", ERR, Logger::PREGEL)
-        << "onHalt program of phase `" << phase.name <<
-        "` returned and error: " << res.error().toString();
+          << "onHalt program of phase `" << phase.name
+          << "` returned and error: " << res.error().toString();
       return ContinuationResult::ABORT;
     }
 
@@ -167,10 +172,6 @@ MasterContext::ContinuationResult MasterContext::postGlobalSuperstep(bool allVer
     aggregate<uint64_t>("phase-first-step", globalSuperstep() + 1);
     return ContinuationResult::ACTIVATE_ALL;
   }
-  // the phase is done, evalute the onHalt program for this phase
-  // and look at the return value.
-
-  return ContinuationResult::ABORT;
 }
 
 }  // namespace arangodb::pregel::algos::accumulators

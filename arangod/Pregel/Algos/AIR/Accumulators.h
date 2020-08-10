@@ -26,9 +26,7 @@
 
 #ifndef ARANGODB_PREGEL_ALGOS_VERTEX_ACCUMULATORS_ACCUMULATORS_H
 #define ARANGODB_PREGEL_ALGOS_VERTEX_ACCUMULATORS_ACCUMULATORS_H 1
-
 #include <iostream>
-
 #include <velocypack/Builder.h>
 #include <velocypack/Iterator.h>
 #include "AbstractAccumulator.h"
@@ -215,6 +213,7 @@ class ListAccumulator<VPackSlice> : public Accumulator<VPackSlice> {
       }
     }
   }
+
   const void* getValuePointer() const override {
     return &_list;
   }
