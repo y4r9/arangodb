@@ -35,9 +35,9 @@ MasterContext::MasterContext(VertexAccumulators const* algorithm)
 
   _airMachine.setFunctionMember("goto-phase", &MasterContext::air_GotoPhase, this);
   _airMachine.setFunctionMember("finish", &MasterContext::air_Finish, this);
-  _airMachine.setFunction("vertex-count", &MasterContext::air_VertexCount, this);
-  _airMachine.setFunction("accum-ref", &MasterContext::air_AccumRef, this);
-  _airMachine.setFunction("accum-set!", &MasterContext::air_AccumSet, this);
+  _airMachine.setFunctionMember("vertex-count", &MasterContext::air_VertexCount, this);
+  _airMachine.setFunctionMember("accum-ref", &MasterContext::air_AccumRef, this);
+  _airMachine.setFunctionMember("accum-set!", &MasterContext::air_AccumSet, this);
 }
 
 greenspun::EvalResult MasterContext::air_GotoPhase(greenspun::Machine& ctx,
