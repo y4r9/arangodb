@@ -270,6 +270,7 @@ set(LIB_ARANGO_AQL_SOURCES
   Aql/DocumentIndexExpressionContext.cpp
   Aql/DocumentProducingHelper.cpp
   Aql/DocumentProducingNode.cpp
+  Aql/ClusterQuery.cpp
   Aql/EngineInfoContainerCoordinator.cpp
   Aql/EngineInfoContainerDBServerServerBased.cpp
   Aql/EnumerateCollectionExecutor.cpp
@@ -395,8 +396,10 @@ set(LIB_ARANGO_VOCBASE_SOURCES
   Utils/CursorRepository.cpp
   Utils/DatabaseGuard.cpp
   Utils/SingleCollectionTransaction.cpp
+  VocBase/Identifiers/DataSourceId.cpp
   VocBase/Identifiers/IndexId.cpp
   VocBase/Identifiers/LocalDocumentId.cpp
+  VocBase/Identifiers/RevisionId.cpp
   VocBase/Identifiers/ServerId.cpp
   VocBase/Identifiers/TransactionId.cpp
   VocBase/KeyGenerator.cpp
@@ -914,6 +917,7 @@ target_link_libraries(arango_pregel boost_system)
 
 target_link_libraries(arango_replication arango_storage_engine)
 target_link_libraries(arango_replication arango_utils)
+target_link_libraries(arango_replication arango_vocbase)
 
 target_link_libraries(arango_rocksdb ${ROCKSDB_LIBS})
 target_link_libraries(arango_rocksdb arango_cache)
