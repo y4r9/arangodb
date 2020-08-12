@@ -61,6 +61,7 @@ QueryRegistryFeature::QueryRegistryFeature(application_features::ApplicationServ
       _queryCacheMaxResultsSize(0),
       _queryCacheMaxEntrySize(0),
       _maxParallelism(4),
+      _maxConstrainedHeapPreallocation(1000000),
       _slowQueryThreshold(10.0),
       _slowStreamingQueryThreshold(10.0),
       _queryRegistryTTL(0.0),
@@ -141,7 +142,17 @@ void QueryRegistryFeature::collectOptions(std::shared_ptr<ProgramOptions> option
                      "single-server instances or 600 for cluster instances",
                      new DoubleParameter(&_queryRegistryTTL),
                      arangodb::options::makeDefaultFlags(arangodb::options::Flags::Hidden));
-  
+
+  options
+      ->addOption("--query.max-constrained-heap-preallocation",
+                  "maximum number of elements to preallocate when using "
+                  "constrained heap sorting",
+                  new UInt64Parameter(&_maxConstrainedHeapPreallocation),
+                  arangodb::options::makeDefaultFlags(arangodb::options::Flags::Hidden))
+      .setIntroducedIn(30506)
+      .setIntroducedIn(30606)
+      .setIntroducedIn(30702);
+
 #ifdef USE_ENTERPRISE
   options->addOption("--query.smart-joins",
                      "enable SmartJoins query optimization",
@@ -232,6 +243,10 @@ void QueryRegistryFeature::stop() {
 void QueryRegistryFeature::unprepare() {
   // clear the query registery
   QUERY_REGISTRY.store(nullptr, std::memory_order_release);
+}
+
+uint64_t QueryRegistryFeature::maxConstrainedHeapPreallocation() const noexcept {
+  return _maxConstrainedHeapPreallocation;
 }
 
 }  // namespace arangodb

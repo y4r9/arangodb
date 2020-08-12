@@ -158,7 +158,7 @@ ConstrainedSortExecutor::ConstrainedSortExecutor(Fetcher& fetcher, SortExecutorI
       _regsToKeep(initRegsToKeep(_infos.numberOfOutputRegisters())),
       _heapOutputRow{_heapBuffer, _outputRegister, _regsToKeep, _infos.registersToClear()} {
   TRI_ASSERT(_infos.limit() > 0);
-  _rows.reserve(infos.limit());
+  _rows.reserve(std::min(infos.limit(), infos.maxHeapPreallocation()));
   _cmpHeap->setBuffer(_heapBuffer.get());
 }
 

@@ -41,6 +41,7 @@
 #include "Aql/SortRegister.h"
 #include "Aql/Stats.h"
 #include "Aql/Variable.h"
+#include "RestServer/QueryRegistryFeature.h"
 #include "Transaction/Context.h"
 #include "Transaction/Methods.h"
 
@@ -79,12 +80,13 @@ class SortExecutorTest : public AqlExecutorTestCaseWithParam<SortInputParam> {
     SortRegister sortReg{0, sl};
     std::vector<SortRegister> sortRegisters;
     sortRegisters.emplace_back(std::move(sortReg));
-    return SortExecutorInfos(1, 1, {}, std::move(sortRegisters),
+    return SortExecutorInfos(featureMock.get(), 1, 1, {}, std::move(sortRegisters),
                              /*limit (ignored for default sort)*/ 0, manager(),
                              vpackOptions, false);
   }
 
  private:
+  fakeit::Mock<arangodb::QueryRegistryFeature> featureMock;
   velocypack::Options const* vpackOptions{&velocypack::Options::Defaults};
   Variable sortVar{"mySortVar", 0, false};
 };

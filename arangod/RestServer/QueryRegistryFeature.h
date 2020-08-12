@@ -28,7 +28,7 @@
 
 namespace arangodb {
 
-class QueryRegistryFeature final : public application_features::ApplicationFeature {
+class QueryRegistryFeature : public application_features::ApplicationFeature {
  public:
   static aql::QueryRegistry* registry() {
     return QUERY_REGISTRY.load(std::memory_order_acquire);
@@ -59,6 +59,7 @@ class QueryRegistryFeature final : public application_features::ApplicationFeatu
   uint64_t maxQueryPlans() const { return _maxQueryPlans; }
   aql::QueryRegistry* queryRegistry() const { return _queryRegistry.get(); }
   uint64_t maxParallelism() const { return _maxParallelism; }
+  uint64_t maxConstrainedHeapPreallocation() const noexcept;
 
  private:
   bool _trackSlowQueries;
@@ -75,6 +76,7 @@ class QueryRegistryFeature final : public application_features::ApplicationFeatu
   uint64_t _queryCacheMaxResultsSize;
   uint64_t _queryCacheMaxEntrySize;
   uint64_t _maxParallelism;
+  uint64_t _maxConstrainedHeapPreallocation;
   double _slowQueryThreshold;
   double _slowStreamingQueryThreshold;
   double _queryRegistryTTL;

@@ -37,6 +37,7 @@
 #include "Aql/WalkerWorker.h"
 #include "Basics/StringBuffer.h"
 #include "Basics/VelocyPackHelper.h"
+#include "RestServer/QueryRegistryFeature.h"
 #include "Transaction/Context.h"
 #include "Transaction/Methods.h"
 
@@ -230,6 +231,8 @@ std::unique_ptr<ExecutionBlock> SortNode::createBlock(
     ExecutionEngine& engine, std::unordered_map<ExecutionNode*, ExecutionBlock*> const&) const {
   ExecutionNode const* previousNode = getFirstDependency();
   TRI_ASSERT(previousNode != nullptr);
+  auto& server = engine.getQuery().vocbase().server();
+  auto& feature = server.getFeature<QueryRegistryFeature>();
 
   std::vector<SortRegister> sortRegs;
   auto inputRegs = RegIdSet{};
@@ -242,12 +245,11 @@ std::unique_ptr<ExecutionBlock> SortNode::createBlock(
   }
   auto registerInfos = createRegisterInfos(std::move(inputRegs), {});
   auto executorInfos =
-      SortExecutorInfos(registerInfos.numberOfInputRegisters(),
+      SortExecutorInfos(feature, registerInfos.numberOfInputRegisters(),
                         registerInfos.numberOfOutputRegisters(),
                         registerInfos.registersToClear(), std::move(sortRegs),
                         _limit, engine.itemBlockManager(),
-                        &engine.getQuery().vpackOptions(),
-                        _stable);
+                        &engine.getQuery().vpackOptions(), _stable);
   if (sorterType() == SorterType::Standard) {
     return std::make_unique<ExecutionBlockImpl<SortExecutor>>(&engine, this,
                                                               std::move(registerInfos),

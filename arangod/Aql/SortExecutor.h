@@ -39,6 +39,7 @@ namespace arangodb {
 namespace transaction {
 class Methods;
 }
+class QueryRegistryFeature;
 
 namespace aql {
 
@@ -53,8 +54,8 @@ struct SortRegister;
 
 class SortExecutorInfos {
  public:
-  SortExecutorInfos(RegisterCount nrInputRegisters, RegisterCount nrOutputRegisters,
-                    RegIdFlatSet const& registersToClear,
+  SortExecutorInfos(QueryRegistryFeature& feature, RegisterCount nrInputRegisters,
+                    RegisterCount nrOutputRegisters, RegIdFlatSet const& registersToClear,
                     std::vector<SortRegister> sortRegisters, std::size_t limit,
                     AqlItemBlockManager& manager,
                     velocypack::Options const* options, bool stable);
@@ -80,7 +81,10 @@ class SortExecutorInfos {
 
   [[nodiscard]] AqlItemBlockManager& itemBlockManager() noexcept;
 
+  [[nodiscard]] std::uint64_t maxHeapPreallocation() const noexcept;
+
  private:
+  QueryRegistryFeature& _feature;
   RegisterCount _numInRegs;
   RegisterCount _numOutRegs;
   RegIdFlatSet _registersToClear;

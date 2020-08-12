@@ -28,6 +28,7 @@
 #include "Aql/OutputAqlItemRow.h"
 #include "Aql/SortRegister.h"
 #include "Aql/Stats.h"
+#include "RestServer/QueryRegistryFeature.h"
 
 #include <Logger/LogMacros.h>
 #include <algorithm>
@@ -71,13 +72,14 @@ class OurLessThan {
 
 }  // namespace
 
-SortExecutorInfos::SortExecutorInfos(RegisterCount nrInputRegisters,
+SortExecutorInfos::SortExecutorInfos(QueryRegistryFeature& feature, RegisterCount nrInputRegisters,
                                      RegisterCount nrOutputRegisters,
                                      RegIdFlatSet const& registersToClear,
                                      std::vector<SortRegister> sortRegisters,
                                      std::size_t limit, AqlItemBlockManager& manager,
                                      velocypack::Options const* options, bool stable)
-    : _numInRegs(nrInputRegisters),
+    : _feature(feature),
+      _numInRegs(nrInputRegisters),
       _numOutRegs(nrOutputRegisters),
       _registersToClear(registersToClear.begin(), registersToClear.end()),
       _limit(limit),
@@ -112,6 +114,10 @@ size_t SortExecutorInfos::limit() const noexcept { return _limit; }
 
 AqlItemBlockManager& SortExecutorInfos::itemBlockManager() noexcept {
   return _manager;
+}
+
+std::uint64_t SortExecutorInfos::maxHeapPreallocation() const noexcept {
+  return _feature.maxConstrainedHeapPreallocation();
 }
 
 SortExecutor::SortExecutor(Fetcher&, SortExecutorInfos& infos)
