@@ -40,7 +40,7 @@ using VelocyPackHelper = arangodb::basics::VelocyPackHelper;
 
 /// @brief create the block
 AqlItemBlock::AqlItemBlock(AqlItemBlockManager& manager, size_t nrItems, RegisterId nrRegs)
-    : _nrItems(nrItems), _nrRegs(nrRegs), _manager(manager), _refCount(0) {
+    : _nrItems(nrItems), _nrRegs(nrRegs), _nrEffectiveRows(0), _manager(manager), _refCount(0) {
   TRI_ASSERT(nrItems > 0);  // empty AqlItemBlocks are not allowed!
 
   if (nrRegs > 0) {
@@ -242,7 +242,9 @@ void AqlItemBlock::destroy() noexcept {
       return;
     }
 
-    for (size_t i = 0; i < numEntries(); i++) {
+    size_t totalUsage = 0;
+    size_t const maxEntries = numEffectiveEntries();
+    for (size_t i = 0; i < maxEntries; i++) {
       auto &it = _data[i];
       if (it.requiresDestruction()) {
         auto it2 = _valueCount.find(it);
@@ -250,7 +252,7 @@ void AqlItemBlock::destroy() noexcept {
           TRI_ASSERT((*it2).second > 0);
 
           if (--((*it2).second) == 0) {
-            decreaseMemoryUsage(it.memoryUsage());
+            totalUsage += it.memoryUsage();
             it.destroy();
             _valueCount.erase(it2);
           }
@@ -260,6 +262,7 @@ void AqlItemBlock::destroy() noexcept {
       it.erase();
     }
     _valueCount.clear();
+    decreaseMemoryUsage(totalUsage);
 
     rescale(0, 0);
   } catch (...) {
@@ -285,12 +288,13 @@ void AqlItemBlock::shrink(size_t nrItems) {
                                    "cannot use shrink() to increase block");
   }
 
-  decreaseMemoryUsage(sizeof(AqlValue) * (_nrItems - nrItems) * _nrRegs);
+  size_t totalUsage = (sizeof(AqlValue) * (_nrItems - nrItems) * _nrRegs);
 
   // adjust the size of the block
   _nrItems = nrItems;
+  size_t const maxEntries = numEffectiveEntries();
   
-  for (size_t i = _nrItems * _nrRegs; i < _data.size(); ++i) {
+  for (size_t i = _nrItems * _nrRegs; i < maxEntries; ++i) {
     AqlValue& a = _data[i];
     if (a.requiresDestruction()) {
       auto it = _valueCount.find(a);
@@ -299,7 +303,7 @@ void AqlItemBlock::shrink(size_t nrItems) {
         TRI_ASSERT((*it).second > 0);
 
         if (--((*it).second) == 0) {
-          decreaseMemoryUsage(a.memoryUsage());
+          totalUsage += a.memoryUsage();
           a.destroy();
           try {
             _valueCount.erase(it);
@@ -311,6 +315,8 @@ void AqlItemBlock::shrink(size_t nrItems) {
     }
     a.erase();
   }
+
+  decreaseMemoryUsage(totalUsage);
 }
 
 void AqlItemBlock::rescale(size_t nrItems, RegisterId nrRegs) {
@@ -349,12 +355,15 @@ void AqlItemBlock::rescale(size_t nrItems, RegisterId nrRegs) {
 
   _nrItems = nrItems;
   _nrRegs = nrRegs;
+  _nrEffectiveRows = std::min<size_t>(_nrEffectiveRows, _nrItems);
 }
 
 /// @brief clears out some columns (registers), this deletes the values if
 /// necessary, using the reference count.
 void AqlItemBlock::clearRegisters(std::unordered_set<RegisterId> const& toClear) {
-  for (size_t i = 0; i < _nrItems; i++) {
+  size_t totalUsage = 0;
+
+  for (size_t i = 0; i < _nrEffectiveRows; i++) {
     for (auto const& reg : toClear) {
       AqlValue& a(_data[_nrRegs * i + reg]);
 
@@ -365,7 +374,7 @@ void AqlItemBlock::clearRegisters(std::unordered_set<RegisterId> const& toClear)
           TRI_ASSERT((*it).second > 0);
 
           if (--((*it).second) == 0) {
-            decreaseMemoryUsage(a.memoryUsage());
+            totalUsage += a.memoryUsage();
             a.destroy();
             try {
               _valueCount.erase(it);
@@ -378,6 +387,8 @@ void AqlItemBlock::clearRegisters(std::unordered_set<RegisterId> const& toClear)
       a.erase();
     }
   }
+
+  decreaseMemoryUsage(totalUsage);
 }
 
 /// @brief slice/clone, this does a deep copy of all entries
@@ -388,6 +399,7 @@ SharedAqlItemBlockPtr AqlItemBlock::slice(size_t from, size_t to) const {
   cache.reserve((to - from) * _nrRegs / 4 + 1);
 
   SharedAqlItemBlockPtr res{_manager.requestBlock(to - from, _nrRegs)};
+  to = std::min<size_t>(to, _nrEffectiveRows);
 
   for (size_t row = from; row < to; row++) {
     for (RegisterId col = 0; col < _nrRegs; col++) {
@@ -472,6 +484,7 @@ SharedAqlItemBlockPtr AqlItemBlock::slice(std::vector<size_t> const& chosen,
   cache.reserve((to - from) * _nrRegs / 4 + 1);
 
   SharedAqlItemBlockPtr res{_manager.requestBlock(to - from, _nrRegs)};
+  to = std::min<size_t>(to, _nrEffectiveRows);
 
   for (size_t row = from; row < to; row++) {
     for (RegisterId col = 0; col < _nrRegs; col++) {
@@ -514,6 +527,7 @@ SharedAqlItemBlockPtr AqlItemBlock::steal(std::vector<size_t> const& chosen,
   TRI_ASSERT(from < to && to <= chosen.size());
 
   SharedAqlItemBlockPtr res{_manager.requestBlock(to - from, _nrRegs)};
+  to = std::min<size_t>(to, _nrEffectiveRows);
 
   for (size_t row = from; row < to; row++) {
     for (RegisterId col = 0; col < _nrRegs; col++) {

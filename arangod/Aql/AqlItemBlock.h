@@ -124,6 +124,7 @@ class AqlItemBlock {
     }
 
     _data[index * _nrRegs + varNr] = value;
+    _nrEffectiveRows = std::max<size_t>(_nrEffectiveRows, index + 1);
   }
 
   /// @brief emplaceValue, set the current value of a register, constructing
@@ -162,6 +163,8 @@ class AqlItemBlock {
       _data[index * _nrRegs + varNr].destroy();
       throw;
     }
+    
+    _nrEffectiveRows = std::max<size_t>(_nrEffectiveRows, index + 1);
   }
 
   /// @brief eraseValue, erase the current value of a register and freeing it
@@ -213,18 +216,21 @@ class AqlItemBlock {
   /// them. this is used if the value is stolen and later released from
   /// elsewhere
   void eraseAll() {
-    for (size_t i = 0; i < numEntries(); i++) {
+    size_t const maxEntries = numEffectiveEntries();
+    for (size_t i = 0; i < maxEntries; i++) {
       auto &it = _data[i];
       if (!it.isEmpty()) {
         it.erase();
       }
     }
 
+    size_t totalUsage = 0;
     for (auto const& it : _valueCount) {
       if (it.second > 0) {
-        decreaseMemoryUsage(it.first.memoryUsage());
+        totalUsage += it.first.memoryUsage();
       }
     }
+    decreaseMemoryUsage(totalUsage);
     _valueCount.clear();
   }
 
@@ -357,6 +363,10 @@ class AqlItemBlock {
     TRI_ASSERT(_refCount > 0);
     --_refCount;
   }
+  
+  inline size_t numEffectiveEntries() const noexcept {
+    return _nrRegs * _nrEffectiveRows;
+  }
 
  private:
   /// @brief _data, the actual data as a single vector of dimensions _nrItems
@@ -376,6 +386,9 @@ class AqlItemBlock {
 
   /// @brief _nrRegs, number of columns
   RegisterId _nrRegs = 0;
+
+  /// @brief, index of the last effective (i.e. written to row)
+  size_t _nrEffectiveRows = 0;
 
   /// @brief manager for this item block
   AqlItemBlockManager& _manager;
