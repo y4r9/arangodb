@@ -73,7 +73,7 @@ class CountCollectExecutorTest
                          nrOutputRegisters, {}, toKeepRegisterSet);
   }
 
-  auto MakeSubqueryStartExecutorInfos() -> SubqueryStartExecutor::Infos {
+  auto MakeSubqueryStartExecutorInfos() -> SubqueryStartExecutor<false>::Infos {
     auto inputRegisterSet = RegIdSet{0};
     auto outputRegisterSet = RegIdSet{};
 
@@ -82,7 +82,7 @@ class CountCollectExecutorTest
     auto nrInputRegisters = static_cast<RegisterCount>(inputRegisterSet.size());
     auto nrOutputRegisters =
         static_cast<RegisterCount>(inputRegisterSet.size() + outputRegisterSet.size());
-    return SubqueryStartExecutor::Infos(inputRegisterSet, outputRegisterSet, nrInputRegisters,
+    return SubqueryStartExecutor<false>::Infos(inputRegisterSet, outputRegisterSet, nrInputRegisters,
                                         nrOutputRegisters, {}, toKeepRegisterSet);
   }
 
@@ -257,7 +257,7 @@ TEST_P(CountCollectExecutorTest, count_in_empty_subquery) {
   auto helper = makeExecutorTestHelper<1, 1>();
 
   helper
-      .addConsumer<SubqueryStartExecutor>(MakeSubqueryStartRegisterInfos(),
+      .addConsumer<SubqueryStartExecutor<false>>(MakeSubqueryStartRegisterInfos(),
                                           MakeSubqueryStartExecutorInfos(),
                                           ExecutionNode::SUBQUERY_START)
       .addConsumer<LambdaExe>(MakeRemoveAllLinesRegisterInfos(),
@@ -282,7 +282,7 @@ TEST_P(CountCollectExecutorTest, count_in_subquery) {
   auto helper = makeExecutorTestHelper<1, 1>();
 
   helper
-      .addConsumer<SubqueryStartExecutor>(MakeSubqueryStartRegisterInfos(),
+      .addConsumer<SubqueryStartExecutor<false>>(MakeSubqueryStartRegisterInfos(),
                                           MakeSubqueryStartExecutorInfos(),
                                           ExecutionNode::SUBQUERY_START)
       .addConsumer<CountCollectExecutor>(MakeCountCollectRegisterInfos(1),

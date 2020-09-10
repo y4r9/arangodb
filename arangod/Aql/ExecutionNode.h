@@ -809,7 +809,7 @@ class SubqueryNode : public ExecutionNode {
   SubqueryNode(ExecutionPlan*, arangodb::velocypack::Slice const& base);
 
   SubqueryNode(ExecutionPlan* plan, ExecutionNodeId id, ExecutionNode* subquery,
-               Variable const* outVariable);
+               Variable const* outVariable, bool isUpsertSearch = false);
 
   /// @brief return the type of the node
   NodeType getType() const override final;
@@ -860,6 +860,7 @@ class SubqueryNode : public ExecutionNode {
 
   bool isConst();
   bool mayAccessCollections();
+  bool isUpsertSearch() const;
 
  private:
   /// @brief we need to have an expression and where to write the result
@@ -867,6 +868,9 @@ class SubqueryNode : public ExecutionNode {
 
   /// @brief variable to write to
   Variable const* _outVariable;
+
+  /// @brief define if this is the search path of an upsert
+  bool const _isUpsertSearch;
 };
 
 /// @brief class FilterNode

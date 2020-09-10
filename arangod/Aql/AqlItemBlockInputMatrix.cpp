@@ -55,13 +55,11 @@ AqlItemBlockInputMatrix::AqlItemBlockInputMatrix(ExecutorState state, AqlItemMat
 }
 
 AqlItemBlockInputRange& AqlItemBlockInputMatrix::getInputRange() {
-  TRI_ASSERT(_aqlItemMatrix != nullptr);
-
   if (_lastRange.hasDataRow()) {
     return _lastRange;
   }
   // Need initialze lastRange
-  if (_aqlItemMatrix->numberOfBlocks() == 0) {
+  if (_aqlItemMatrix == nullptr || _aqlItemMatrix->numberOfBlocks() == 0) {
     _lastRange = {AqlItemBlockInputRange{upstreamState()}};
   } else {
     auto const [blockPtr, start] =  _aqlItemMatrix->getBlock(_currentBlockRowIndex);
@@ -108,6 +106,9 @@ bool AqlItemBlockInputMatrix::hasValidRow() const noexcept {
 bool AqlItemBlockInputMatrix::hasDataRow() const noexcept {
   if (_aqlItemMatrix == nullptr) {
     return false;
+  }
+  if (_lastRange.hasDataRow()) {
+    return true;
   }
   return (!_shadowRow.isInitialized() && _aqlItemMatrix->size() != 0);
 }

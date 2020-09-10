@@ -1224,7 +1224,7 @@ upsert_statement:
       scopes->endCurrent();
 
       std::string const subqueryName = parser->ast()->variables()->nextName();
-      auto subQuery = parser->ast()->createNodeLet(subqueryName.c_str(), subqueryName.size(), subqueryNode, false);
+      auto subQuery = parser->ast()->createNodeLet(subqueryName.c_str(), subqueryName.size(), subqueryNode, false, true);
       parser->ast()->addOperation(subQuery);
 
       auto index = parser->ast()->createNodeValueInt(0);

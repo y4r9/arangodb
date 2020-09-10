@@ -159,7 +159,7 @@ class Ast {
                              AstNode const* search, AstNode const* options);
 
   /// @brief create an AST let node, without an IF condition
-  AstNode* createNodeLet(char const*, size_t, AstNode const*, bool);
+  AstNode* createNodeLet(char const*, size_t, AstNode const*, bool, bool isUpsertSearch = false);
 
   /// @brief create an AST let node, without creating a variable
   AstNode* createNodeLet(AstNode const*, AstNode const*);

@@ -135,7 +135,7 @@ constexpr bool executorHasSideEffects =
                 ModificationExecutor<AllRowsFetcher, UpdateReplaceModifier>,
                 ModificationExecutor<SingleRowFetcher<BlockPassthrough::Disable>, UpdateReplaceModifier>,
                 ModificationExecutor<AllRowsFetcher, UpsertModifier>,
-                ModificationExecutor<SingleRowFetcher<BlockPassthrough::Disable>, UpsertModifier>, SubqueryExecutor<true>>;
+                ModificationExecutor<SingleRowFetcher<BlockPassthrough::Disable>, UpsertModifier>, SubqueryExecutor<true, false>>;
 
 template <class Executor>
 ExecutionBlockImpl<Executor>::ExecutionBlockImpl(ExecutionEngine* engine,
@@ -424,8 +424,8 @@ auto ExecutionBlockImpl<Executor>::allocateOutputBlock(AqlCall&& call, DataRange
         auto const numShadowRows = inputRange.countShadowRows();
 #ifdef ARANGODB_ENABLE_MAINTAINER_MODE
         // The executor cannot expect to produce more then the limit!
-        if constexpr (!std::is_same_v<Executor, SubqueryStartExecutor>) {
-          // Except the subqueryStartExecutor, it's limit differs
+        if constexpr (!is_one_of_v<Executor, SubqueryStartExecutor<false>,  SubqueryStartExecutor<true>>) {
+          // Except the SubqueryStartExecutor<false>, it's limit differs
           // from it's output (it needs to count the new ShadowRows in addition)
           // This however is only correct, as long as we are in no subquery context
           if (numShadowRows == 0) {
@@ -513,11 +513,11 @@ template <class Executor>
 static SkipRowsRangeVariant constexpr skipRowsType() {
   bool constexpr useFetcher =
       Executor::Properties::allowsBlockPassthrough == BlockPassthrough::Enable &&
-      !std::is_same_v<Executor, SubqueryExecutor<true>>;
+      !std::is_same_v<Executor, SubqueryExecutor<true, false>>;
 
   bool constexpr useExecutor = hasSkipRowsRange<Executor>::value;
 
-  static_assert(!std::is_same_v<Executor, SubqueryExecutor<true>> ||
+  static_assert(!std::is_same_v<Executor, SubqueryExecutor<true, false>> ||
                 hasSkipRowsRange<Executor>::value);
 
   // ConstFetcher and SingleRowFetcher<BlockPassthrough::Enable> can skip, but
@@ -525,7 +525,7 @@ static SkipRowsRangeVariant constexpr skipRowsType() {
   static_assert(useFetcher ==
                     (std::is_same_v<typename Executor::Fetcher, ConstFetcher> ||
                      (std::is_same_v<typename Executor::Fetcher, SingleRowFetcher<BlockPassthrough::Enable>> &&
-                      !std::is_same<Executor, SubqueryExecutor<true>>::value)),
+                      !std::is_same<Executor, SubqueryExecutor<true, false>>::value)),
                 "Unexpected fetcher for SkipVariants::FETCHER");
 
   static_assert(
@@ -534,7 +534,7 @@ static SkipRowsRangeVariant constexpr skipRowsType() {
               Executor, FilterExecutor, ShortestPathExecutor, ReturnExecutor, KShortestPathsExecutor, ParallelUnsortedGatherExecutor,
               IdExecutor<SingleRowFetcher<BlockPassthrough::Enable>>, IdExecutor<ConstFetcher>,
               HashedCollectExecutor, IndexExecutor, EnumerateCollectionExecutor, DistinctCollectExecutor,
-              ConstrainedSortExecutor, CountCollectExecutor, SubqueryExecutor<true>,
+              ConstrainedSortExecutor, CountCollectExecutor, SubqueryExecutor<true, false>, SubqueryExecutor<false, true>,
 #ifdef ARANGODB_USE_GOOGLE_TESTS
               TestLambdaSkipExecutor,
 #endif
@@ -545,9 +545,8 @@ static SkipRowsRangeVariant constexpr skipRowsType() {
               ModificationExecutor<AllRowsFetcher, UpdateReplaceModifier>,
               ModificationExecutor<SingleRowFetcher<BlockPassthrough::Disable>, UpdateReplaceModifier>,
               ModificationExecutor<AllRowsFetcher, UpsertModifier>,
-              ModificationExecutor<SingleRowFetcher<BlockPassthrough::Disable>, UpsertModifier>, TraversalExecutor,
-              EnumerateListExecutor, SubqueryStartExecutor, SubqueryEndExecutor, SortedCollectExecutor,
-              LimitExecutor, UnsortedGatherExecutor, SortingGatherExecutor, SortExecutor,
+              ModificationExecutor<SingleRowFetcher<BlockPassthrough::Disable>, UpsertModifier>,
+              UnsortedGatherExecutor, SortingGatherExecutor, SortExecutor,
               IResearchViewExecutor<false, arangodb::iresearch::MaterializeType::NotMaterialize>,
               IResearchViewExecutor<false, arangodb::iresearch::MaterializeType::LateMaterialize>,
               IResearchViewExecutor<false, arangodb::iresearch::MaterializeType::Materialize>,
@@ -568,7 +567,7 @@ static SkipRowsRangeVariant constexpr skipRowsType() {
               IResearchViewMergeExecutor<true, arangodb::iresearch::MaterializeType::Materialize>,
               IResearchViewMergeExecutor<true, arangodb::iresearch::MaterializeType::NotMaterialize | arangodb::iresearch::MaterializeType::UseStoredValues>,
               IResearchViewMergeExecutor<true, arangodb::iresearch::MaterializeType::LateMaterialize | arangodb::iresearch::MaterializeType::UseStoredValues>,
-              TraversalExecutor, EnumerateListExecutor, SubqueryStartExecutor, SubqueryEndExecutor, SortedCollectExecutor,
+              TraversalExecutor, EnumerateListExecutor, SubqueryStartExecutor<false>,  SubqueryStartExecutor<true>, SubqueryEndExecutor, SortedCollectExecutor,
               LimitExecutor, NoResultsExecutor, SingleRemoteModificationExecutor<IndexTag>, SingleRemoteModificationExecutor<Insert>,
               SingleRemoteModificationExecutor<Remove>, SingleRemoteModificationExecutor<Update>,
               SingleRemoteModificationExecutor<Replace>,
@@ -612,7 +611,8 @@ static auto fastForwardType(AqlCall const& call, Executor const& e) -> FastForwa
   }
   // TODO: We only need to do this if the executor is required to call.
   // e.g. Modifications and SubqueryStart will always need to be called. Limit only if it needs to report fullCount
-  if constexpr (is_one_of_v<Executor, LimitExecutor, SubqueryStartExecutor, SubqueryExecutor<true>> ||
+  if constexpr (is_one_of_v<Executor, LimitExecutor, SubqueryStartExecutor<false>,
+                            SubqueryStartExecutor<true>, SubqueryExecutor<true, false>> ||
                 executorHasSideEffects<Executor>) {
     return FastForwardVariant::EXECUTOR;
   }
@@ -661,23 +661,40 @@ auto ExecutionBlockImpl<Executor>::executeFetcher(AqlCallStack& stack,
     // which belongs to the subquery enclosed by this
     // SubqueryStart and the partnered SubqueryEnd by *not*
     // pushing the upstream request.
-    if constexpr (!std::is_same_v<Executor, SubqueryStartExecutor>) {
+    if constexpr (!is_one_of_v<Executor, SubqueryStartExecutor<false>, SubqueryStartExecutor<true>>) {
       stack.pushCall(createUpstreamCall(std::move(aqlCall), wasCalledWithContinueCall));
     }
 
-    auto const result = _rowFetcher.execute(stack);
+    if constexpr (std::is_same_v<Executor, SubqueryStartExecutor<true>>) {
+      TRI_ASSERT(stack.is36Compatible() || stack.subqueryLevel() > 0);
+      // This is the upsert Search, it is required to have a softLimit 1.
+      // However this softLimit 1 only refers to the Subquery we are starting here.
+      // We should overfetch everything from upstream, and we can actually overfetch outer subqueries,
+      // as the upsert is required to perform all operations, regardless of limits.
+      // So we inject a full produce call on this level.
+      AqlCallList upsertSearchCall = stack.popCall();
+      stack.pushCall(AqlCallList(AqlCall{}, AqlCall{}));
 
-    if constexpr (!std::is_same_v<Executor, SubqueryStartExecutor>) {
-      // As the stack is copied into the fetcher, we need to pop off our call
-      // again. If we use other datastructures or moving we may hand over
-      // ownership of the stack here instead and no popCall is necessary.
-      std::ignore = stack.popCall();
+      auto const result = _rowFetcher.execute(stack);
+
+      // Swap back, so we can work on the correct call again.
+      stack.popCall();
+      stack.pushCall(std::move(upsertSearchCall));
+      return result;
     } else {
-      // Do not pop the call, we did not put it on.
-      // However we need it for accounting later.
-    }
+      auto const result = _rowFetcher.execute(stack);
+      if constexpr (!is_one_of_v<Executor, SubqueryStartExecutor<false>, SubqueryStartExecutor<true>>) {
+        // As the stack is copied into the fetcher, we need to pop off our call
+        // again. If we use other datastructures or moving we may hand over
+        // ownership of the stack here instead and no popCall is necessary.
+        std::ignore = stack.popCall();
+      } else {
+        // Do not pop the call, we did not put it on.
+        // However we need it for accounting later.
+      }
 
-    return result;
+      return result;
+    }
   }
 }
 
@@ -688,7 +705,7 @@ auto ExecutionBlockImpl<Executor>::executeProduceRows(typename Fetcher::DataRang
   if constexpr (isMultiDepExecutor<Executor>) {
     TRI_ASSERT(input.numberDependencies() == _dependencies.size());
     return _executor.produceRows(input, output);
-  } else if constexpr (is_one_of_v<Executor, SubqueryExecutor<true>, SubqueryExecutor<false>>) {
+  } else if constexpr (is_one_of_v<Executor, SubqueryExecutor<true, false>, SubqueryExecutor<false, false>, SubqueryExecutor<false, true>>) {
     // The SubqueryExecutor has it's own special handling outside.
     // SO this code is in fact not reachable
     TRI_ASSERT(false);
@@ -714,7 +731,7 @@ auto ExecutionBlockImpl<Executor>::executeSkipRowsRange(typename Fetcher::DataRa
       auto res = _executor.skipRowsRange(inputRange, call);
       _executorReturnedDone = std::get<ExecutorState>(res) == ExecutorState::DONE;
       return res;
-    } else if constexpr (is_one_of_v<Executor, SubqueryExecutor<true>, SubqueryExecutor<false>>) {
+    } else if constexpr (is_one_of_v<Executor, SubqueryExecutor<true, false>, SubqueryExecutor<false, true>, SubqueryExecutor<false, false>>) {
       // The SubqueryExecutor has it's own special handling outside.
       // SO this code is in fact not reachable
       TRI_ASSERT(false);
@@ -743,63 +760,80 @@ auto ExecutionBlockImpl<Executor>::executeSkipRowsRange(typename Fetcher::DataRa
   THROW_ARANGO_EXCEPTION(TRI_ERROR_INTERNAL);
 }
 
-template <>
-auto ExecutionBlockImpl<SubqueryStartExecutor>::shadowRowForwarding(AqlCallStack& stack)
+template <class Executor>
+auto ExecutionBlockImpl<Executor>::subqueryStartShadowRowForwarding(AqlCallStack& stack)
     -> ExecState {
-  TRI_ASSERT(_outputItemRow);
-  TRI_ASSERT(_outputItemRow->isInitialized());
-  TRI_ASSERT(!_outputItemRow->allRowsUsed());
-  if (_lastRange.hasDataRow()) {
-    // If we have a dataRow, the executor needs to write it's output.
-    // If we get woken up by a dataRow during forwarding of ShadowRows
-    // This will return false, and if so we need to call produce instead.
-    auto didWrite = _executor.produceShadowRow(_lastRange, *_outputItemRow);
-    // The Subquery Start returns DONE after every row.
-    // This needs to be resetted as soon as a shadowRow has been produced
-    _executorReturnedDone = false;
-    // Need to report that we have written a row in the call
+  if constexpr (is_one_of_v<Executor, SubqueryStartExecutor<true>, SubqueryStartExecutor<false>>) {
+    TRI_ASSERT(_outputItemRow);
+    TRI_ASSERT(_outputItemRow->isInitialized());
+    TRI_ASSERT(!_outputItemRow->allRowsUsed());
 
-    if (didWrite) {
-      auto& subqueryCall = stack.modifyTopCall();
-      subqueryCall.didProduce(1);
+    bool hasDataRow = _lastRange.hasDataRow();
+    if (hasDataRow) {
+      // If we have a dataRow, the executor needs to write it's output.
+      // If we get woken up by a dataRow during forwarding of ShadowRows
+      // This will return false, and if so we need to call produce instead.
+      auto [state, didWrite] = _executor.produceShadowRow(_lastRange, *_outputItemRow);
+
+      if (ADB_LIKELY(state != ExecutorState::DONE)) {
+        // The Subquery Start returns DONE after every row.
+        // This needs to be resetted as soon as a shadowRow has been produced
+        // However this could as well be the last row we ever produce, so we can
+        // keep it if upstream range is DONE as well.
+        _executorReturnedDone = false;
+      }
+
+      // Need to report that we have written a row in the call
+
+      if (didWrite) {
+        auto& subqueryCall = stack.modifyTopCall();
+        subqueryCall.didProduce(1);
+        if (_lastRange.hasShadowRow()) {
+          // Forward the ShadowRows
+          return ExecState::SHADOWROWS;
+        }
+        return ExecState::NEXTSUBQUERY;
+      } else {
+        // Woken up after shadowRow forwarding
+        // Need to call the Executor
+        return ExecState::NEXTSUBQUERY;
+      }
+    } else {
+      // Need to forward the ShadowRows
+      auto&& [state, shadowRow] = _lastRange.nextShadowRow();
+      TRI_ASSERT(shadowRow.isInitialized());
+      _outputItemRow->increaseShadowRowDepth(shadowRow);
+      TRI_ASSERT(_outputItemRow->produced());
+      _outputItemRow->advanceRow();
+      // We have now moved a shadowRow, we do not know anything about the local executor state.
+      _executorReturnedDone = false;
+
+      // If we do not have more shadowRows
+      // we need to return.
+      auto& subqueryCallList = stack.modifyCallListAtDepth(shadowRow.getDepth());
+
+      if (!subqueryCallList.hasDefaultCalls()) {
+        return ExecState::DONE;
+      }
+
+      auto& subqueryCall = subqueryCallList.modifyNextCall();
+      if (subqueryCall.getLimit() == 0 && !subqueryCall.needSkipMore()) {
+        return ExecState::DONE;
+      }
+
+
       if (_lastRange.hasShadowRow()) {
-        // Forward the ShadowRows
         return ExecState::SHADOWROWS;
       }
+
+      _executorReturnedDone = false;
+
       return ExecState::NEXTSUBQUERY;
-    } else {
-      // Woken up after shadowRow forwarding
-      // Need to call the Executor
-      return ExecState::CHECKCALL;
     }
   } else {
-    // Need to forward the ShadowRows
-    auto&& [state, shadowRow] = _lastRange.nextShadowRow();
-    TRI_ASSERT(shadowRow.isInitialized());
-    _outputItemRow->increaseShadowRowDepth(shadowRow);
-    TRI_ASSERT(_outputItemRow->produced());
-    _outputItemRow->advanceRow();
-
-    if (_lastRange.hasShadowRow()) {
-      return ExecState::SHADOWROWS;
-    }
-    // If we do not have more shadowRows
-    // we need to return.
-
-    auto& subqueryCallList = stack.modifyCallListAtDepth(shadowRow.getDepth());
-
-    if (!subqueryCallList.hasDefaultCalls()) {
-      return ExecState::DONE;
-    }
-
-    auto& subqueryCall = subqueryCallList.modifyNextCall();
-    if (subqueryCall.getLimit() == 0 && !subqueryCall.needSkipMore()) {
-      return ExecState::DONE;
-    }
-
-    _executorReturnedDone = false;
-
-    return ExecState::NEXTSUBQUERY;
+    // Unreachable, the method is only called for SubqueryStart
+    TRI_ASSERT(false);
+    THROW_ARANGO_EXCEPTION(TRI_ERROR_NOT_IMPLEMENTED);
   }
 }
 
@@ -949,64 +983,68 @@ auto ExecutionBlockImpl<Executor>::shadowRowForwarding(AqlCallStack& stack) -> E
   TRI_ASSERT(_outputItemRow);
   TRI_ASSERT(_outputItemRow->isInitialized());
   TRI_ASSERT(!_outputItemRow->allRowsUsed());
-  if (!_lastRange.hasShadowRow()) {
-    // We got back without a ShadowRow in the LastRange
-    // Let us continue with the next Subquery
-    return ExecState::NEXTSUBQUERY;
-  }
-
-  auto&& [state, shadowRow] = _lastRange.nextShadowRow();
-  TRI_ASSERT(shadowRow.isInitialized());
-
-  // TODO FIXME WARNING THIS IS AN UGLY HACK. PLEASE SOLVE ME IN A MORE
-  // SENSIBLE WAY!
-  //
-  // the row fetcher doesn't know its ranges, the ranges don't know the fetcher
-  //
-  // ranges synchronize shadow rows, and fetcher synchronizes skipping
-  //
-  // but there are interactions between the two.
-  if constexpr (std::is_same_v<DataRange, MultiAqlItemBlockInputRange>) {
-    _rowFetcher.resetDidReturnSubquerySkips(shadowRow.getDepth());
-  }
-
-  countShadowRowProduced(stack, shadowRow.getDepth());
-  if (shadowRow.isRelevant()) {
-    LOG_QUERY("6d337", DEBUG) << printTypeInfo() << " init executor.";
-    // We found a relevant shadow Row.
-    // We need to reset the Executor
-    resetExecutor();
-  }
-
-  _outputItemRow->moveRow(shadowRow);
-  TRI_ASSERT(_outputItemRow->produced());
-  _outputItemRow->advanceRow();
-  if (state == ExecutorState::DONE) {
-    // We have consumed everything, we are
-    // Done with this query
-    return ExecState::DONE;
-  } else if (_lastRange.hasDataRow()) {
-    // Multiple concatenated Subqueries
-    return ExecState::NEXTSUBQUERY;
-  } else if (_lastRange.hasShadowRow()) {
-    // We still have shadowRows.
-    auto const& lookAheadRow = _lastRange.peekShadowRow();
-    if (lookAheadRow.isRelevant()) {
-      // We are starting the NextSubquery here.
-      if constexpr (Executor::Properties::allowsBlockPassthrough == BlockPassthrough::Enable) {
-        // TODO: Check if this works with skip forwarding
-        return ExecState::SHADOWROWS;
-      }
+  if constexpr (is_one_of_v<Executor, SubqueryStartExecutor<true>, SubqueryStartExecutor<false>>) {
+    return subqueryStartShadowRowForwarding(stack);
+  } else {
+    if (!_lastRange.hasShadowRow()) {
+      // We got back without a ShadowRow in the LastRange
+      // Let us continue with the next Subquery
       return ExecState::NEXTSUBQUERY;
     }
-    // we need to forward them
-    return ExecState::SHADOWROWS;
-  } else {
-    // End of input, need to fetch new!
-    // Just start with the next subquery.
-    // If in doubt the next row will be a shadowRow again,
-    // this will be forwarded than.
-    return ExecState::NEXTSUBQUERY;
+
+    auto&& [state, shadowRow] = _lastRange.nextShadowRow();
+    TRI_ASSERT(shadowRow.isInitialized());
+
+    // TODO FIXME WARNING THIS IS AN UGLY HACK. PLEASE SOLVE ME IN A MORE
+    // SENSIBLE WAY!
+    //
+    // the row fetcher doesn't know its ranges, the ranges don't know the fetcher
+    //
+    // ranges synchronize shadow rows, and fetcher synchronizes skipping
+    //
+    // but there are interactions between the two.
+    if constexpr (std::is_same_v<DataRange, MultiAqlItemBlockInputRange>) {
+      _rowFetcher.resetDidReturnSubquerySkips(shadowRow.getDepth());
+    }
+
+    countShadowRowProduced(stack, shadowRow.getDepth());
+    if (shadowRow.isRelevant()) {
+      LOG_QUERY("6d337", DEBUG) << printTypeInfo() << " init executor.";
+      // We found a relevant shadow Row.
+      // We need to reset the Executor
+      resetExecutor();
+    }
+
+    _outputItemRow->moveRow(shadowRow);
+    TRI_ASSERT(_outputItemRow->produced());
+    _outputItemRow->advanceRow();
+    if (state == ExecutorState::DONE) {
+      // We have consumed everything, we are
+      // Done with this query
+      return ExecState::DONE;
+    } else if (_lastRange.hasDataRow()) {
+      // Multiple concatenated Subqueries
+      return ExecState::NEXTSUBQUERY;
+    } else if (_lastRange.hasShadowRow()) {
+      // We still have shadowRows.
+      auto const& lookAheadRow = _lastRange.peekShadowRow();
+      if (lookAheadRow.isRelevant()) {
+        // We are starting the NextSubquery here.
+        if constexpr (Executor::Properties::allowsBlockPassthrough == BlockPassthrough::Enable) {
+          // TODO: Check if this works with skip forwarding
+          return ExecState::SHADOWROWS;
+        }
+        return ExecState::NEXTSUBQUERY;
+      }
+      // we need to forward them
+      return ExecState::SHADOWROWS;
+    } else {
+      // End of input, need to fetch new!
+      // Just start with the next subquery.
+      // If in doubt the next row will be a shadowRow again,
+      // this will be forwarded than.
+      return ExecState::NEXTSUBQUERY;
+    }
   }
 }
 
@@ -1020,7 +1058,7 @@ auto ExecutionBlockImpl<Executor>::executeFastForward(typename Fetcher::DataRang
       LOG_QUERY("cb135", DEBUG) << printTypeInfo() << " apply full count.";
       auto [state, stats, skippedLocal, call] = executeSkipRowsRange(_lastRange, clientCall);
 
-      if constexpr (is_one_of_v<DataRange, AqlItemBlockInputMatrix, MultiAqlItemBlockInputRange>) {
+      if constexpr (is_one_of_v<DataRange, AqlItemBlockInputMatrix, MultiAqlItemBlockInputRange> && !std::is_same_v<Executor, SubqueryStartExecutor<true>>) {
         // The executor will have used all Rows.
         // However we need to drop them from the input
         // here.
@@ -1037,7 +1075,7 @@ auto ExecutionBlockImpl<Executor>::executeFastForward(typename Fetcher::DataRang
       dummy.fullCount = true;
       auto [state, stats, skippedLocal, call] = executeSkipRowsRange(_lastRange, dummy);
 
-      if constexpr (is_one_of_v<DataRange, AqlItemBlockInputMatrix, MultiAqlItemBlockInputRange>) {
+      if constexpr (is_one_of_v<DataRange, AqlItemBlockInputMatrix, MultiAqlItemBlockInputRange> && !std::is_same_v<Executor, SubqueryStartExecutor<true>>) {
         // The executor will have used all Rows.
         // However we need to drop them from the input
         // here.
@@ -1153,6 +1191,7 @@ ExecutionBlockImpl<Executor>::executeWithoutTrace(AqlCallStack stack) {
   } else {
     clientCall = clientCallList.popNextCall();
   }
+
   // We got called with a skip count already set!
   // Caller is wrong fix it.
   TRI_ASSERT(clientCall.getSkipCount() == 0);
@@ -1162,7 +1201,7 @@ ExecutionBlockImpl<Executor>::executeWithoutTrace(AqlCallStack stack) {
   TRI_ASSERT(!(clientCall.getOffset() == 0 && clientCall.softLimit == AqlCall::Limit{0u}));
   TRI_ASSERT(!(clientCall.hasSoftLimit() && clientCall.fullCount));
   TRI_ASSERT(!(clientCall.hasSoftLimit() && clientCall.hasHardLimit()));
-  if constexpr (is_one_of_v<Executor, SubqueryExecutor<true>, SubqueryExecutor<false>>) {
+  if constexpr (is_one_of_v<Executor, SubqueryExecutor<true, false>, SubqueryExecutor<false, true>, SubqueryExecutor<false, false>>) {
     // The old subquery executor can in-fact return waiting on produce call.
     // if it needs to wait for the subquery.
     // So we need to allow the return state here as well.
@@ -1268,7 +1307,7 @@ ExecutionBlockImpl<Executor>::executeWithoutTrace(AqlCallStack stack) {
         typename Executor::Stats stats;
         size_t skippedLocal = 0;
         AqlCallType call{};
-        if constexpr (is_one_of_v<Executor, SubqueryExecutor<true>>) {
+        if constexpr (is_one_of_v<Executor, SubqueryExecutor<true, false>>) {
           TRI_DEFER(clientCall.resetSkipCount());
           // NOTE: The subquery Executor will by itself call EXECUTE on it's
           // subquery. This can return waiting => we can get a WAITING state
@@ -1353,7 +1392,7 @@ ExecutionBlockImpl<Executor>::executeWithoutTrace(AqlCallStack stack) {
         ExecutorState state = ExecutorState::HASMORE;
         typename Executor::Stats stats;
         auto call = AqlCallType{};
-        if constexpr (is_one_of_v<Executor, SubqueryExecutor<true>, SubqueryExecutor<false>>) {
+        if constexpr (is_one_of_v<Executor, SubqueryExecutor<true, false>, SubqueryExecutor<false, true>, SubqueryExecutor<false, false>>) {
           // NOTE: The subquery Executor will by itself call EXECUTE on it's
           // subquery. This can return waiting => we can get a WAITING state
           // here. We can only get the waiting state for SUbquery executors.
@@ -1418,7 +1457,7 @@ ExecutionBlockImpl<Executor>::executeWithoutTrace(AqlCallStack stack) {
         size_t skippedLocal = 0;
         AqlCallType call{};
 
-        if constexpr (is_one_of_v<Executor, SubqueryExecutor<true>>) {
+        if constexpr (is_one_of_v<Executor, SubqueryExecutor<true, false>>) {
           // NOTE: The subquery Executor will by itself call EXECUTE on it's
           // subquery. This can return waiting => we can get a WAITING state
           // here. We can only get the waiting state for Subquery executors.
@@ -1491,7 +1530,12 @@ ExecutionBlockImpl<Executor>::executeWithoutTrace(AqlCallStack stack) {
         std::tie(_upstreamState, skippedLocal, _lastRange) =
             executeFetcher(stack, _upstreamRequest, clientCallList.hasMoreCalls());
 #ifdef ARANGODB_ENABLE_MAINTAINER_MODE
-        TRI_ASSERT(subqueryLevelBefore == stack.subqueryLevel());
+        if constexpr (std::is_same_v<Executor, SubqueryStartExecutor<true>>) {
+          // We will modify the original call on top of the stack. so we might be 1 depth off here on compatibility mode.
+          TRI_ASSERT(stack.is36Compatible() || subqueryLevelBefore == stack.subqueryLevel());
+        } else {
+          TRI_ASSERT(subqueryLevelBefore == stack.subqueryLevel());
+        }
 #endif
 
         if (_upstreamState == ExecutionState::WAITING) {
@@ -1505,7 +1549,7 @@ ExecutionBlockImpl<Executor>::executeWithoutTrace(AqlCallStack stack) {
         }
 
         if (!skippedLocal.nothingSkipped()) {
-          if constexpr (std::is_same_v<Executor, SubqueryStartExecutor>) {
+          if constexpr (is_one_of_v<Executor, SubqueryStartExecutor<false>, SubqueryStartExecutor<true>>) {
             // In SubqueryStart the stack is exactly the same size as the skip result
             // from above, the call we work on is inside the subquery.
             // The stack is exactly what we send upstream, no added call on top.
@@ -1553,7 +1597,7 @@ ExecutionBlockImpl<Executor>::executeWithoutTrace(AqlCallStack stack) {
           _skipped.merge(skippedLocal, false);
           clientCall.didSkip(skippedLocal.getSkipCount());
           clientCall.resetSkipCount();
-        } else if constexpr (is_one_of_v<Executor, SubqueryStartExecutor, SubqueryEndExecutor>) {
+        } else if constexpr (is_one_of_v<Executor, SubqueryStartExecutor<false>, SubqueryStartExecutor<true>, SubqueryEndExecutor>) {
           // Subquery needs to include the topLevel Skip.
           // But does not need to apply the count to clientCall.
           _skipped.merge(skippedLocal, false);
@@ -1561,7 +1605,7 @@ ExecutionBlockImpl<Executor>::executeWithoutTrace(AqlCallStack stack) {
         } else {
           _skipped.merge(skippedLocal, true);
         }
-        if constexpr (std::is_same_v<Executor, SubqueryStartExecutor>) {
+        if constexpr (is_one_of_v<Executor, SubqueryStartExecutor<false>, SubqueryStartExecutor<true>>) {
           // For the subqueryStart, we need to increment the SkipLevel by one
           // as we may trigger this multiple times, check if we need to do it.
           while (_skipped.subqueryDepth() <= skippedLocal.subqueryDepth()) {
@@ -1622,7 +1666,7 @@ ExecutionBlockImpl<Executor>::executeWithoutTrace(AqlCallStack stack) {
         // For this executor the input of the next run will be injected and it can continue to work.
         LOG_QUERY("0ca35", DEBUG)
             << printTypeInfo() << " ShadowRows moved, continue with next subquery.";
-        if constexpr (std::is_same_v<Executor, SubqueryStartExecutor>) {
+        if constexpr (is_one_of_v<Executor, SubqueryStartExecutor<false>, SubqueryStartExecutor<false>>) {
           auto currentSubqueryCall = stack.peek();
           if (currentSubqueryCall.getLimit() == 0 && currentSubqueryCall.hasSoftLimit()) {
             // SoftLimitReached.
@@ -1690,13 +1734,13 @@ ExecutionBlockImpl<Executor>::executeWithoutTrace(AqlCallStack stack) {
       _lastRange.hasShadowRow()) {
     // We have skipped or/and return data, otherwise we cannot return HASMORE
     TRI_ASSERT(!skipped.nothingSkipped() ||
-               (outputBlock != nullptr && outputBlock->numEntries() > 0));
+               (outputBlock != nullptr && outputBlock->numRows() > 0));
     return {ExecutionState::HASMORE, skipped, std::move(outputBlock)};
   }
   // We must return skipped and/or data when reporting HASMORE
   TRI_ASSERT(_upstreamState != ExecutionState::HASMORE ||
              (!skipped.nothingSkipped() ||
-              (outputBlock != nullptr && outputBlock->numEntries() > 0)));
+              (outputBlock != nullptr && outputBlock->numRows() > 0)));
   return {_upstreamState, skipped, std::move(outputBlock)};
 }
 
@@ -1876,9 +1920,11 @@ template class ::arangodb::aql::ExecutionBlockImpl<KShortestPathsExecutor>;
 template class ::arangodb::aql::ExecutionBlockImpl<SortedCollectExecutor>;
 template class ::arangodb::aql::ExecutionBlockImpl<SortExecutor>;
 template class ::arangodb::aql::ExecutionBlockImpl<SubqueryEndExecutor>;
-template class ::arangodb::aql::ExecutionBlockImpl<SubqueryExecutor<true>>;
-template class ::arangodb::aql::ExecutionBlockImpl<SubqueryExecutor<false>>;
-template class ::arangodb::aql::ExecutionBlockImpl<SubqueryStartExecutor>;
+template class ::arangodb::aql::ExecutionBlockImpl<SubqueryExecutor<true, false>>;
+template class ::arangodb::aql::ExecutionBlockImpl<SubqueryExecutor<false, true>>;
+template class ::arangodb::aql::ExecutionBlockImpl<SubqueryExecutor<false, false>>;
+template class ::arangodb::aql::ExecutionBlockImpl<SubqueryStartExecutor<true>>;
+template class ::arangodb::aql::ExecutionBlockImpl<SubqueryStartExecutor<false>>;
 template class ::arangodb::aql::ExecutionBlockImpl<TraversalExecutor>;
 template class ::arangodb::aql::ExecutionBlockImpl<SortingGatherExecutor>;
 template class ::arangodb::aql::ExecutionBlockImpl<ParallelUnsortedGatherExecutor>;

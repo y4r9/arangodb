@@ -350,17 +350,20 @@ AstNode* Ast::createNodeForView(Variable* variable, AstNode const* expression,
 
 /// @brief create an AST let node, without an IF condition
 AstNode* Ast::createNodeLet(char const* variableName, size_t nameLength,
-                            AstNode const* expression, bool isUserDefinedVariable) {
+                            AstNode const* expression, bool isUserDefinedVariable,
+                            bool isUpsertSearch) {
   if (variableName == nullptr) {
     THROW_ARANGO_EXCEPTION(TRI_ERROR_OUT_OF_MEMORY);
   }
 
   AstNode* node = createNode(NODE_TYPE_LET);
-  node->reserve(2);
+  node->reserve(3);
 
   AstNode* variable = createNodeVariable(variableName, nameLength, isUserDefinedVariable);
   node->addMember(variable);
   node->addMember(expression);
+  node->addMember(createNodeValueBool(isUpsertSearch));
+  
 
   return node;
 }
@@ -2168,7 +2171,7 @@ void Ast::validateAndOptimize(transaction::Methods& trx) {
     // LET
     if (node->type == NODE_TYPE_LET) {
       // remember variable assignments
-      TRI_ASSERT(node->numMembers() == 2);
+      TRI_ASSERT(node->numMembers() >= 2);
       Variable const* variable =
           static_cast<Variable const*>(node->getMember(0)->getData());
       AstNode const* definition = node->getMember(1);

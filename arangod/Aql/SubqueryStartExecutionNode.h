@@ -39,8 +39,9 @@ class SubqueryStartNode : public ExecutionNode {
 
  public:
   SubqueryStartNode(ExecutionPlan*, arangodb::velocypack::Slice const& base);
-  SubqueryStartNode(ExecutionPlan* plan, ExecutionNodeId id, Variable const* subqueryOutVariable)
-      : ExecutionNode(plan, id), _subqueryOutVariable(subqueryOutVariable) {}
+  SubqueryStartNode(ExecutionPlan* plan, ExecutionNodeId id, Variable const* subqueryOutVariable,
+  bool isUpsertSearch)
+      : ExecutionNode(plan, id), _subqueryOutVariable(subqueryOutVariable), _isUpsertSearch(isUpsertSearch) {}
 
   CostEstimate estimateCost() const override final;
 
@@ -58,10 +59,17 @@ class SubqueryStartNode : public ExecutionNode {
 
   bool isEqualTo(ExecutionNode const& other) const override final;
 
+  bool isUpsertSearch() const;
+
  private:
   /// @brief This is only required for Explain output.
   ///        it has no practical usage other then to print this information during explain.
   Variable const* _subqueryOutVariable;
+
+  /// @brief Defines if this subquery belongs to an upsert search.
+  ///  if so it will be request to produce 1 document at most on this level, but it should
+  ///  instead fetch all rows from Upstream.
+  bool const _isUpsertSearch;
 };
 
 }  // namespace aql

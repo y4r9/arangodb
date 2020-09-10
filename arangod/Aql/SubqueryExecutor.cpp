@@ -22,6 +22,7 @@
 
 #include "SubqueryExecutor.h"
 
+#include "Aql/AllRowsFetcher.h"
 #include "Aql/AqlCallStack.h"
 #include "Aql/ExecutionBlock.h"
 #include "Aql/ExecutionNode.h"
@@ -41,9 +42,9 @@ SubqueryExecutorInfos::SubqueryExecutorInfos(ExecutionBlock& subQuery,
       _returnsData(subQuery.getPlanNode()->getType() == ExecutionNode::RETURN),
       _isConst(subqueryIsConst) {}
 
-template <bool isModificationSubquery>
-SubqueryExecutor<isModificationSubquery>::SubqueryExecutor(Fetcher& fetcher,
-                                                           SubqueryExecutorInfos& infos)
+template <bool isModificationSubquery, bool isUpsertSearch>
+SubqueryExecutor<isModificationSubquery, isUpsertSearch>::SubqueryExecutor(
+    Fetcher& fetcher, SubqueryExecutorInfos& infos)
     : _fetcher(fetcher),
       _infos(infos),
       _state(ExecutorState::HASMORE),
@@ -52,14 +53,26 @@ SubqueryExecutor<isModificationSubquery>::SubqueryExecutor(Fetcher& fetcher,
       _shutdownResult(TRI_ERROR_INTERNAL),
       _subquery(infos.getSubquery()),
       _subqueryResults(nullptr),
-      _input(CreateInvalidInputRowHint{}) {}
+      _input(CreateInvalidInputRowHint{}) {
+      }
 
-template <bool isModificationSubquery>
-auto SubqueryExecutor<isModificationSubquery>::initializeSubquery(AqlItemBlockInputRange& input)
+template <bool isModificationSubquery, bool isUpsertSearch>
+auto SubqueryExecutor<isModificationSubquery, isUpsertSearch>::initializeSubquery(typename Fetcher::DataRange& input)
     -> std::tuple<ExecutionState, bool> {
   // init new subquery
   if (!_input) {
-    std::tie(_state, _input) = input.nextDataRow();
+    if constexpr (std::is_same_v<typename Fetcher::DataRange, AqlItemBlockInputMatrix>) {
+      // The getInputRange may restart even if the last rangeState was done.
+      // The logic on all other places relies on Executor identifying when the input is consumed on
+      // the matrix.
+      if (_state != ExecutorState::DONE) {
+        auto& range = input.getInputRange();
+        std::tie(_state, _input) = range.nextDataRow();
+      }
+    } else {
+      std::tie(_state, _input) = input.nextDataRow();
+    }
+
     INTERNAL_LOG_SQ << uint64_t(this) << " nextDataRow: " << _state << " "
                  << _input.isInitialized();
     if (!_input) {
@@ -94,16 +107,16 @@ auto SubqueryExecutor<isModificationSubquery>::initializeSubquery(AqlItemBlockIn
  * In the case of DONE we write the result, and remove it from ongoing.
  * If we do not have a subquery ongoing, we fetch a row and we start a new Subquery and ask it for hasMore.
  */
-template <bool isModificationSubquery>
-auto SubqueryExecutor<isModificationSubquery>::produceRows(AqlItemBlockInputRange& input,
-                                                           OutputAqlItemRow& output)
+template <bool isModificationSubquery, bool isUpsertSearch>
+auto SubqueryExecutor<isModificationSubquery, isUpsertSearch>::produceRows(
+    typename Fetcher::DataRange& input, OutputAqlItemRow& output)
     -> std::tuple<ExecutionState, Stats, AqlCall> {
   // We need to return skip in skipRows before
   TRI_ASSERT(_skipped == 0);
 
   auto getUpstreamCall = [&]() {
     AqlCall upstreamCall = output.getClientCall();
-    if constexpr (isModificationSubquery) {
+    if constexpr (isModificationSubquery || isUpsertSearch) {
       upstreamCall = AqlCall{};
     }
 
@@ -180,8 +193,8 @@ auto SubqueryExecutor<isModificationSubquery>::produceRows(AqlItemBlockInputRang
   return {translatedReturnType(), NoStats{}, getUpstreamCall()};
 }
 
-template <bool isModificationSubquery>
-void SubqueryExecutor<isModificationSubquery>::writeOutput(OutputAqlItemRow& output) {
+template <bool isModificationSubquery, bool isUpsertSearch>
+void SubqueryExecutor<isModificationSubquery, isUpsertSearch>::writeOutput(OutputAqlItemRow& output) {
   _subqueryInitialized = false;
   TRI_IF_FAILURE("SubqueryBlock::getSome") {
     THROW_ARANGO_EXCEPTION(TRI_ERROR_DEBUG);
@@ -213,8 +226,8 @@ void SubqueryExecutor<isModificationSubquery>::writeOutput(OutputAqlItemRow& out
   output.advanceRow();
 }
 
-template <bool isModificationSubquery>
-auto SubqueryExecutor<isModificationSubquery>::translatedReturnType() const
+template <bool isModificationSubquery, bool isUpsertSearch>
+auto SubqueryExecutor<isModificationSubquery, isUpsertSearch>::translatedReturnType() const
     noexcept -> ExecutionState {
   if (_state == ExecutorState::DONE) {
     return ExecutionState::DONE;
@@ -224,7 +237,7 @@ auto SubqueryExecutor<isModificationSubquery>::translatedReturnType() const
 
 template <>
 template <>
-auto SubqueryExecutor<true>::skipRowsRange<>(AqlItemBlockInputRange& inputRange, AqlCall& call)
+auto SubqueryExecutor<true, false>::skipRowsRange<>(AqlItemBlockInputRange& inputRange, AqlCall& call)
     -> std::tuple<ExecutionState, Stats, size_t, AqlCall> {
   INTERNAL_LOG_SQ << uint64_t(this) << "skipRowsRange " << call;
 
@@ -292,8 +305,19 @@ auto SubqueryExecutor<true>::skipRowsRange<>(AqlItemBlockInputRange& inputRange,
   return {translatedReturnType(), NoStats{}, call.getSkipCount(), AqlCall{}};
 }
 
-template <bool isModificationSubquery>
-[[nodiscard]] auto SubqueryExecutor<isModificationSubquery>::expectedNumberOfRowsNew(
+
+
+template <>
+template <>
+auto SubqueryExecutor<false, true>::skipRowsRange<>(AqlItemBlockInputRange& inputRange, AqlCall& call)
+    -> std::tuple<ExecutionState, Stats, size_t, AqlCall> {
+      // The UPSERT can NEVER EVER call skip, it needs to decide what to do
+      TRI_ASSERT(false);
+      THROW_ARANGO_EXCEPTION(TRI_ERROR_NOT_IMPLEMENTED);
+}
+
+template <bool isModificationSubquery, bool isUpsertSearch>
+[[nodiscard]] auto SubqueryExecutor<isModificationSubquery, isUpsertSearch>::expectedNumberOfRowsNew(
     AqlItemBlockInputRange const& input, AqlCall const& call) const noexcept -> size_t {
   if constexpr (isModificationSubquery) {
     // This executor might skip data.
@@ -303,5 +327,6 @@ template <bool isModificationSubquery>
   return input.countDataRows();
 }
 
-template class ::arangodb::aql::SubqueryExecutor<true>;
-template class ::arangodb::aql::SubqueryExecutor<false>;
+template class ::arangodb::aql::SubqueryExecutor<true, false>;
+template class ::arangodb::aql::SubqueryExecutor<false, true>;
+template class ::arangodb::aql::SubqueryExecutor<false, false>;

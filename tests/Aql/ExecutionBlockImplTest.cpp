@@ -332,7 +332,7 @@ class ExecutionBlockImplExecuteSpecificTest : public SharedExecutionBlockImplTes
     RegIdFlatSetStack registersToKeep{regsToKeepProto, regsToKeepProto,
                                       regsToKeepProto, regsToKeepProto};
 
-    auto res = std::make_unique<ExecutionBlockImpl<SubqueryStartExecutor>>(
+    auto res = std::make_unique<ExecutionBlockImpl<SubqueryStartExecutor<false>>>(
         fakedQuery->rootEngine(), generateNodeDummy(),
         RegisterInfos{readableIn, writeableOut, nrRegs, nrRegs, registersToClear, registersToKeep},
         RegisterInfos{readableIn, writeableOut, nrRegs, nrRegs, registersToClear, registersToKeep});
@@ -1272,7 +1272,7 @@ class ExecutionBlockImplExecuteIntegrationTest
     }
     RegIdSetStack registersToKeep{readableIn, readableIn, readableIn};
 
-    auto res = std::make_unique<ExecutionBlockImpl<SubqueryStartExecutor>>(
+    auto res = std::make_unique<ExecutionBlockImpl<SubqueryStartExecutor<false>>>(
         fakedQuery->rootEngine(), generateNodeDummy(),
         RegisterInfos{readableIn, writeableOut, nrRegs, nrRegs, registersToClear, registersToKeep},
         RegisterInfos{readableIn, writeableOut, nrRegs, nrRegs, registersToClear, registersToKeep});

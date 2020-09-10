@@ -38,6 +38,7 @@ class NoStats;
 class OutputAqlItemRow;
 template <BlockPassthrough>
 class SingleRowFetcher;
+class AllRowsFetcher;
 
 class SubqueryExecutorInfos {
  public:
@@ -60,17 +61,17 @@ class SubqueryExecutorInfos {
   bool const _isConst;
 };
 
-template <bool isModificationSubquery>
+template <bool isModificationSubquery, bool isUpsertSearch>
 class SubqueryExecutor {
  public:
   struct Properties {
     static constexpr bool preservesOrder = true;
     static constexpr BlockPassthrough allowsBlockPassthrough =
-        isModificationSubquery ? BlockPassthrough::Disable : BlockPassthrough::Enable;
+        isModificationSubquery || isUpsertSearch ? BlockPassthrough::Disable : BlockPassthrough::Enable;
     static constexpr bool inputSizeRestrictsOutputSize = false;
   };
 
-  using Fetcher = SingleRowFetcher<Properties::allowsBlockPassthrough>;
+  using Fetcher = std::conditional_t<isUpsertSearch, AllRowsFetcher, SingleRowFetcher<Properties::allowsBlockPassthrough>>;
   using Infos = SubqueryExecutorInfos;
   using Stats = NoStats;
 
@@ -83,12 +84,12 @@ class SubqueryExecutor {
    * @return ExecutionState,
    *         if something was written output.hasValue() == true
    */
-  [[nodiscard]] auto produceRows(AqlItemBlockInputRange& input, OutputAqlItemRow& output)
+  [[nodiscard]] auto produceRows(typename Fetcher::DataRange& input, OutputAqlItemRow& output)
       -> std::tuple<ExecutionState, Stats, AqlCall>;
 
   // skipRowsRange <=> isModificationSubquery
 
-  template <bool E = isModificationSubquery, std::enable_if_t<E, int> = 0>
+  template <bool mod = isModificationSubquery, bool upsert = isUpsertSearch, typename = std::enable_if_t<mod || upsert>>
   auto skipRowsRange(AqlItemBlockInputRange& inputRange, AqlCall& call)
       -> std::tuple<ExecutionState, Stats, size_t, AqlCall>;
 
@@ -115,7 +116,7 @@ class SubqueryExecutor {
    * translatedReturnType())
    * bool flag if we have initialized the query, if not, we require more data.
    */
-  auto initializeSubquery(AqlItemBlockInputRange& input)
+  auto initializeSubquery(typename Fetcher::DataRange& input)
       -> std::tuple<ExecutionState, bool>;
 
   [[nodiscard]] auto expectedNumberOfRowsNew(AqlItemBlockInputRange const& input,

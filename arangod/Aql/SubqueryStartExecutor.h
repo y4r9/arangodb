@@ -23,6 +23,7 @@
 #ifndef ARANGOD_AQL_SUBQUERY_START_EXECUTOR_H
 #define ARANGOD_AQL_SUBQUERY_START_EXECUTOR_H
 
+#include "Aql/AllRowsFetcher.h"
 #include "Aql/AqlCall.h"
 #include "Aql/AqlItemBlockInputRange.h"
 #include "Aql/ExecutionState.h"
@@ -35,10 +36,12 @@ namespace aql {
 
 template <BlockPassthrough allowsPassThrough>
 class SingleRowFetcher;
+class AllRowsFetcher;
 class NoStats;
 class RegisterInfos;
 class OutputAqlItemRow;
 
+template <bool isUpsertSearch>
 class SubqueryStartExecutor {
  public:
   struct Properties {
@@ -47,7 +50,7 @@ class SubqueryStartExecutor {
     static constexpr bool inputSizeRestrictsOutputSize = true;
   };
 
-  using Fetcher = SingleRowFetcher<Properties::allowsBlockPassthrough>;
+  using Fetcher = std::conditional_t<isUpsertSearch, AllRowsFetcher, SingleRowFetcher<Properties::allowsBlockPassthrough>>;
   using Infos = RegisterInfos;
   using Stats = NoStats;
   SubqueryStartExecutor(Fetcher&, Infos& infos);
@@ -58,18 +61,18 @@ class SubqueryStartExecutor {
   // state as it can happen that after producing the copied data row the output
   // is full, and hence we need to return ExecutorState::HASMORE to be able to
   // produce the shadow row
-  [[nodiscard]] auto produceRows(AqlItemBlockInputRange& input, OutputAqlItemRow& output)
+  [[nodiscard]] auto produceRows(typename Fetcher::DataRange& input, OutputAqlItemRow& output)
       -> std::tuple<ExecutorState, Stats, AqlCall>;
 
   // skipRowsRange just skips input rows and reports how many rows it skipped
-  [[nodiscard]] auto skipRowsRange(AqlItemBlockInputRange& input, AqlCall& call)
+  [[nodiscard]] auto skipRowsRange(typename Fetcher::DataRange& input, AqlCall& call)
       -> std::tuple<ExecutorState, Stats, size_t, AqlCall>;
 
   // Produce a shadow row *if* we have either skipped or output a datarow
   // previously
-  auto produceShadowRow(AqlItemBlockInputRange& input, OutputAqlItemRow& output) -> bool;
+  auto produceShadowRow(typename Fetcher::DataRange& input, OutputAqlItemRow& output) -> std::pair<ExecutorState, bool>;
 
-  [[nodiscard]] auto expectedNumberOfRowsNew(AqlItemBlockInputRange const& input,
+  [[nodiscard]] auto expectedNumberOfRowsNew(typename Fetcher::DataRange const& input,
                                              AqlCall const& call) const noexcept -> size_t;
 
  private:

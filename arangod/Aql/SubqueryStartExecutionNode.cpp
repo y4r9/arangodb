@@ -22,6 +22,8 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include "Aql/SubqueryStartExecutionNode.h"
+
+#include "Aql/AllRowsFetcher.h"
 #include "Aql/Ast.h"
 #include "Aql/ExecutionBlock.h"
 #include "Aql/ExecutionBlockImpl.h"
@@ -33,6 +35,8 @@
 #include "Aql/SingleRowFetcher.h"
 #include "Aql/SubqueryStartExecutor.h"
 
+#include "Basics/VelocyPackHelper.h"
+
 #include <velocypack/Iterator.h>
 #include <velocypack/velocypack-aliases.h>
 
@@ -41,7 +45,8 @@ namespace aql {
 
 SubqueryStartNode::SubqueryStartNode(ExecutionPlan* plan,
                                      arangodb::velocypack::Slice const& base)
-    : ExecutionNode(plan, base), _subqueryOutVariable(nullptr) {
+    : ExecutionNode(plan, base), _subqueryOutVariable(nullptr),
+    _isUpsertSearch(basics::VelocyPackHelper::getBooleanValue(base, "isUpsertSearch", false)) {
   // On purpose exclude the _subqueryOutVariable
   // A query cannot be explained after nodes have been serialized and deserialized
 }
@@ -61,6 +66,7 @@ void SubqueryStartNode::toVelocyPackHelper(VPackBuilder& nodes, unsigned flags,
     nodes.add(VPackValue("subqueryOutVariable"));
     _subqueryOutVariable->toVelocyPack(nodes);
   }
+  nodes.add("isUpsertSearch", VPackValue(isUpsertSearch()));
   nodes.close();
 }
 
@@ -74,16 +80,20 @@ std::unique_ptr<ExecutionBlock> SubqueryStartNode::createBlock(
   auto outputRegisters = std::make_shared<std::unordered_set<RegisterId>>();
 
   auto registerInfos = createRegisterInfos({}, {});
-
   // On purpose exclude the _subqueryOutVariable
-  return std::make_unique<ExecutionBlockImpl<SubqueryStartExecutor>>(&engine, this, registerInfos,
+
+  if (isUpsertSearch()) {
+      return std::make_unique<ExecutionBlockImpl<SubqueryStartExecutor<true>>>(&engine, this, registerInfos,
+                                                                     RegisterInfos{registerInfos});
+  }
+  return std::make_unique<ExecutionBlockImpl<SubqueryStartExecutor<false>>>(&engine, this, registerInfos,
                                                                      RegisterInfos{registerInfos});
 }
 
 ExecutionNode* SubqueryStartNode::clone(ExecutionPlan* plan, bool withDependencies,
                                         bool withProperties) const {
   // On purpose exclude the _subqueryOutVariable
-  auto c = std::make_unique<SubqueryStartNode>(plan, _id, nullptr);
+  auto c = std::make_unique<SubqueryStartNode>(plan, _id, nullptr, isUpsertSearch());
   return cloneHelper(std::move(c), withDependencies, withProperties);
 }
 
@@ -93,6 +103,10 @@ bool SubqueryStartNode::isEqualTo(ExecutionNode const& other) const {
     return false;
   }
   return ExecutionNode::isEqualTo(other);
+}
+
+bool SubqueryStartNode::isUpsertSearch() const {
+  return _isUpsertSearch;
 }
 
 }  // namespace aql

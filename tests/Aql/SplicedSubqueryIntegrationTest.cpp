@@ -83,7 +83,7 @@ class SplicedSubqueryIntegrationTest
     return RegisterInfos(inputRegisterSet, outputRegisterSet, nrInputRegisters,
                          nrOutputRegisters, {}, toKeepRegisterSet);
   }
-  auto makeSubqueryStartExecutorInfos() -> SubqueryStartExecutor::Infos {
+  auto makeSubqueryStartExecutorInfos() -> SubqueryStartExecutor<false>::Infos {
     auto inputRegisterSet = RegIdSet{0};
     auto outputRegisterSet = RegIdSet{};
 
@@ -92,8 +92,9 @@ class SplicedSubqueryIntegrationTest
     auto nrInputRegisters = static_cast<RegisterCount>(inputRegisterSet.size());
     auto nrOutputRegisters =
         static_cast<RegisterCount>(inputRegisterSet.size() + outputRegisterSet.size());
-    return SubqueryStartExecutor::Infos(inputRegisterSet, outputRegisterSet, nrInputRegisters,
-                                        nrOutputRegisters, {}, toKeepRegisterSet);
+    return SubqueryStartExecutor<false>::Infos(inputRegisterSet, outputRegisterSet,
+                                               nrInputRegisters, nrOutputRegisters,
+                                               {}, toKeepRegisterSet);
   }
 
   auto makeSubqueryEndRegisterInfos(RegisterId inputRegister) -> RegisterInfos {
@@ -248,7 +249,7 @@ TEST_P(SplicedSubqueryIntegrationTest, single_subquery_empty_input) {
   auto call = AqlCall{};
 
   helper
-      .addConsumer<SubqueryStartExecutor>(makeSubqueryStartRegisterInfos(),
+      .addConsumer<SubqueryStartExecutor<false>>(makeSubqueryStartRegisterInfos(),
                                           makeSubqueryStartExecutorInfos(),
                                           ExecutionNode::SUBQUERY_START)
       .addConsumer<SubqueryEndExecutor>(makeSubqueryEndRegisterInfos(0),
@@ -268,7 +269,7 @@ TEST_P(SplicedSubqueryIntegrationTest, single_subquery) {
   auto call = AqlCall{};
 
   helper
-      .addConsumer<SubqueryStartExecutor>(makeSubqueryStartRegisterInfos(),
+      .addConsumer<SubqueryStartExecutor<false>>(makeSubqueryStartRegisterInfos(),
                                           makeSubqueryStartExecutorInfos(),
                                           ExecutionNode::SUBQUERY_START)
       .addConsumer<SubqueryEndExecutor>(makeSubqueryEndRegisterInfos(0),
@@ -295,7 +296,7 @@ TEST_P(SplicedSubqueryIntegrationTest, single_subquery_skip_and_produce) {
   auto call = AqlCall{5};
 
   helper
-      .addConsumer<SubqueryStartExecutor>(makeSubqueryStartRegisterInfos(),
+      .addConsumer<SubqueryStartExecutor<false>>(makeSubqueryStartRegisterInfos(),
                                           makeSubqueryStartExecutorInfos(),
                                           ExecutionNode::SUBQUERY_START)
       .addConsumer<SubqueryEndExecutor>(makeSubqueryEndRegisterInfos(0),
@@ -315,7 +316,7 @@ TEST_P(SplicedSubqueryIntegrationTest, single_subquery_skip_all) {
   auto call = AqlCall{20};
 
   helper
-      .addConsumer<SubqueryStartExecutor>(makeSubqueryStartRegisterInfos(),
+      .addConsumer<SubqueryStartExecutor<false>>(makeSubqueryStartRegisterInfos(),
                                           makeSubqueryStartExecutorInfos(),
                                           ExecutionNode::SUBQUERY_START)
       .addConsumer<SubqueryEndExecutor>(makeSubqueryEndRegisterInfos(0),
@@ -334,7 +335,7 @@ TEST_P(SplicedSubqueryIntegrationTest, single_subquery_fullcount) {
   auto helper = makeExecutorTestHelper<1, 2>();
   auto call = AqlCall{0, true, 0, AqlCall::LimitType::HARD};
   helper
-      .addConsumer<SubqueryStartExecutor>(makeSubqueryStartRegisterInfos(),
+      .addConsumer<SubqueryStartExecutor<false>>(makeSubqueryStartRegisterInfos(),
                                           makeSubqueryStartExecutorInfos(),
                                           ExecutionNode::SUBQUERY_START)
       .addConsumer<SubqueryEndExecutor>(makeSubqueryEndRegisterInfos(0),
@@ -355,7 +356,7 @@ TEST_P(SplicedSubqueryIntegrationTest, DISABLED_single_subquery_skip_produce_cou
   auto helper = makeExecutorTestHelper<1, 2>();
   auto call = AqlCall{2, true, 2, AqlCall::LimitType::HARD};
   helper
-      .addConsumer<SubqueryStartExecutor>(makeSubqueryStartRegisterInfos(),
+      .addConsumer<SubqueryStartExecutor<false>>(makeSubqueryStartRegisterInfos(),
                                           makeSubqueryStartExecutorInfos(),
                                           ExecutionNode::SUBQUERY_START)
       .addConsumer<SubqueryEndExecutor>(makeSubqueryEndRegisterInfos(0),
@@ -374,10 +375,10 @@ TEST_P(SplicedSubqueryIntegrationTest, two_nested_subqueries_empty_input) {
   auto helper = makeExecutorTestHelper<1, 1>();
   auto call = AqlCall{};
   helper
-      .addConsumer<SubqueryStartExecutor>(makeSubqueryStartRegisterInfos(),
+      .addConsumer<SubqueryStartExecutor<false>>(makeSubqueryStartRegisterInfos(),
                                           makeSubqueryStartExecutorInfos(),
                                           ExecutionNode::SUBQUERY_START)
-      .addConsumer<SubqueryStartExecutor>(makeSubqueryStartRegisterInfos(),
+      .addConsumer<SubqueryStartExecutor<false>>(makeSubqueryStartRegisterInfos(),
                                           makeSubqueryStartExecutorInfos(),
                                           ExecutionNode::SUBQUERY_START)
       .addConsumer<SubqueryEndExecutor>(makeSubqueryEndRegisterInfos(0),
@@ -399,10 +400,10 @@ TEST_P(SplicedSubqueryIntegrationTest, two_nested_subqueries) {
   auto helper = makeExecutorTestHelper<1, 1>();
   auto call = AqlCall{};
   helper
-      .addConsumer<SubqueryStartExecutor>(makeSubqueryStartRegisterInfos(),
+      .addConsumer<SubqueryStartExecutor<false>>(makeSubqueryStartRegisterInfos(),
                                           makeSubqueryStartExecutorInfos(),
                                           ExecutionNode::SUBQUERY_START)
-      .addConsumer<SubqueryStartExecutor>(makeSubqueryStartRegisterInfos(),
+      .addConsumer<SubqueryStartExecutor<false>>(makeSubqueryStartRegisterInfos(),
                                           makeSubqueryStartExecutorInfos(),
                                           ExecutionNode::SUBQUERY_START)
       .addConsumer<SubqueryEndExecutor>(makeSubqueryEndRegisterInfos(0),
@@ -424,13 +425,13 @@ TEST_P(SplicedSubqueryIntegrationTest, two_sequential_subqueries) {
   auto helper = makeExecutorTestHelper<1, 1>();
   auto call = AqlCall{};
   helper
-      .addConsumer<SubqueryStartExecutor>(makeSubqueryStartRegisterInfos(),
+      .addConsumer<SubqueryStartExecutor<false>>(makeSubqueryStartRegisterInfos(),
                                           makeSubqueryStartExecutorInfos(),
                                           ExecutionNode::SUBQUERY_START)
       .addConsumer<SubqueryEndExecutor>(makeSubqueryEndRegisterInfos(0),
                                         makeSubqueryEndExecutorInfos(0),
                                         ExecutionNode::SUBQUERY_END)
-      .addConsumer<SubqueryStartExecutor>(makeSubqueryStartRegisterInfos(),
+      .addConsumer<SubqueryStartExecutor<false>>(makeSubqueryStartRegisterInfos(),
                                           makeSubqueryStartExecutorInfos(),
                                           ExecutionNode::SUBQUERY_START)
       .addConsumer<SubqueryEndExecutor>(makeSubqueryEndRegisterInfos(0),
@@ -450,7 +451,7 @@ TEST_P(SplicedSubqueryIntegrationTest, do_nothing_in_subquery) {
   auto call = AqlCall{};
 
   helper
-      .addConsumer<SubqueryStartExecutor>(makeSubqueryStartRegisterInfos(),
+      .addConsumer<SubqueryStartExecutor<false>>(makeSubqueryStartRegisterInfos(),
                                           makeSubqueryStartExecutorInfos(),
                                           ExecutionNode::SUBQUERY_START)
       .addConsumer<LambdaExe>(makeDoNothingRegisterInfos(), makeDoNothingExecutorInfos())
@@ -471,7 +472,7 @@ TEST_P(SplicedSubqueryIntegrationTest, check_call_passes_subquery) {
   auto call = AqlCall{10};
 
   helper.addConsumer<LambdaExe>(makeAssertRegisterInfos(), makeAssertExecutorInfos(call))
-      .addConsumer<SubqueryStartExecutor>(makeSubqueryStartRegisterInfos(),
+      .addConsumer<SubqueryStartExecutor<false>>(makeSubqueryStartRegisterInfos(),
                                           makeSubqueryStartExecutorInfos(),
                                           ExecutionNode::SUBQUERY_START)
       .addConsumer<SubqueryEndExecutor>(makeSubqueryEndRegisterInfos(0),
@@ -491,7 +492,7 @@ TEST_P(SplicedSubqueryIntegrationTest, check_skipping_subquery) {
   auto call = AqlCall{10};
 
   helper
-      .addConsumer<SubqueryStartExecutor>(makeSubqueryStartRegisterInfos(),
+      .addConsumer<SubqueryStartExecutor<false>>(makeSubqueryStartRegisterInfos(),
                                           makeSubqueryStartExecutorInfos(),
                                           ExecutionNode::SUBQUERY_START)
       .addConsumer<LambdaExe>(makeAssertRegisterInfos(), makeAssertExecutorInfos())
@@ -512,7 +513,7 @@ TEST_P(SplicedSubqueryIntegrationTest, check_soft_limit_subquery) {
   auto call = AqlCall{0, false, 4, AqlCall::LimitType::SOFT};
 
   helper
-      .addConsumer<SubqueryStartExecutor>(makeSubqueryStartRegisterInfos(),
+      .addConsumer<SubqueryStartExecutor<false>>(makeSubqueryStartRegisterInfos(),
                                           makeSubqueryStartExecutorInfos(),
                                           ExecutionNode::SUBQUERY_START)
       .addConsumer<LambdaExe>(makeAssertRegisterInfos(), makeAssertExecutorInfos())

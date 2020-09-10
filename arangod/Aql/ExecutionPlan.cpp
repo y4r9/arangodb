@@ -1324,6 +1324,12 @@ ExecutionNode* ExecutionPlan::fromNodeLet(ExecutionNode* previous, AstNode const
 
   AstNode const* variable = node->getMember(0);
   AstNode const* expression = node->getMember(1);
+  bool isUpsertSearch = false;
+  if (node->numMembers() >= 3) {
+    AstNode const* isUpsertSearchMember = node->getMember(2);
+    TRI_ASSERT(isUpsertSearchMember->isBoolValue());
+    isUpsertSearch = isUpsertSearchMember->getBoolValue();
+  }
 
   auto v = static_cast<Variable*>(variable->getData());
 
@@ -1339,7 +1345,7 @@ ExecutionNode* ExecutionPlan::fromNodeLet(ExecutionNode* previous, AstNode const
       THROW_ARANGO_EXCEPTION(TRI_ERROR_OUT_OF_MEMORY);
     }
 
-    en = registerNode(new SubqueryNode(this, nextId(), subquery, v));
+    en = registerNode(new SubqueryNode(this, nextId(), subquery, v, isUpsertSearch));
     _subqueries[ExecutionNode::castTo<SubqueryNode*>(en)->outVariable()->id] = en;
   } else {
     // check if the LET is a reference to a subquery

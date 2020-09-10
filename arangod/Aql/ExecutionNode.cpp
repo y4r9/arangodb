@@ -26,6 +26,7 @@
 
 #include "ExecutionNode.h"
 
+#include "Aql/AllRowsFetcher.h"
 #include "Aql/AqlItemBlock.h"
 #include "Aql/Ast.h"
 #include "Aql/AsyncExecutor.h"
@@ -1982,7 +1983,9 @@ bool CalculationNode::isDeterministic() {
 SubqueryNode::SubqueryNode(ExecutionPlan* plan, arangodb::velocypack::Slice const& base)
     : ExecutionNode(plan, base),
       _subquery(nullptr),
-      _outVariable(Variable::varFromVPack(plan->getAst(), base, "outVariable")) {}
+      _outVariable(Variable::varFromVPack(plan->getAst(), base, "outVariable")),
+      _isUpsertSearch(VelocyPackHelper::getBooleanValue(base, "isUpsertSearch", false)) {
+      }
 
 /// @brief toVelocyPack, for SubqueryNode
 void SubqueryNode::toVelocyPackHelper(VPackBuilder& nodes, unsigned flags,
@@ -1994,9 +1997,10 @@ void SubqueryNode::toVelocyPackHelper(VPackBuilder& nodes, unsigned flags,
   _subquery->toVelocyPack(nodes, flags, /*keepTopLevelOpen*/ false);
   nodes.add(VPackValue("outVariable"));
   _outVariable->toVelocyPack(nodes);
+  
 
   nodes.add("isConst", VPackValue(const_cast<SubqueryNode*>(this)->isConst()));
-
+  nodes.add("isUpsertSearch", VPackValue(isUpsertSearch()));
   // And add it:
   nodes.close();
 }
@@ -2080,6 +2084,8 @@ bool SubqueryNode::mayAccessCollections() {
   return false;
 }
 
+bool SubqueryNode::isUpsertSearch() const { return _isUpsertSearch; }
+
 /// @brief creates corresponding ExecutionBlock
 std::unique_ptr<ExecutionBlock> SubqueryNode::createBlock(
     ExecutionEngine& engine,
@@ -2105,10 +2111,16 @@ std::unique_ptr<ExecutionBlock> SubqueryNode::createBlock(
   auto executorInfos =
       SubqueryExecutorInfos(*subquery, outReg, const_cast<SubqueryNode*>(this)->isConst());
   if (isModificationNode()) {
-    return std::make_unique<ExecutionBlockImpl<SubqueryExecutor<true>>>(
+    // We cannot do a modification in upsert search!
+    TRI_ASSERT(!isUpsertSearch());
+    return std::make_unique<ExecutionBlockImpl<SubqueryExecutor<true, false>>>(
         &engine, this, std::move(registerInfos), std::move(executorInfos));
   } else {
-    return std::make_unique<ExecutionBlockImpl<SubqueryExecutor<false>>>(
+    if (isUpsertSearch()) {
+      return std::make_unique<ExecutionBlockImpl<SubqueryExecutor<false, true>>>(
+          &engine, this, std::move(registerInfos), std::move(executorInfos));
+    }
+    return std::make_unique<ExecutionBlockImpl<SubqueryExecutor<false, false>>>(
         &engine, this, std::move(registerInfos), std::move(executorInfos));
   }
 }
@@ -2121,13 +2133,17 @@ ExecutionNode* SubqueryNode::clone(ExecutionPlan* plan, bool withDependencies,
     outVariable = plan->getAst()->variables()->createVariable(outVariable);
   }
   auto c = std::make_unique<SubqueryNode>(plan, _id, _subquery->clone(plan, true, withProperties),
-                                          outVariable);
+                                          outVariable, _isUpsertSearch);
 
   return cloneHelper(std::move(c), withDependencies, withProperties);
 }
 
 /// @brief whether or not the subquery is a data-modification operation
 bool SubqueryNode::isModificationNode() const {
+  if (_isUpsertSearch) {
+    // The upsert search can never modify
+    return false;
+  }
   std::vector<ExecutionNode*> stack({_subquery});
 
   while (!stack.empty()) {
@@ -2242,8 +2258,9 @@ bool SubqueryNode::isDeterministic() {
 }
 
 SubqueryNode::SubqueryNode(ExecutionPlan* plan, ExecutionNodeId id,
-                           ExecutionNode* subquery, Variable const* outVariable)
-    : ExecutionNode(plan, id), _subquery(subquery), _outVariable(outVariable) {
+                           ExecutionNode* subquery, Variable const* outVariable,
+                           bool isUpsertSearch)
+    : ExecutionNode(plan, id), _subquery(subquery), _outVariable(outVariable), _isUpsertSearch(isUpsertSearch) {
   TRI_ASSERT(_subquery != nullptr);
   TRI_ASSERT(_outVariable != nullptr);
 }

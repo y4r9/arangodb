@@ -64,16 +64,21 @@ enum CompatibilityMode { VERSION36, VERSION37 };
 using SubqueryStartSplitType = ExecutorTestHelper<1, 1>::SplitType;
 
 class SubqueryStartExecutorTest
-    : public AqlExecutorTestCaseWithParam<std::tuple<CompatibilityMode, SubqueryStartSplitType>, false> {
+    : public AqlExecutorTestCaseWithParam<std::tuple<CompatibilityMode, SubqueryStartSplitType, bool>, false> {
  protected:
   auto GetCompatMode() const -> CompatibilityMode {
-    auto const [mode, split] = GetParam();
+    auto const [mode, split, upsert] = GetParam();
     return mode;
   }
 
   auto GetSplit() const -> SubqueryStartSplitType {
-    auto const [mode, split] = GetParam();
+    auto const [mode, split, upsert] = GetParam();
     return split;
+  }
+
+  auto GetUpsertStyle() const -> bool {
+    auto const [mode, split, upsert] = GetParam();
+    return upsert;
   }
 
   auto queryStack(AqlCall fromSubqueryEnd, AqlCall insideSubquery) const -> AqlCallStack {
@@ -87,7 +92,17 @@ class SubqueryStartExecutorTest
     stack.pushCall(list);
     return stack;
   }
+
+  template <std::size_t inputColumns, std::size_t outputColumns>
+  auto addConsumer(ExecutorTestHelper<inputColumns, outputColumns>& helper) -> ExecutorTestHelper<inputColumns, outputColumns>& {
+    if (GetUpsertStyle()) {
+        return helper.template addConsumer<SubqueryStartExecutor<true>>(MakeBaseInfos(1), MakeBaseInfos(1), ExecutionNode::SUBQUERY_START);
+    }
+    return helper.template addConsumer<SubqueryStartExecutor<false>>(MakeBaseInfos(1), MakeBaseInfos(1), ExecutionNode::SUBQUERY_START);
+  }
 };
+
+
 
 template <size_t... vs>
 const SubqueryStartSplitType splitIntoBlocks =
@@ -99,22 +114,33 @@ INSTANTIATE_TEST_CASE_P(
     SubqueryStartExecutorTest, SubqueryStartExecutorTest,
     ::testing::Combine(::testing::Values(CompatibilityMode::VERSION36, CompatibilityMode::VERSION37),
                        ::testing::Values(splitIntoBlocks<2, 3>,
-                                         splitIntoBlocks<3, 4>, splitStep<2>)));
+                                         splitIntoBlocks<3, 4>, splitStep<2>),
+                                         ::testing::Bool()));
 
 TEST_P(SubqueryStartExecutorTest, check_properties) {
-  EXPECT_TRUE(SubqueryStartExecutor::Properties::preservesOrder)
+  EXPECT_TRUE(SubqueryStartExecutor<false>::Properties::preservesOrder)
       << "The block has no effect on ordering of elements, it adds additional "
          "rows only.";
-  EXPECT_EQ(SubqueryStartExecutor::Properties::allowsBlockPassthrough, ::arangodb::aql::BlockPassthrough::Disable)
+  EXPECT_EQ(SubqueryStartExecutor<false>::Properties::allowsBlockPassthrough, ::arangodb::aql::BlockPassthrough::Disable)
       << "The block cannot be passThrough, as it increases the number of rows.";
-  EXPECT_TRUE(SubqueryStartExecutor::Properties::inputSizeRestrictsOutputSize)
+  EXPECT_TRUE(SubqueryStartExecutor<false>::Properties::inputSizeRestrictsOutputSize)
+      << "The block is restricted by input, it will atMost produce 2 times the "
+         "input. (Might be less if input contains shadowRows";
+
+  EXPECT_TRUE(SubqueryStartExecutor<true>::Properties::preservesOrder)
+      << "The block has no effect on ordering of elements, it adds additional "
+         "rows only.";
+  EXPECT_EQ(SubqueryStartExecutor<true>::Properties::allowsBlockPassthrough,
+            ::arangodb::aql::BlockPassthrough::Disable)
+      << "The block cannot be passThrough, as it increases the number of rows.";
+  EXPECT_TRUE(SubqueryStartExecutor<true>::Properties::inputSizeRestrictsOutputSize)
       << "The block is restricted by input, it will atMost produce 2 times the "
          "input. (Might be less if input contains shadowRows";
 }
 
 TEST_P(SubqueryStartExecutorTest, empty_input_does_not_add_shadow_rows) {
-  makeExecutorTestHelper<1, 1>()
-      .addConsumer<SubqueryStartExecutor>(MakeBaseInfos(1), MakeBaseInfos(1), ExecutionNode::SUBQUERY_START)
+  auto helper = makeExecutorTestHelper<1, 1>();
+  addConsumer(helper)
       .setInputValue({})
       .expectedStats(ExecutionStats{})
       .expectedState(ExecutionState::DONE)
@@ -126,8 +152,8 @@ TEST_P(SubqueryStartExecutorTest, empty_input_does_not_add_shadow_rows) {
 }
 
 TEST_P(SubqueryStartExecutorTest, adds_a_shadowrow_after_single_input) {
-  makeExecutorTestHelper<1, 1>()
-      .addConsumer<SubqueryStartExecutor>(MakeBaseInfos(1), MakeBaseInfos(1), ExecutionNode::SUBQUERY_START)
+ auto helper =  makeExecutorTestHelper<1, 1>();
+      addConsumer(helper)
       .setInputValue({{R"("a")"}})
       .expectedStats(ExecutionStats{})
       .expectedState(ExecutionState::DONE)
@@ -139,8 +165,8 @@ TEST_P(SubqueryStartExecutorTest, adds_a_shadowrow_after_single_input) {
 }
 
 TEST_P(SubqueryStartExecutorTest, adds_a_shadowrow_after_every_input_line_in_single_pass) {
-  makeExecutorTestHelper<1, 1>()
-      .addConsumer<SubqueryStartExecutor>(MakeBaseInfos(1), MakeBaseInfos(1), ExecutionNode::SUBQUERY_START)
+ auto helper =  makeExecutorTestHelper<1, 1>();
+      addConsumer(helper)
       .setInputValue({{{R"("a")"}}, {{R"("b")"}}, {{R"("c")"}}})
       .expectedStats(ExecutionStats{})
       .expectedState(ExecutionState::DONE)
@@ -155,8 +181,8 @@ TEST_P(SubqueryStartExecutorTest, adds_a_shadowrow_after_every_input_line_in_sin
 // NOTE: As soon as the single_pass test is enabled this test is superflous.
 // It will be identical to the one above
 TEST_P(SubqueryStartExecutorTest, adds_a_shadowrow_after_every_input_line) {
-  makeExecutorTestHelper<1, 1>()
-      .addConsumer<SubqueryStartExecutor>(MakeBaseInfos(1), MakeBaseInfos(1), ExecutionNode::SUBQUERY_START)
+ auto helper =  makeExecutorTestHelper<1, 1>();
+      addConsumer(helper)
       .setInputValue({{{R"("a")"}}, {{R"("b")"}}, {{R"("c")"}}})
       .expectedStats(ExecutionStats{})
       .expectedState(ExecutionState::DONE)
@@ -178,8 +204,8 @@ TEST_P(SubqueryStartExecutorTest, shadow_row_does_not_fit_in_current_block) {
   {
     // First test: Validate that the shadowRow is not written
     // We only do a single call here
-    makeExecutorTestHelper<1, 1>()
-        .addConsumer<SubqueryStartExecutor>(MakeBaseInfos(1), MakeBaseInfos(1), ExecutionNode::SUBQUERY_START)
+   auto helper =  makeExecutorTestHelper<1, 1>();
+        addConsumer(helper)
         .setInputValue({{R"("a")"}})
         .expectedStats(ExecutionStats{})
         .expectedState(ExecutionState::HASMORE)
@@ -192,8 +218,8 @@ TEST_P(SubqueryStartExecutorTest, shadow_row_does_not_fit_in_current_block) {
   {
     // Second test: Validate that the shadowRow is eventually written
     // if we call often enough
-    makeExecutorTestHelper<1, 1>()
-        .addConsumer<SubqueryStartExecutor>(MakeBaseInfos(1), MakeBaseInfos(1), ExecutionNode::SUBQUERY_START)
+   auto helper =  makeExecutorTestHelper<1, 1>();
+        addConsumer(helper)
         .setInputValue({{R"("a")"}})
         .expectedStats(ExecutionStats{})
         .expectedState(ExecutionState::DONE)
@@ -206,8 +232,8 @@ TEST_P(SubqueryStartExecutorTest, shadow_row_does_not_fit_in_current_block) {
 }
 
 TEST_P(SubqueryStartExecutorTest, skip_in_subquery) {
-  makeExecutorTestHelper<1, 1>()
-      .addConsumer<SubqueryStartExecutor>(MakeBaseInfos(1), MakeBaseInfos(1), ExecutionNode::SUBQUERY_START)
+ auto helper =  makeExecutorTestHelper<1, 1>();
+      addConsumer(helper)
       .setInputValue({{R"("a")"}})
       .expectedStats(ExecutionStats{})
       .expectedState(ExecutionState::DONE)
@@ -219,8 +245,8 @@ TEST_P(SubqueryStartExecutorTest, skip_in_subquery) {
 }
 
 TEST_P(SubqueryStartExecutorTest, fullCount_in_subquery) {
-  makeExecutorTestHelper<1, 1>()
-      .addConsumer<SubqueryStartExecutor>(MakeBaseInfos(1), MakeBaseInfos(1), ExecutionNode::SUBQUERY_START)
+ auto helper =  makeExecutorTestHelper<1, 1>();
+      addConsumer(helper)
       .setInputValue({{R"("a")"}})
       .expectedStats(ExecutionStats{})
       .expectedState(ExecutionState::DONE)
@@ -236,10 +262,8 @@ TEST_P(SubqueryStartExecutorTest, shadow_row_forwarding) {
 
   AqlCallStack stack = queryStack(AqlCall{}, AqlCall{});
   stack.pushCall(AqlCallList{AqlCall{}});
-
-  helper
-      .addConsumer<SubqueryStartExecutor>(MakeBaseInfos(1), MakeBaseInfos(1), ExecutionNode::SUBQUERY_START)
-      .addConsumer<SubqueryStartExecutor>(MakeBaseInfos(1), MakeBaseInfos(1), ExecutionNode::SUBQUERY_START);
+      addConsumer(helper);
+      addConsumer(helper);
 
   helper.expectSkipped(0, 0, 0);
 
@@ -257,9 +281,8 @@ TEST_P(SubqueryStartExecutorTest, shadow_row_forwarding_many_inputs_single_call)
   AqlCallStack stack = queryStack(AqlCall{}, AqlCall{});
   stack.pushCall(AqlCallList{AqlCall{}});
 
-  helper
-      .addConsumer<SubqueryStartExecutor>(MakeBaseInfos(1), MakeBaseInfos(1), ExecutionNode::SUBQUERY_START)
-      .addConsumer<SubqueryStartExecutor>(MakeBaseInfos(1), MakeBaseInfos(1), ExecutionNode::SUBQUERY_START);
+  addConsumer(helper);
+  addConsumer(helper);
 
   helper.expectSkipped(0, 0, 0);
 
@@ -277,11 +300,8 @@ TEST_P(SubqueryStartExecutorTest, shadow_row_forwarding_many_inputs_many_request
   AqlCallStack stack = queryStack(AqlCall{}, AqlCall{});
   stack.pushCall(AqlCallList{AqlCall{}});
 
-  helper
-      .addConsumer<SubqueryStartExecutor>(MakeBaseInfos(1), MakeBaseInfos(1),
-                                          ExecutionNode::SUBQUERY_START)
-      .addConsumer<SubqueryStartExecutor>(MakeBaseInfos(1), MakeBaseInfos(1),
-                                          ExecutionNode::SUBQUERY_START);
+  addConsumer(helper);
+  addConsumer(helper);
 
   helper.expectSkipped(0, 0, 0);
 
@@ -312,11 +332,8 @@ TEST_P(SubqueryStartExecutorTest, shadow_row_forwarding_many_inputs_not_enough_s
     AqlCallStack stack = queryStack(AqlCall{}, AqlCall{});
     stack.pushCall(AqlCallList{AqlCall{}});
 
-    helper
-        .addConsumer<SubqueryStartExecutor>(MakeBaseInfos(1), MakeBaseInfos(1),
-                                            ExecutionNode::SUBQUERY_START)
-        .addConsumer<SubqueryStartExecutor>(MakeBaseInfos(1), MakeBaseInfos(1),
-                                            ExecutionNode::SUBQUERY_START);
+    addConsumer(helper);
+    addConsumer(helper);
 
     helper.expectSkipped(0, 0, 0);
 
@@ -336,11 +353,8 @@ TEST_P(SubqueryStartExecutorTest, shadow_row_forwarding_many_inputs_not_enough_s
     AqlCallStack stack = queryStack(AqlCall{}, AqlCall{});
     stack.pushCall(AqlCallList{AqlCall{}});
 
-    helper
-        .addConsumer<SubqueryStartExecutor>(MakeBaseInfos(1), MakeBaseInfos(1),
-                                            ExecutionNode::SUBQUERY_START)
-        .addConsumer<SubqueryStartExecutor>(MakeBaseInfos(1), MakeBaseInfos(1),
-                                            ExecutionNode::SUBQUERY_START);
+    addConsumer(helper);
+    addConsumer(helper);
 
     helper.expectSkipped(0, 0, 0);
 
@@ -358,9 +372,9 @@ TEST_P(SubqueryStartExecutorTest, shadow_row_forwarding_many_inputs_not_enough_s
 }
 
 TEST_P(SubqueryStartExecutorTest, skip_in_outer_subquery) {
-  if (GetCompatMode() == CompatibilityMode::VERSION37) {
-    makeExecutorTestHelper<1, 1>()
-        .addConsumer<SubqueryStartExecutor>(MakeBaseInfos(1), MakeBaseInfos(1), ExecutionNode::SUBQUERY_START)
+  if (GetCompatMode() == CompatibilityMode::VERSION37 && GetUpsertStyle() == false) {
+   auto helper =  makeExecutorTestHelper<1, 1>();
+        addConsumer(helper)
         .setInputValue({{R"("a")"}, {R"("b")"}})
         .expectedStats(ExecutionStats{})
         .expectedState(ExecutionState::DONE)
@@ -375,9 +389,9 @@ TEST_P(SubqueryStartExecutorTest, skip_in_outer_subquery) {
 }
 
 TEST_P(SubqueryStartExecutorTest, DISABLED_skip_only_in_outer_subquery) {
-  if (GetCompatMode() == CompatibilityMode::VERSION37) {
-    makeExecutorTestHelper<1, 1>()
-        .addConsumer<SubqueryStartExecutor>(MakeBaseInfos(1), MakeBaseInfos(1), ExecutionNode::SUBQUERY_START)
+  if (GetCompatMode() == CompatibilityMode::VERSION37 && GetUpsertStyle() == false) {
+    auto helper = makeExecutorTestHelper<1, 1>();
+    addConsumer(helper)
         .setInputValue({{R"("a")"}, {R"("b")"}})
         .expectedStats(ExecutionStats{})
         .expectedState(ExecutionState::DONE)
@@ -392,17 +406,17 @@ TEST_P(SubqueryStartExecutorTest, DISABLED_skip_only_in_outer_subquery) {
 }
 
 TEST_P(SubqueryStartExecutorTest, fullCount_in_outer_subquery) {
-  if (GetCompatMode() == CompatibilityMode::VERSION37) {
-    makeExecutorTestHelper<1, 1>()
-        .addConsumer<SubqueryStartExecutor>(MakeBaseInfos(1), MakeBaseInfos(1), ExecutionNode::SUBQUERY_START)
-        .setInputValue({{R"("a")"}, {R"("b")"}, {R"("c")"}, {R"("d")"}, {R"("e")"}, {R"("f")"}})
-        .expectedStats(ExecutionStats{})
-        .expectedState(ExecutionState::DONE)
-        .expectOutput({0}, {})
-        .expectSkipped(6, 0)
-        .setCallStack(queryStack(AqlCall{0, true, 0, AqlCall::LimitType::HARD}, AqlCall{}))
-        .setInputSplitType(GetSplit())
-        .run();
+  if (GetCompatMode() == CompatibilityMode::VERSION37 && GetUpsertStyle() == false) {
+   auto helper = makeExecutorTestHelper<1, 1>();
+   addConsumer(helper)
+       .setInputValue({{R"("a")"}, {R"("b")"}, {R"("c")"}, {R"("d")"}, {R"("e")"}, {R"("f")"}})
+       .expectedStats(ExecutionStats{})
+       .expectedState(ExecutionState::DONE)
+       .expectOutput({0}, {})
+       .expectSkipped(6, 0)
+       .setCallStack(queryStack(AqlCall{0, true, 0, AqlCall::LimitType::HARD}, AqlCall{}))
+       .setInputSplitType(GetSplit())
+       .run();
   } else {
     // The feature is not available in 3.7 or earlier.
   }
@@ -410,8 +424,8 @@ TEST_P(SubqueryStartExecutorTest, fullCount_in_outer_subquery) {
 
 TEST_P(SubqueryStartExecutorTest, fastForward_in_inner_subquery) {
   if (GetCompatMode() == CompatibilityMode::VERSION37) {
-    makeExecutorTestHelper<1, 1>()
-        .addConsumer<SubqueryStartExecutor>(MakeBaseInfos(1), MakeBaseInfos(1), ExecutionNode::SUBQUERY_START)
+    auto helper = makeExecutorTestHelper<1, 1>();
+        addConsumer(helper)
         .setInputValue({{R"("a")"}, {R"("b")"}, {R"("c")"}, {R"("d")"}, {R"("e")"}, {R"("f")"}})
         .expectedStats(ExecutionStats{})
         .expectedState(ExecutionState::DONE)
@@ -428,9 +442,9 @@ TEST_P(SubqueryStartExecutorTest, fastForward_in_inner_subquery) {
 }
 
 TEST_P(SubqueryStartExecutorTest, skip_out_skip_in) {
-  if (GetCompatMode() == CompatibilityMode::VERSION37) {
-    makeExecutorTestHelper<1, 1>()
-        .addConsumer<SubqueryStartExecutor>(MakeBaseInfos(1), MakeBaseInfos(1), ExecutionNode::SUBQUERY_START)
+  if (GetCompatMode() == CompatibilityMode::VERSION37 && GetUpsertStyle() == false) {
+   auto helper = makeExecutorTestHelper<1, 1>();
+        addConsumer(helper)
         .setInputValue({{R"("a")"}, {R"("b")"}, {R"("c")"}, {R"("d")"}, {R"("e")"}, {R"("f")"}})
         .expectedStats(ExecutionStats{})
         .expectedState(ExecutionState::HASMORE)
@@ -446,9 +460,9 @@ TEST_P(SubqueryStartExecutorTest, skip_out_skip_in) {
 }
 
 TEST_P(SubqueryStartExecutorTest, fullbypass_in_outer_subquery) {
-  if (GetCompatMode() == CompatibilityMode::VERSION37) {
-    makeExecutorTestHelper<1, 1>()
-        .addConsumer<SubqueryStartExecutor>(MakeBaseInfos(1), MakeBaseInfos(1), ExecutionNode::SUBQUERY_START)
+  if (GetCompatMode() == CompatibilityMode::VERSION37 && GetUpsertStyle() == false) {
+    auto helper = makeExecutorTestHelper<1, 1>();
+    addConsumer(helper)
         .setInputValue({{R"("a")"}, {R"("b")"}, {R"("c")"}, {R"("d")"}, {R"("e")"}, {R"("f")"}})
         .expectedStats(ExecutionStats{})
         .expectedState(ExecutionState::DONE)

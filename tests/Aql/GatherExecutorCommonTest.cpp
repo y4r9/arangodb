@@ -633,7 +633,7 @@ class CommonGatherExecutorTest
   }
 
   auto generateSubqueryStart(size_t nestingLevel) -> std::unique_ptr<ExecutionBlock> {
-    return std::make_unique<ExecutionBlockImpl<SubqueryStartExecutor>>(
+    return std::make_unique<ExecutionBlockImpl<SubqueryStartExecutor<false>>>(
         fakedQuery->rootEngine(), generateNodeDummy(ExecutionNode::SUBQUERY_START),
         buildRegisterInfos(nestingLevel), buildRegisterInfos(nestingLevel));
   }

@@ -271,6 +271,8 @@ class ExecutionBlockImpl final : public ExecutionBlock {
   [[nodiscard]] auto sideEffectShadowRowForwarding(AqlCallStack& stack,
                                                    SkipResult& skipResult) -> ExecState;
 
+  [[nodiscard]] auto subqueryStartShadowRowForwarding(AqlCallStack& stack) -> ExecState;
+
   void initOnce();
 
   [[nodiscard]] auto executorNeedsCall(AqlCallType& call) const noexcept -> bool;
