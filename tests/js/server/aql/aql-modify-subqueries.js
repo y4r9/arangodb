@@ -1767,16 +1767,19 @@ function ahuacatlGeneratedSuite() {
 
   const activateSplice = { profile: 0, optimizer: { rules: ["+splice-subqueries"] } };
   const deactivateSplice = { profile: 0, optimizer: { rules: ["-splice-subqueries"] } };
+  const numberOfShards = 5;
+  const numberDocs = 10;
 
   return {
 
     setUp: function () {
       cleanup();
-      let c = db._create(cn, { numberOfShards: 5 });
-      let c1 = db._create(cn2, { numberOfShards: 5 });
-      let c2 = db._create(cn3, { numberOfShards: 5 });
+
+      let c = db._create(cn, { numberOfShards });
+      let c1 = db._create(cn2, { numberOfShards });
+      let c2 = db._create(cn3, { numberOfShards });
       const docs = [];
-      for (let i = 1; i < 11; ++i) {
+      for (let i = 1; i <= numberDocs; ++i) {
         docs.push({ value: i });
       }
       c.save(docs);
@@ -1790,18 +1793,31 @@ function ahuacatlGeneratedSuite() {
 
     testNonSplicedExecutor: function () {
       const q = `
-	FOR fv0 IN ${cn}
-	  LET sq1 = (FOR fv2 IN ${cn2}
-	    UPSERT {value: fv0.value}
-	      INSERT {value: 24}
-	      UPDATE {updated: true} IN ${cn2}
-	    LIMIT 14,5
-	    RETURN {fv2: UNSET_RECURSIVE(fv2,"_rev", "_id", "_key")})
-	  LIMIT 3,2
-	  RETURN {fv0: UNSET_RECURSIVE(fv0,"_rev", "_id", "_key"), sq1: UNSET_RECURSIVE(sq1,"_rev", "_id",  "_key")}`;
+        FOR fv0 IN ${cn}
+          LET sq1 = (FOR fv2 IN ${cn2}
+            UPSERT {value: fv0.value}
+              INSERT {value: fv0.value}
+              UPDATE {updated: true} IN ${cn2}
+            LIMIT 14,5
+            RETURN {fv2: UNSET_RECURSIVE(fv2,"_rev", "_id", "_key")})
+          LIMIT 3,2
+          RETURN {fv0: UNSET_RECURSIVE(fv0,"_rev", "_id", "_key"), sq1: UNSET_RECURSIVE(sq1,"_rev", "_id",  "_key")}`;
+    
+      // We write once for every input, we do the product of collections with numberDocs as input.
+      const expectedWrites = numberDocs * numberDocs;
+
       const resSplice = db._query(q, {}, activateSplice);
+
+      {
+        const {writesExecuted} = resSplice.getExtra().stats;
+        assertEqual(writesExecuted, expectedWrites);
+      }
+      
       const resNoSplice = db._query(q, {}, deactivateSplice);
-      assertEqual(resSplice.getExtra().stats.writesExecuted, resNoSplice.getExtra().stats.writesExecuted);
+      {
+        const {writesExecuted} = resNoSplice.getExtra().stats;
+        assertEqual(writesExecuted, expectedWrites);
+      }
       assertEqual(resSplice.toArray().length, resNoSplice.toArray().length);
     },
 
@@ -1812,14 +1828,13 @@ function ahuacatlGeneratedSuite() {
           LIMIT 2,13
           RETURN {fv2: UNSET_RECURSIVE(fv2,"_rev", "_id", "_key")})
         LET sq3 = (FOR fv4 IN ${cn2} 
-          UPSERT {value: fv4.value  }  INSERT {value: 71 }  UPDATE {value: 21, updated: true} IN ${cn2}
+          UPSERT {value: fv4.value  }  INSERT {value: fv4.value }  UPDATE {value: fv4.value, updated: true} IN ${cn2}
           LIMIT 11,2
           RETURN {fv4: UNSET_RECURSIVE(fv4,"_rev", "_id", "_key"), sq1: UNSET_RECURSIVE(sq1,"_rev", "_id", 
         "_key")})
         LIMIT 8,3
         RETURN {fv0: UNSET_RECURSIVE(fv0,"_rev", "_id", "_key"), sq1: UNSET_RECURSIVE(sq1,"_rev", "_id", 
         "_key"), sq3: UNSET_RECURSIVE(sq3,"_rev", "_id", "_key")}`;
-
       const resSplice = db._query(q, {}, activateSplice);
       const resNoSplice = db._query(q, {}, deactivateSplice);
       assertEqual(resSplice.getExtra().stats.writesExecuted, resNoSplice.getExtra().stats.writesExecuted);
