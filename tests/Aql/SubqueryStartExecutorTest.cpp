@@ -258,6 +258,10 @@ TEST_P(SubqueryStartExecutorTest, fullCount_in_subquery) {
 }
 
 TEST_P(SubqueryStartExecutorTest, shadow_row_forwarding) {
+  if (GetCompatMode() == CompatibilityMode::VERSION36) {
+    // This situation cannot occur
+    return;
+  }
   auto helper = makeExecutorTestHelper<1, 1>();
 
   AqlCallStack stack = queryStack(AqlCall{}, AqlCall{});
@@ -277,6 +281,10 @@ TEST_P(SubqueryStartExecutorTest, shadow_row_forwarding) {
 }
 
 TEST_P(SubqueryStartExecutorTest, shadow_row_forwarding_many_inputs_single_call) {
+  if (GetCompatMode() == CompatibilityMode::VERSION36) {
+    // This situation cannot occur
+    return;
+  }
   auto helper = makeExecutorTestHelper<1, 1>();
   AqlCallStack stack = queryStack(AqlCall{}, AqlCall{});
   stack.pushCall(AqlCallList{AqlCall{}});
@@ -296,6 +304,10 @@ TEST_P(SubqueryStartExecutorTest, shadow_row_forwarding_many_inputs_single_call)
 }
 
 TEST_P(SubqueryStartExecutorTest, shadow_row_forwarding_many_inputs_many_requests) {
+  if (GetCompatMode() == CompatibilityMode::VERSION36) {
+    // This situation cannot occur
+    return;
+  }
   auto helper = makeExecutorTestHelper<1, 1>();
   AqlCallStack stack = queryStack(AqlCall{}, AqlCall{});
   stack.pushCall(AqlCallList{AqlCall{}});
@@ -318,6 +330,10 @@ TEST_P(SubqueryStartExecutorTest, shadow_row_forwarding_many_inputs_many_request
 }
 
 TEST_P(SubqueryStartExecutorTest, shadow_row_forwarding_many_inputs_not_enough_space) {
+  if (GetCompatMode() == CompatibilityMode::VERSION36) {
+    // This situation cannot occur
+    return;
+  }
   // NOTE: This test relies on batchSizes being handled correctly and we do not over-allocate memory
   // Also it tests, that ShadowRows go into place accounting of the output block (count as 1 line)
 

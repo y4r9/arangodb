@@ -56,16 +56,19 @@ AqlItemBlockInputMatrix::AqlItemBlockInputMatrix(ExecutorState state, AqlItemMat
 
 AqlItemBlockInputRange& AqlItemBlockInputMatrix::getInputRange() {
   if (_lastRange.hasDataRow()) {
+    
+    TRI_ASSERT(!_lastRange.hasDataRow() || !hasShadowRow() || _shadowRow.isRelevant());
     return _lastRange;
   }
   // Need initialze lastRange
-  if (_aqlItemMatrix == nullptr || _aqlItemMatrix->numberOfBlocks() == 0) {
+  if (_aqlItemMatrix == nullptr || _aqlItemMatrix->numberOfBlocks() == 0 || (hasShadowRow() && !_shadowRow.isRelevant())) {
     _lastRange = {AqlItemBlockInputRange{upstreamState()}};
   } else {
     auto const [blockPtr, start] =  _aqlItemMatrix->getBlock(_currentBlockRowIndex);
     ExecutorState state = incrBlockIndex();
     _lastRange = {state, 0, std::move(blockPtr), start};
   }
+  TRI_ASSERT(!_lastRange.hasDataRow() || !hasShadowRow() || _shadowRow.isRelevant());
   return _lastRange;
 }
 
@@ -119,6 +122,7 @@ std::pair<ExecutorState, ShadowAqlItemRow> AqlItemBlockInputMatrix::nextShadowRo
 
   if (_aqlItemMatrix->size() == 0 && _aqlItemMatrix->stoppedOnShadowRow()) {
     // next row will be a shadow row
+    
     _shadowRow = _aqlItemMatrix->popShadowRow();
     resetBlockIndex();
   } else {
@@ -131,7 +135,6 @@ std::pair<ExecutorState, ShadowAqlItemRow> AqlItemBlockInputMatrix::nextShadowRo
   } else {
     state = _finalState;
   }
-
   return {state, std::move(tmpShadowRow)};
 }
 
