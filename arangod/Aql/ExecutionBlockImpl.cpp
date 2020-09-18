@@ -1,7 +1,8 @@
 ////////////////////////////////////////////////////////////////////////////////
 /// DISCLAIMER
 ///
-/// Copyright 2018 ArangoDB GmbH, Cologne, Germany
+/// Copyright 2014-2020 ArangoDB GmbH, Cologne, Germany
+/// Copyright 2004-2014 triAGENS GmbH, Cologne, Germany
 ///
 /// Licensed under the Apache License, Version 2.0 (the "License");
 /// you may not use this file except in compliance with the License.
@@ -940,10 +941,12 @@ auto ExecutionBlockImpl<Executor>::sideEffectShadowRowForwarding(AqlCallStack& s
     // We need to reset the Executor
     resetExecutor();
   }
+  bool skippedOuter = false;
 
   if (depthSkippingNow > shadowDepth) {
     // We are skipping the outermost Subquery.
     // Simply drop this ShadowRow
+    skippedOuter = true;
   } else if (depthSkippingNow == shadowDepth) {
     // We are skipping on this subquery level.
     // Skip the row, but report skipped 1.
@@ -952,6 +955,7 @@ auto ExecutionBlockImpl<Executor>::sideEffectShadowRowForwarding(AqlCallStack& s
       shadowCall.didSkip(1);
       shadowCall.resetSkipCount();
       skipResult.didSkipSubquery(1, shadowDepth);
+      skippedOuter = true;
     } else if (shadowCall.getLimit() > 0) {
       TRI_ASSERT(!shadowCall.needSkipMore() && shadowCall.getLimit() > 0);
       _outputItemRow->moveRow(shadowRow);
@@ -962,6 +966,7 @@ auto ExecutionBlockImpl<Executor>::sideEffectShadowRowForwarding(AqlCallStack& s
     } else {
       TRI_ASSERT(shadowCall.hardLimit == 0);
       // Simply drop this shadowRow!
+      skippedOuter = true;
     }
   } else {
     // We got a shadowRow of a subquery we are not skipping here.
@@ -981,7 +986,18 @@ auto ExecutionBlockImpl<Executor>::sideEffectShadowRowForwarding(AqlCallStack& s
     return ExecState::DONE;
   } else if (_lastRange.hasDataRow()) {
     // Multiple concatenated Subqueries
-    return ExecState::NEXTSUBQUERY;
+    if (skippedOuter) {
+      if (!stack.hasAllValidCalls()) {
+        // We can only continue if we still have a valid call
+        // on all levels
+        return ExecState::DONE;
+      }
+      // We skipped outside, no call needs to be used up.
+      return ExecState::CHECKCALL;
+
+    } else {
+      return ExecState::NEXTSUBQUERY;
+    }
   } else if (_lastRange.hasShadowRow()) {
     // We still have shadowRows, we
     // need to forward them
