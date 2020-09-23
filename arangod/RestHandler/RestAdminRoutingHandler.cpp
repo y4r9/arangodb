@@ -49,6 +49,11 @@ RestStatus RestAdminRoutingHandler::execute() {
 }
 
 void RestAdminRoutingHandler::reloadRouting() {
+  if (!V8DealerFeature::DEALER || !V8DealerFeature::DEALER->isEnabled()) {
+    generateError(rest::ResponseCode::BAD, TRI_ERROR_DISABLED,
+                  "JavaScript operations are not available");
+    return;
+  }
   if (!V8DealerFeature::DEALER->addGlobalContextMethod("reloadRouting")) {
     generateError(rest::ResponseCode::SERVER_ERROR, TRI_ERROR_INTERNAL,
                   "invalid action definition");
