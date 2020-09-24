@@ -67,8 +67,10 @@ bool isValidFunctionNameFilter(std::string const& testName) {
 }
 
 void reloadAqlUserFunctions() {
-  std::string const def("reloadAql");
-  V8DealerFeature::DEALER->addGlobalContextMethod(def);
+  if (V8DealerFeature::DEALER && V8DealerFeature::DEALER->isEnabled()) {
+    std::string const def("reloadAql");
+    V8DealerFeature::DEALER->addGlobalContextMethod(def);
+  }
 }
 
 }  // namespace
@@ -177,6 +179,11 @@ Result arangodb::registerUserFunction(TRI_vocbase_t& vocbase, velocypack::Slice 
   replacedExisting = false;
 
   Result res;
+  
+  if (!V8DealerFeature::DEALER || !V8DealerFeature::DEALER->isEnabled()) {
+    return res.reset(TRI_ERROR_DISABLED, "JavaScript operations are not available");
+  }
+
   std::string name;
 
   try {
