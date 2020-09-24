@@ -252,7 +252,7 @@ DatabaseFeature::DatabaseFeature(application_features::ApplicationServer& server
       _isInitiallyEmpty(false),
       _checkVersion(false),
       _upgrade(false),
-      _createModulesCollection(false) {
+      _useOldSystemCollections(false) {
   setOptional(false);
   startsAfter<BasicFeaturePhaseServer>();
 
@@ -302,9 +302,9 @@ void DatabaseFeature::collectOptions(std::shared_ptr<ProgramOptions> options) {
       .setDeprecatedIn(30700);
   
   options->addOption(
-      "--database.modules-system-collection",
-      "create and use the _modules system collection",
-      new BooleanParameter(&_createModulesCollection),
+      "--database.old-system-collections",
+      "create and use deprecated system collection (_modules, _fishbowl)",
+      new BooleanParameter(&_useOldSystemCollections),
       arangodb::options::makeDefaultFlags(arangodb::options::Flags::Hidden))
       .setIntroducedIn(30608)
       .setIntroducedIn(30704)

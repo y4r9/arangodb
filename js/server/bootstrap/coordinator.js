@@ -39,8 +39,8 @@
   let options = internal.options();
   // autoload all modules
   // this functionality is deprecated and will be removed in 3.9
-  if (options.hasOwnProperty("database.modules-system-collection") &&
-      options["database.modules-system-collection"]) {
+  if (options.hasOwnProperty("database.old-system-collections") &&
+      options["database.old-system-collections"]) {
     // check and load all modules in all databases from _modules
     // this can be expensive, so it is guarded by a flag.
     internal.loadStartup('server/bootstrap/autoload.js').startup();
