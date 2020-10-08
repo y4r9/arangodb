@@ -53,12 +53,11 @@ struct LogBuffer {
 
 class LogBufferFeature final : public application_features::ApplicationFeature {
  public:
-  static constexpr uint32_t BufferSize = 2048;
-  
   explicit LogBufferFeature(application_features::ApplicationServer& server);
   ~LogBufferFeature() = default;
 
   void collectOptions(std::shared_ptr<options::ProgramOptions>) override final;
+  void validateOptions(std::shared_ptr<options::ProgramOptions>) override final;
   void prepare() override;
 
   /// @brief return all buffered log entries
@@ -66,6 +65,7 @@ class LogBufferFeature final : public application_features::ApplicationFeature {
 
  private:
   std::shared_ptr<LogAppender> _inMemoryAppender;
+  uint64_t _numEntries;
   bool _useInMemoryAppender;
 };
 

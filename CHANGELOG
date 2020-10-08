@@ -1,6 +1,13 @@
 devel
 -----
 
+* Added startup option `--log.in-memory-entries` to configure the number of 
+  log entries kept in memory when using an in memory log buffer (configurable
+  via separate option `--log.in-memory`). This option allows putting a cap
+  on the memory usage used by keeping log entries in memory, and, if memory
+  usage is not a concern, allows keeping a larger history of log entries in
+  memory.
+
 * Fix #12693: SORT inside a subquery could sometimes swallow part of its input
   when it crossed boundaries of internal row batches.
 

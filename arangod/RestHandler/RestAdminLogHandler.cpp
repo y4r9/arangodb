@@ -28,12 +28,23 @@
 #include <velocypack/velocypack-aliases.h>
 
 #include "ApplicationFeatures/ApplicationServer.h"
+#include "Basics/Exceptions.h"
 #include "Basics/StringUtils.h"
+#include "Basics/conversions.h"
+#include "Cluster/ClusterFeature.h"
+#include "Cluster/ClusterInfo.h"
+#include "GeneralServer/AuthenticationFeature.h"
 #include "GeneralServer/ServerSecurityFeature.h"
 #include "Logger/LogBufferFeature.h"
 #include "Logger/Logger.h"
+#include "Logger/LogTopic.h"
 #include "Logger/LoggerFeature.h"
+#include "Network/Methods.h"
+#include "Network/NetworkFeature.h"
+#include "Network/Utils.h"
 #include "Utils/ExecContext.h"
+
+#include <fuerte/jwt.h>
 
 using namespace arangodb;
 using namespace arangodb::basics;
@@ -70,76 +81,32 @@ RestStatus RestAdminLogHandler::execute() {
     return RestStatus::DONE;
   }
 
-  size_t const len = _request->suffixes().size();
-  if (len == 0) {
+  std::vector<std::string> const& suffixes = _request->suffixes();
+  if (suffixes.empty()) {
     reportLogs();
-  } else {
+  } else if (suffixes[0] == "level") {
     setLogLevel();
+  } else if (suffixes[0] == "all") {
+    reportAllLogs();
+  } else {
+    // invalid route
+    generateError(rest::ResponseCode::BAD, TRI_ERROR_HTTP_BAD_PARAMETER,
+                  "expectng GET /_admin/log/[level, all]");
   }
 
   return RestStatus::DONE;
 }
 
 void RestAdminLogHandler::reportLogs() {
-  // check the maximal log level to report
-  bool found1;
-  std::string const& upto = StringUtils::tolower(_request->value("upto", found1));
-
-  bool found2;
-  std::string const& lvl = StringUtils::tolower(_request->value("level", found2));
-
-  LogLevel ul = LogLevel::INFO;
-  bool useUpto = true;
-  std::string logLevel;
-
-  // prefer level over upto
-  if (found2) {
-    logLevel = lvl;
-    useUpto = false;
-  } else if (found1) {
-    logLevel = upto;
-    useUpto = true;
-  }
-
-  if (found1 || found2) {
-    if (logLevel == "fatal" || logLevel == "0") {
-      ul = LogLevel::FATAL;
-    } else if (logLevel == "error" || logLevel == "1") {
-      ul = LogLevel::ERR;
-    } else if (logLevel == "warning" || logLevel == "2") {
-      ul = LogLevel::WARN;
-    } else if (logLevel == "info" || logLevel == "3") {
-      ul = LogLevel::INFO;
-    } else if (logLevel == "debug" || logLevel == "4") {
-      ul = LogLevel::DEBUG;
-    } else if (logLevel == "trace" || logLevel == "5") {
-      ul = LogLevel::TRACE;
-    } else {
-      generateError(rest::ResponseCode::BAD, TRI_ERROR_HTTP_BAD_PARAMETER,
-                    std::string("unknown '") + (found2 ? "level" : "upto") +
-                        "' log level: '" + logLevel + "'");
-      return;
-    }
-  }
-
-  // check the starting position
-  uint64_t start = 0;
-
-  bool found;
-  std::string const& s = _request->value("start", found);
-
-  if (found) {
-    start = StringUtils::uint64(s);
-  }
-
   // check the offset
   int64_t offset = 0;
+  bool found;
   std::string const& o = _request->value("offset", found);
 
   if (found) {
     offset = StringUtils::int64(o);
   }
-
+  
   // check the size
   uint64_t size = (uint64_t)-1;
   std::string const& si = _request->value("size", found);
@@ -148,45 +115,14 @@ void RestAdminLogHandler::reportLogs() {
     size = StringUtils::uint64(si);
   }
 
-  // check the sort direction
-  bool sortAscending = true;
-  std::string sortdir = StringUtils::tolower(_request->value("sort", found));
-
-  if (found) {
-    if (sortdir == "desc") {
-      sortAscending = false;
-    }
-  }
-
-  // check the search criteria
-  bool search = false;
-  std::string searchString = StringUtils::tolower(_request->value("search", search));
-
-  // generate result
-  std::vector<LogBuffer> entries = server().getFeature<LogBufferFeature>().entries(ul, start, useUpto);
-  std::vector<LogBuffer> clean;
-
-  if (search) {
-    for (auto const& entry : entries) {
-      std::string text = StringUtils::tolower(entry._message);
-
-      if (text.find(searchString) == std::string::npos) {
-        continue;
-      }
-
-      clean.emplace_back(entry);
-    }
-  } else {
-    clean.swap(entries);
-  }
-
-  if (!sortAscending) {
-    std::reverse(clean.begin(), clean.end());
-  }
+  // check the maximal log level to report
+  std::string const lvl = StringUtils::tolower(_request->value("level"));
+  std::string const upto = StringUtils::tolower(_request->value("upto"));
+  std::vector<LogBuffer> logEntries = getMatchingLogs(lvl, upto);
 
   VPackBuilder result;
   result.add(VPackValue(VPackValueType::Object));
-  size_t length = clean.size();
+  size_t length = logEntries.size();
 
   try {
     result.add("totalAmount", VPackValue(length));
@@ -210,7 +146,7 @@ void RestAdminLogHandler::reportLogs() {
 
     for (size_t i = 0; i < length; ++i) {
       try {
-        auto& buf = clean.at(i + static_cast<size_t>(offset));
+        auto& buf = logEntries.at(i + static_cast<size_t>(offset));
         result.add(VPackValue(buf._id));
       } catch (...) {
       }
@@ -222,7 +158,7 @@ void RestAdminLogHandler::reportLogs() {
 
     for (size_t i = 0; i < length; ++i) {
       try {
-        auto& buf = clean.at(i + static_cast<size_t>(offset));
+        auto& buf = logEntries.at(i + static_cast<size_t>(offset));
         result.add(VPackValue(LogTopic::lookup(buf._topicId)));
       } catch (...) {
       }
@@ -234,7 +170,7 @@ void RestAdminLogHandler::reportLogs() {
 
     for (size_t i = 0; i < length; ++i) {
       try {
-        auto& buf = clean.at(i + static_cast<size_t>(offset));
+        auto& buf = logEntries.at(i + static_cast<size_t>(offset));
         uint32_t l = 0;
 
         switch (buf._level) {
@@ -271,7 +207,7 @@ void RestAdminLogHandler::reportLogs() {
 
     for (size_t i = 0; i < length; ++i) {
       try {
-        auto& buf = clean.at(i + static_cast<size_t>(offset));
+        auto& buf = logEntries.at(i + static_cast<size_t>(offset));
         result.add(VPackValue(static_cast<size_t>(buf._timestamp)));
       } catch (...) {
       }
@@ -284,14 +220,13 @@ void RestAdminLogHandler::reportLogs() {
 
     for (size_t i = 0; i < length; ++i) {
       try {
-        auto& buf = clean.at(i + static_cast<size_t>(offset));
+        auto& buf = logEntries.at(i + static_cast<size_t>(offset));
         result.add(VPackValue(buf._message));
       } catch (...) {
       }
     }
 
     result.close();
-
     result.close();  // Close the result object
 
     generateResult(rest::ResponseCode::OK, result.slice());
@@ -300,6 +235,110 @@ void RestAdminLogHandler::reportLogs() {
     // Has been ignored thus far
     // So ignore again
   }
+}
+
+void RestAdminLogHandler::reportAllLogs() {
+  ExecContext const& exec = ExecContext::current();
+  std::string const& username = exec.user();
+  
+  bool const fanout = ServerState::instance()->isCoordinator() && !_request->parsedValue("local", false);
+    
+  std::string const lvl = StringUtils::tolower(_request->value("level"));
+  std::string const upto = StringUtils::tolower(_request->value("upto"));
+  
+  auto addLogs = [](VPackBuilder& result, auto const& logEntries) {
+    result.openArray();
+    for (auto const& entry : logEntries) {
+      result.openObject();
+      result.add("topic", VPackValue(LogTopic::lookup(entry._topicId)));
+      result.add("level", VPackValue(Logger::translateLogLevel(entry._level)));
+      result.add("timestamp", VPackValue(TRI_StringTimeStamp(entry._timestamp, Logger::getUseLocalTime())));
+      result.add("message", VPackValue(entry._message));
+      result.close();
+    }
+    result.close();
+  };
+
+  VPackBuilder result;
+  if (fanout && ServerState::instance()->isCoordinator()) {
+    auto& ci = server().getFeature<ClusterFeature>().clusterInfo();
+
+    NetworkFeature const& nf = server().getFeature<NetworkFeature>();
+    network::ConnectionPool* pool = nf.pool();
+    if (pool == nullptr) {
+      THROW_ARANGO_EXCEPTION(TRI_ERROR_SHUTTING_DOWN);
+    }
+    
+    auto auth = AuthenticationFeature::instance();
+    network::RequestOptions reqOpts;
+    reqOpts.timeout = network::Timeout(30.0);
+    reqOpts.param("local", "true");
+
+    VPackBuffer<uint8_t> body;
+    
+    std::vector<network::FutureRes> futures;
+
+    auto addRequest = [&](std::string const& server) {
+      if (server == ServerState::instance()->getId()) {
+        // ourselves!
+        return;;
+      }
+
+      network::Headers headers;
+      if (auth != nullptr && auth->isActive()) {
+        if (!username.empty()) {
+          headers.try_emplace(StaticStrings::Authorization,
+                              "bearer " + fuerte::jwt::generateUserToken(
+                                              auth->tokenCache().jwtSecret(), username));
+        } else {
+          headers.try_emplace(StaticStrings::Authorization,
+                              "bearer " + auth->tokenCache().jwtToken());
+        }
+      }
+
+      auto f = network::sendRequest(pool, "server:" + server, fuerte::RestVerb::Get,
+                                    "_admin/log/all", body, reqOpts,
+                                    std::move(headers));
+      futures.emplace_back(std::move(f));
+    };
+
+    for (auto const& server : ci.getCurrentCoordinators()) {
+      addRequest(server);
+    }
+    for (auto const& server : ci.getCurrentDBServers()) {
+      addRequest(server);
+    }
+
+    // produce a per-server result object
+    result.openObject();
+    {
+      // add ourselves
+      result.add(VPackValue(ServerState::instance()->getId()));
+      std::vector<LogBuffer> logEntries = getMatchingLogs(lvl, upto);
+      addLogs(result, logEntries);
+    }
+
+    // add result from all other servers
+    for (auto& f : futures) {
+      network::Response const& resp = f.get();
+      
+      if (resp.statusCode() == fuerte::StatusOK) {
+        std::string d = resp.destination.compare(0, 7, "server:") == 0 ? resp.destination.substr(7) : resp.destination;
+        result.add(d, resp.slice());
+      } else {
+        THROW_ARANGO_EXCEPTION(resp.combinedResult());
+      }
+    }
+    result.close();
+  } else {
+    // produce an array with all log messages
+    
+    // local state
+    std::vector<LogBuffer> logEntries = getMatchingLogs(lvl, upto);
+    addLogs(result, logEntries);
+  }
+
+  generateResult(rest::ResponseCode::OK, result.slice());
 }
 
 void RestAdminLogHandler::setLogLevel() {
@@ -360,4 +399,78 @@ void RestAdminLogHandler::setLogLevel() {
     // invalid method
     generateError(rest::ResponseCode::METHOD_NOT_ALLOWED, TRI_ERROR_HTTP_METHOD_NOT_ALLOWED);
   }
+}
+
+std::vector<LogBuffer> RestAdminLogHandler::getMatchingLogs(std::string const& lvl, std::string const& upto) {
+  LogLevel ul = LogLevel::INFO;
+  bool useUpto = true;
+  std::string logLevel;
+
+  // prefer level over upto
+  if (!lvl.empty()) {
+    logLevel = lvl;
+    useUpto = false;
+  } else if (!upto.empty()) {
+    logLevel = upto;
+    useUpto = true;
+  }
+
+  if (!lvl.empty() || !upto.empty()) {
+    if (logLevel == "fatal" || logLevel == "0") {
+      ul = LogLevel::FATAL;
+    } else if (logLevel == "error" || logLevel == "1") {
+      ul = LogLevel::ERR;
+    } else if (logLevel == "warning" || logLevel == "2") {
+      ul = LogLevel::WARN;
+    } else if (logLevel == "info" || logLevel == "3") {
+      ul = LogLevel::INFO;
+    } else if (logLevel == "debug" || logLevel == "4") {
+      ul = LogLevel::DEBUG;
+    } else if (logLevel == "trace" || logLevel == "5") {
+      ul = LogLevel::TRACE;
+    } else {
+      THROW_ARANGO_EXCEPTION_MESSAGE(TRI_ERROR_HTTP_BAD_PARAMETER,
+              std::string("unknown '") + (!lvl.empty() ? "level" : "upto") + "' log level: '" + logLevel + "'");
+    }
+  }
+
+  // check the starting position
+  uint64_t start = 0;
+
+  bool found;
+  std::string const& s = _request->value("start", found);
+
+  if (found) {
+    start = StringUtils::uint64(s);
+  }
+
+  // check the sort direction
+  bool sortAscending = true;
+  std::string sortdir = StringUtils::tolower(_request->value("sort", found));
+
+  if (found) {
+    if (sortdir == "desc") {
+      sortAscending = false;
+    }
+  }
+
+  // check the search criteria
+  bool search = false;
+  std::string searchString = StringUtils::tolower(_request->value("search", search));
+
+  // generate result
+  std::vector<LogBuffer> entries = server().getFeature<LogBufferFeature>().entries(ul, start, useUpto);
+  
+  if (search) {
+    entries.erase(std::remove_if(entries.begin(), entries.end(), [&searchString](LogBuffer const& entry) {
+      std::string text = StringUtils::tolower(entry._message);
+      return (text.find(searchString) == std::string::npos);
+    }), entries.end());
+  }
+  
+  if (!sortAscending) {
+    std::reverse(entries.begin(), entries.end());
+  }
+
+  return entries;
 }

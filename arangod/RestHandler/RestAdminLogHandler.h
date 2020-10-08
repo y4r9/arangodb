@@ -25,6 +25,7 @@
 #define ARANGOD_REST_HANDLER_REST_ADMIN_LOG_HANDLER_H 1
 
 #include "Basics/Common.h"
+#include "Logger/LogBufferFeature.h"
 #include "RestHandler/RestBaseHandler.h"
 
 namespace arangodb {
@@ -46,8 +47,10 @@ class RestAdminLogHandler : public RestBaseHandler {
  private:
   arangodb::Result verifyPermitted();
   void reportLogs();
+  void reportAllLogs();
   void setLogLevel();
-
+  
+  std::vector<LogBuffer> getMatchingLogs(std::string const& lvl, std::string const& upto);
 };
 }  // namespace arangodb
 

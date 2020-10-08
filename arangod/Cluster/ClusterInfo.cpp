@@ -2096,7 +2096,7 @@ Result ClusterInfo::dropDatabaseCoordinator(  // drop database
   AgencyCommResult res = ac.sendTransactionWithFailover(trans);
   if (!res.successful()) {
     if (res._statusCode == (int)arangodb::rest::ResponseCode::PRECONDITION_FAILED) {
-          return Result(TRI_ERROR_ARANGO_DATABASE_NOT_FOUND);
+      return Result(TRI_ERROR_ARANGO_DATABASE_NOT_FOUND);
     }
     return Result(TRI_ERROR_CLUSTER_COULD_NOT_REMOVE_DATABASE_IN_PLAN);
   }

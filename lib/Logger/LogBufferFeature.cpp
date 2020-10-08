@@ -29,6 +29,7 @@
 #include "Basics/tri-strings.h"
 #include "Logger/LogAppender.h"
 #include "Logger/LoggerFeature.h"
+#include "Logger/LogMacros.h"
 #include "Logger/Logger.h"
 #include "ProgramOptions/ProgramOptions.h"
 #include "ProgramOptions/Section.h"
@@ -56,11 +57,14 @@ LogBuffer::LogBuffer()
 /// @brief logs to a fixed size ring buffer in memory
 class LogAppenderRingBuffer final : public LogAppender {
  public:
-  LogAppenderRingBuffer() 
+  explicit LogAppenderRingBuffer(uint64_t numEntries) 
       : LogAppender(),
-        _id(0) {
+        _id(0),
+        _numEntries(numEntries) {
+    TRI_ASSERT(_numEntries > 0);
+
     MUTEX_LOCKER(guard, _lock);
-    _buffer.resize(LogBufferFeature::BufferSize);
+    _buffer.resize(_numEntries);
   }
 
  public:
@@ -76,7 +80,8 @@ class LogAppenderRingBuffer final : public LogAppender {
     MUTEX_LOCKER(guard, _lock);
 
     uint64_t n = _id++;
-    LogBuffer& ptr = _buffer[n % LogBufferFeature::BufferSize];
+    TRI_ASSERT(_numEntries > 0);
+    LogBuffer& ptr = _buffer[n % _numEntries];
 
     ptr._id = n;
     ptr._level = message._level;
@@ -99,9 +104,9 @@ class LogAppenderRingBuffer final : public LogAppender {
 
     MUTEX_LOCKER(guard, _lock);
 
-    if (_id >= LogBufferFeature::BufferSize) {
-      s = _id % LogBufferFeature::BufferSize;
-      n = LogBufferFeature::BufferSize;
+    if (_id >= _numEntries) {
+      s = _id % _numEntries;
+      n = _numEntries;
     } else {
       n = static_cast<uint64_t>(_id);
     }
@@ -123,7 +128,7 @@ class LogAppenderRingBuffer final : public LogAppender {
 
       ++i;
 
-      if (i >= LogBufferFeature::BufferSize) {
+      if (i >= _numEntries) {
         i = 0;
       }
     }
@@ -134,6 +139,7 @@ class LogAppenderRingBuffer final : public LogAppender {
  private:
   Mutex _lock;
   uint64_t _id;
+  uint64_t const _numEntries;
   std::vector<LogBuffer> _buffer;
 };
 
@@ -184,6 +190,7 @@ class LogAppenderEventLog final : public LogAppender {
 
 LogBufferFeature::LogBufferFeature(application_features::ApplicationServer& server)
     : ApplicationFeature(server, "LogBuffer"),
+      _numEntries(2048),
       _useInMemoryAppender(true) {
   setOptional(true);
   startsAfter<LoggerFeature>();
@@ -202,14 +209,38 @@ void LogBufferFeature::collectOptions(std::shared_ptr<options::ProgramOptions> o
                   new BooleanParameter(&_useInMemoryAppender),
                   arangodb::options::makeDefaultFlags(arangodb::options::Flags::Hidden))
                   .setIntroducedIn(30701);
+  
+  options
+      ->addOption("--log.in-memory-entries", "number of in-memory log entries to keep in in-meomry log appender",
+                  new UInt64Parameter(&_numEntries),
+                  arangodb::options::makeDefaultFlags(arangodb::options::Flags::Hidden))
+                  .setIntroducedIn(30800);
+}
+
+void LogBufferFeature::validateOptions(std::shared_ptr<options::ProgramOptions> options) {
+  constexpr uint64_t minNumEntries = 16;
+  constexpr uint64_t maxNumEntries = 1048576;
+
+  // clamp _numEntries value to a sensible range
+  if (_numEntries == 0) {
+    // no entries => no appender
+    _useInMemoryAppender = false;
+  } else if (_numEntries > maxNumEntries) {
+    _numEntries = maxNumEntries;
+    LOG_TOPIC("90f90", WARN, arangodb::Logger::CONFIG)
+        << "capping value for --log.in-memor-entries to " << maxNumEntries;
+  } else if (_numEntries < minNumEntries) {
+    _numEntries = minNumEntries;
+  }
 }
 
 void LogBufferFeature::prepare() {
   if (_useInMemoryAppender) {
+    TRI_ASSERT(_numEntries > 0);
     // only create the in-memory appender when we really need it. if we created it
     // in the ctor, we would waste a lot of memory in case we don't need the in-memory
     // appender. this is the case for simple command such as `--help` etc.
-    _inMemoryAppender = std::make_shared<LogAppenderRingBuffer>();
+    _inMemoryAppender = std::make_shared<LogAppenderRingBuffer>(_numEntries);
     LogAppender::addGlobalAppender(Logger::defaultLogGroup(), _inMemoryAppender);
   }
 }
