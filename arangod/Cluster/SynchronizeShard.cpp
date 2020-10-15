@@ -586,7 +586,7 @@ static arangodb::ResultT<SyncerId> replicationSynchronize(
   SyncerId syncerId{syncer->syncerId()};
 
   try {
-    std::string const context = "synchronization of shard " + database + "/" + col->name();
+    std::string const context = "synchronization of shard " + database + "/" + col->name() + " from leader " + leaderId;
     Result r = syncer->run(configuration._incremental, context.c_str());
 
     if (r.fail()) {
@@ -659,7 +659,7 @@ static arangodb::Result replicationSynchronizeCatchup(VPackSlice const& conf, do
 
   Result r;
   try {
-    std::string const context = "catching up delta changes for shard " + database + "/" + collection;
+    std::string const context = "catching up delta changes for shard " + database + "/" + collection + " from leader " + leaderId;
     r = syncer.syncCollectionCatchup(collection, timeout, tickReached, didTimeout, context.c_str());
   } catch (arangodb::basics::Exception const& ex) {
     r = Result(ex.code(), ex.what());
@@ -698,7 +698,7 @@ static arangodb::Result replicationSynchronizeFinalize(VPackSlice const& conf) {
 
   Result r;
   try {
-    std::string const context = "final synchronization of shard " + database + "/" + collection;
+    std::string const context = "final synchronization of shard " + database + "/" + collection + " from leader " + leaderId;
     r = syncer.syncCollectionFinalize(collection, context.c_str());
   } catch (arangodb::basics::Exception const& ex) {
     r = Result(ex.code(), ex.what());
@@ -1267,10 +1267,17 @@ Result SynchronizeShard::catchupWithExclusiveLock(
   
   uint64_t finalDocCount;
   collectionCount(collection, finalDocCount);
+        
+  VPackBuilder b;
+  b.openObject();
+  collection.getPhysical()->figuresSpecific(true, b);
+  b.close();
 
   // Report success:
   LOG_TOPIC("3423d", INFO, Logger::MAINTENANCE)
-      << "synchronizeOneShard: synchronization worked for shard " << database << "/" << shard << ", number of documents: " << finalDocCount;
+      << "synchronizeOneShard: synchronization from " << leader 
+      << " worked for shard " << database << "/" << shard << ", number of documents: " << finalDocCount 
+      << ", figures: " << b.slice().toJson();
   _result.reset(TRI_ERROR_NO_ERROR);
   return {TRI_ERROR_NO_ERROR};
 }

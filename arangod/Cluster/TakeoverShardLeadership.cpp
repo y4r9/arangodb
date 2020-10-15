@@ -38,6 +38,8 @@
 #include "Logger/LoggerStream.h"
 #include "Network/Methods.h"
 #include "Network/NetworkFeature.h"
+#include "StorageEngine/PhysicalCollection.h"
+#include "Transaction/Context.h"
 #include "Transaction/ClusterUtils.h"
 #include "Transaction/Methods.h"
 #include "Transaction/StandaloneContext.h"
@@ -47,6 +49,7 @@
 #include "VocBase/Methods/Collections.h"
 #include "VocBase/Methods/Databases.h"
 
+#include <velocypack/Builder.h>
 #include <velocypack/Compare.h>
 #include <velocypack/Iterator.h>
 #include <velocypack/Slice.h>
@@ -66,6 +69,35 @@ std::string stripServerPrefix(std::string const& destination) {
   return destination.substr(serverPrefix.size());
 }
 }  // namespace
+
+static arangodb::Result collectionCount(arangodb::LogicalCollection const& collection,
+                                        uint64_t& c) {
+  std::string collectionName(collection.name());
+  auto ctx = std::make_shared<transaction::StandaloneContext>(collection.vocbase());
+  SingleCollectionTransaction trx(ctx, collectionName, AccessMode::Type::READ);
+
+  Result res = trx.begin();
+  if (res.fail()) {
+    LOG_TOPIC("11978", ERR, Logger::MAINTENANCE) << "Failed to start count transaction: " << res;
+    return res;
+  }
+
+  OperationResult opResult =
+    trx.count(collectionName, arangodb::transaction::CountType::Normal);
+  res = trx.finish(opResult.result);
+
+  if (res.fail()) {
+    LOG_TOPIC("da497", ERR, Logger::MAINTENANCE)
+        << "Failed to finish count transaction: " << res;
+    return res;
+  }
+
+  VPackSlice s = opResult.slice();
+  TRI_ASSERT(s.isNumber());
+  c = s.getNumber<uint64_t>();
+
+  return opResult.result;
+}
 
 TakeoverShardLeadership::TakeoverShardLeadership(MaintenanceFeature& feature,
                                                  ActionDescription const& desc)
@@ -162,6 +194,9 @@ static void sendLeaderChangeRequests(network::ConnectionPool* pool,
       auto& result = res.get();
       if (result.response && result.response->statusCode() == fuerte::StatusOK) {
         realInsyncFollowers->push_back(::stripServerPrefix(result.destination));
+      } else {
+        LOG_TOPIC("62bb8", WARN, Logger::MAINTENANCE) 
+          << "sendLeaderChangeRequests: got no response or error from server " << result.destination;
       }
     }
   }
@@ -193,6 +228,7 @@ static void handleLeadership(LogicalCollection& collection, std::string const& l
       std::vector<ServerID> currentServers = currentInfo->servers(collection.name());
       std::shared_ptr<std::vector<ServerID>> realInsyncFollowers;
 
+      auto currentServersCopy = currentServers;
       if (currentServers.size() > 0) {
         std::string& oldLeader = currentServers.at(0);
         // Check if the old leader has resigned and stopped all write
@@ -208,6 +244,22 @@ static void handleLeadership(LogicalCollection& collection, std::string const& l
           sendLeaderChangeRequests(pool, currentServers, realInsyncFollowers,
                                    databaseName, collection.name(), oldLeader);
         }
+      }
+
+      uint64_t docCount = 0;
+      Result r = collectionCount(collection, docCount);
+      if (r.fail()) {
+        LOG_TOPIC("92927", WARN, Logger::MAINTENANCE) 
+          << "unable to get collection count for " << databaseName << "/" << collection.name();
+      } else {
+        VPackBuilder b;
+        b.openObject();
+        collection.getPhysical()->figuresSpecific(true, b);
+        b.close();
+
+        LOG_TOPIC("e4df5", INFO, Logger::MAINTENANCE) 
+          << "number of documents for " << databaseName << "/" << collection.name() << " before becoming leader: " << docCount 
+          << ", figures: " << b.slice().toJson() << ", currentServers: " << currentServersCopy;
       }
 
       std::vector<ServerID> failoverCandidates =

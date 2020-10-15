@@ -216,12 +216,12 @@ class PhysicalCollection {
   Result newObjectForInsert(transaction::Methods* trx, velocypack::Slice const& value,
                             bool isEdgeCollection, velocypack::Builder& builder,
                             bool isRestore, TRI_voc_rid_t& revisionId) const;
+  
+  /// @brief Inject figures that are specific to StorageEngine
+  virtual void figuresSpecific(bool details, arangodb::velocypack::Builder&) = 0;
 
  protected:
   PhysicalCollection(LogicalCollection& collection, arangodb::velocypack::Slice const& info);
-
-  /// @brief Inject figures that are specific to StorageEngine
-  virtual void figuresSpecific(bool details, arangodb::velocypack::Builder&) = 0;
 
   // SECTION: Document pre commit preperation
 
