@@ -115,7 +115,7 @@ public:
   consensus::Store& store();
 
   /**
-   * @brief         Get a list of planned/current  changes and other
+   * @brief         Get a list of planned/current changes and other
    *                databases and the corresponding RAFT index
    *
    * @param section Plan/Current
@@ -126,7 +126,14 @@ public:
    */
   change_set_t changedSince(
     std::string const& section, consensus::index_t const& last) const;
-  
+
+  /**
+   * @brief         Clean up planned/current changes before index
+   *
+   * @param index   Done index
+   */
+  void clearChanged(std::string const& section, consensus::index_t const& last);
+
 private:
 
   /// @brief invoke all callbacks
@@ -171,13 +178,14 @@ private:
   mutable std::mutex _waitLock;
   std::multimap<consensus::index_t, futures::Promise<arangodb::Result>> _waiting;
 
-  /// @ brief changes of index to plan and current 
+  /// @ brief changes of index to plan and current
   std::multimap<consensus::index_t, std::string> _planChanges;
   std::multimap<consensus::index_t, std::string> _currentChanges;
+  consensus::index_t _planDone, _currentDone;
 
-  /// @brief snapshot note for client 
+  /// @brief snapshot note for client
   consensus::index_t _lastSnapshot;
-  
+
 };
 
 } // namespace
