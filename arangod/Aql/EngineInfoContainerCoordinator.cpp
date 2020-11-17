@@ -28,6 +28,7 @@
 #include "Aql/Collection.h"
 #include "Aql/ExecutionEngine.h"
 #include "Aql/ExecutionNode.h"
+#include "Aql/ExecutionPlan.h"
 #include "Aql/Query.h"
 #include "Aql/QueryRegistry.h"
 #include "Basics/ScopeGuard.h"
@@ -63,7 +64,8 @@ void EngineInfoContainerCoordinator::EngineInfo::addNode(ExecutionNode* en) {
 }
 
 Result EngineInfoContainerCoordinator::EngineInfo::buildEngine(
-    Query& query, QueryRegistry* queryRegistry, std::string const& dbname,
+    Query& query, std::shared_ptr<ExecutionPlan> const& sharedPlan,
+    QueryRegistry* queryRegistry, std::string const& dbname,
     std::unordered_set<std::string> const& restrictToShards,
     MapRemoteToSnippet const& dbServerQueryIds,
     std::vector<uint64_t>& coordinatorQueryIds) const {
@@ -75,6 +77,7 @@ Result EngineInfoContainerCoordinator::EngineInfo::buildEngine(
   }
 
   auto engine = query.engine();
+  engine->plan(sharedPlan);
 
   auto res = engine->createBlocks(_nodes, restrictToShards, dbServerQueryIds);
   if (!res.ok()) {
@@ -147,7 +150,8 @@ QueryId EngineInfoContainerCoordinator::closeSnippet() {
 }
 
 ExecutionEngineResult EngineInfoContainerCoordinator::buildEngines(
-    Query& query, QueryRegistry* registry, std::string const& dbname,
+    Query& query, std::shared_ptr<ExecutionPlan> plan,
+    QueryRegistry* registry, std::string const& dbname,
     std::unordered_set<std::string> const& restrictToShards,
     MapRemoteToSnippet const& dbServerQueryIds,
     std::vector<uint64_t>& coordinatorQueryIds) const {
@@ -176,7 +180,7 @@ ExecutionEngineResult EngineInfoContainerCoordinator::buildEngines(
         TRI_ASSERT(localQuery != nullptr);
       }
       try {
-        auto res = info.buildEngine(*localQuery, registry, dbname, restrictToShards,
+        auto res = info.buildEngine(*localQuery, plan, registry, dbname, restrictToShards,
                                     dbServerQueryIds, coordinatorQueryIds);
         if (!res.ok()) {
           if (!first) {

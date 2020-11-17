@@ -212,9 +212,12 @@ Query::~Query() {
 
   // this will reset _trx, so _trx is invalid after here
   cleanupPlanAndEngineSync(TRI_ERROR_INTERNAL);
+  _engine.reset();
+  _trx.reset();
 
   exitContext();
 
+  _plan.reset();
   _ast.reset();
   _graphs.clear();
 
@@ -236,7 +239,7 @@ void Query::addDataSource(                                  // track DataSource
 Query* Query::clone(QueryPart part, bool withPlan) {
   auto clone = std::make_unique<Query>(false, _vocbase, _queryString,
                                        std::shared_ptr<VPackBuilder>(), _options, part);
-
+  
   clone->_resourceMonitor = _resourceMonitor;
   clone->_resourceMonitor.clear();
 
@@ -442,6 +445,8 @@ void Query::prepare(QueryRegistry* registry, SerializationFormat format) {
   TRI_ASSERT(plan != nullptr);
   plan->findVarUsage();
 
+  std::shared_ptr<ExecutionPlan> p = std::move(plan);
+  
   TRI_ASSERT(_engine == nullptr);
   TRI_ASSERT(_trx != nullptr);
   // note that the engine returned here may already be present in our
@@ -449,7 +454,7 @@ void Query::prepare(QueryRegistry* registry, SerializationFormat format) {
   // by calling our engine(ExecutionEngine*) function
   // this is confusing and should be fixed!
   std::unique_ptr<ExecutionEngine> engine(
-      ExecutionEngine::instantiateFromPlan(*registry, *this, *plan,
+      ExecutionEngine::instantiateFromPlan(*registry, *this, p, 
                                            !_queryString.empty(), format));
 
   if (_engine == nullptr) {
@@ -457,8 +462,8 @@ void Query::prepare(QueryRegistry* registry, SerializationFormat format) {
   } else {
     engine.release();
   }
-
-  _plan = std::move(plan);
+  
+  _plan = std::move(p);
 
   enterState(QueryExecutionState::ValueType::EXECUTION);
 }
@@ -1454,7 +1459,7 @@ void Query::cleanupPlanAndEngineSync(int errorCode, VPackBuilder* statsBuilder) 
 
 /// @brief cleanup plan and engine for current query
 ExecutionState Query::cleanupPlanAndEngine(int errorCode, VPackBuilder* statsBuilder) {
-  if (_engine != nullptr) {
+  if (_engine != nullptr && !_engine->wasShutdown()) {
     try {
       ExecutionState state;
       std::tie(state, std::ignore) = _engine->shutdown(errorCode);
@@ -1472,7 +1477,7 @@ ExecutionState Query::cleanupPlanAndEngine(int errorCode, VPackBuilder* statsBui
     }
 
     _sharedState->invalidate();
-    _engine.reset();
+    _engine->shutdown(TRI_ERROR_INTERNAL);
   }
 
   // the following call removes the query from the list of currently
@@ -1483,9 +1488,10 @@ ExecutionState Query::cleanupPlanAndEngine(int errorCode, VPackBuilder* statsBui
   }
 
   // If the transaction was not committed, it is automatically aborted
-  _trx = nullptr;
+  if (_trx && _trx->state()->isRunning()) {
+    _trx->abort();
+  }
 
-  _plan.reset();
   return ExecutionState::DONE;
 }
 

@@ -141,8 +141,10 @@ struct Socket<fuerte::SocketType::Ssl> {
     if (socket.lowest_layer().is_open()) {
       asio_ns::error_code ec; // ignored
       socket.lowest_layer().cancel(ec);
-      ec.clear();
-      socket.shutdown(ec);
+      // TODO: experimental. it is unclear what the side-effect
+      // of not calling shutdown() here is
+      //   ec.clear();
+      //   socket.shutdown(ec);
       ec.clear();
       socket.lowest_layer().shutdown(asio_ns::ip::tcp::socket::shutdown_both, ec);
       ec.clear();

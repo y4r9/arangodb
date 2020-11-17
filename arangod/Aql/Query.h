@@ -259,6 +259,8 @@ class Query {
 
   /// @brief get the plan for the query
   ExecutionPlan* plan() const { return _plan.get(); }
+  
+  std::shared_ptr<ExecutionPlan> sharedPlan() const { return _plan; }
 
   /// @brief whether or not a query is a modification query
   bool isModificationQuery() const { return _isModificationQuery; }
@@ -410,7 +412,7 @@ class Query {
 
   /// @brief the ExecutionPlan object, if the query is prepared
   std::shared_ptr<ExecutionPlan> _plan;
-
+  
   /// @brief the transaction object, in a distributed query every part of
   /// the query has its own transaction object. The transaction object is
   /// created in the prepare method.

@@ -26,6 +26,7 @@
 
 #include "Aql/types.h"
 
+#include <memory>
 #include <stack>
 #include <string>
 #include <unordered_set>
@@ -38,6 +39,7 @@ namespace aql {
 class ExecutionEngine;
 class ExecutionEngineResult;
 class ExecutionNode;
+class ExecutionPlan;
 class Query;
 class QueryRegistry;
 
@@ -56,7 +58,8 @@ class EngineInfoContainerCoordinator {
 
     void addNode(ExecutionNode* en);
 
-    Result buildEngine(Query& query, QueryRegistry* queryRegistry, std::string const& dbname,
+    Result buildEngine(Query& query, std::shared_ptr<ExecutionPlan> const& sharedPlan,
+                       QueryRegistry* queryRegistry, std::string const& dbname,
                        std::unordered_set<std::string> const& restrictToShards,
                        MapRemoteToSnippet const& dbServerQueryIds,
                        std::vector<uint64_t>& coordinatorQueryIds) const;
@@ -97,7 +100,8 @@ class EngineInfoContainerCoordinator {
   //   * Creates the ExecutionBlocks
   //   * Injects all Parts but the First one into QueryRegistery
   //   Return the first engine which is not added in the Registry
-  ExecutionEngineResult buildEngines(Query& query, QueryRegistry* registry,
+  ExecutionEngineResult buildEngines(Query& query, std::shared_ptr<ExecutionPlan> plan,
+                                     QueryRegistry* registry,
                                      std::string const& dbname,
                                      std::unordered_set<std::string> const& restrictToShards,
                                      MapRemoteToSnippet const& dbServerQueryIds,

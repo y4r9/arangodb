@@ -63,6 +63,11 @@ size_t defaultNumberOfThreads() {
   if (result < 64) {
     result = 64;
   }
+
+  // intentionally limit the number of scheduler threads to 8.
+  // this is intentional for testing, but *MUST* be removed before opening
+  // a PR! TODO
+  return 8;
   return result;
 }
 

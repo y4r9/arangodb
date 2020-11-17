@@ -59,7 +59,8 @@ class ExecutionEngine {
  public:
   // @brief create an execution engine from a plan
   static ExecutionEngine* instantiateFromPlan(QueryRegistry& queryRegistry, Query& query,
-                                              ExecutionPlan& plan, bool planRegisters,
+                                              std::shared_ptr<ExecutionPlan> plan,
+                                              bool planRegisters,
                                               SerializationFormat format);
 
   TEST_VIRTUAL Result createBlocks(std::vector<ExecutionNode*> const& nodes,
@@ -82,8 +83,12 @@ class ExecutionEngine {
     _coordinatorQueryIds = std::move(coordinatorQueryIds);
   }
 
+  bool wasShutdown() const { return _wasShutdown; }
+
   /// @brief kill the query
   void kill();
+
+  void plan(std::shared_ptr<ExecutionPlan> plan) { _plan = plan; }
 
   /// @brief initializeCursor, could be called multiple times
   std::pair<ExecutionState, Result> initializeCursor(SharedAqlItemBlockPtr&& items, size_t pos);
@@ -135,6 +140,8 @@ class ExecutionEngine {
 
   /// @brief a pointer to the query
   Query& _query;
+
+  std::shared_ptr<ExecutionPlan> _plan;
 
   /// @brief the register the final result of the query is stored in
   RegisterId _resultRegister;
