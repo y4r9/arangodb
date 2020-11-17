@@ -584,10 +584,6 @@ void HttpConnection<ST>::setTimeout(std::chrono::milliseconds millis, TimeoutTyp
 
   FUERTE_LOG_TRACE << "setting timeout of type " << (int) type << " this=" << this << "\n";
 
-  // TODO: this is here only for testing.
-  // it *MUST* be removed before opening a PR!
-  millis = std::chrono::milliseconds(5 + (rand() % 20));
-
   // expires_after cancels pending ops
   this->_timeout.expires_after(millis);
   this->_timeout.async_wait([self = Connection::weak_from_this(), type](auto const& ec) {
