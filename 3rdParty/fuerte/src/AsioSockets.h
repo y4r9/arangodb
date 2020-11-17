@@ -159,6 +159,7 @@ struct Socket<fuerte::SocketType::Ssl> {
       // layer. Note the cleanupDone is necessary, since it is possible
       // that both the completion handler of the timeout and the one
       // of the async_shutdown are called without error!
+      timer.expires_from_now(std::chrono::seconds(3));
       timer.async_wait([connection, this](asio_ns::error_code ec) {
         if (!cleanupDone && !ec) {
           this->shutdownTcp();
