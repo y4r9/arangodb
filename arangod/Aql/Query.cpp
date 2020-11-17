@@ -1477,7 +1477,7 @@ ExecutionState Query::cleanupPlanAndEngine(int errorCode, VPackBuilder* statsBui
     }
 
     _sharedState->invalidate();
-    _engine->shutdown(TRI_ERROR_INTERNAL);
+    _engine.reset();
   }
 
   // the following call removes the query from the list of currently
@@ -1492,6 +1492,7 @@ ExecutionState Query::cleanupPlanAndEngine(int errorCode, VPackBuilder* statsBui
     _trx->abort();
   }
 
+  _plan.reset();
   return ExecutionState::DONE;
 }
 
