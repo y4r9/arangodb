@@ -1487,10 +1487,7 @@ ExecutionState Query::cleanupPlanAndEngine(int errorCode, VPackBuilder* statsBui
     _profile->unregisterFromQueryList();
   }
 
-  // If the transaction was not committed, it is automatically aborted
-  if (_trx && _trx->state()->isRunning()) {
-    _trx->abort();
-  }
+  _trx = nullptr;
 
   _plan.reset();
   return ExecutionState::DONE;
