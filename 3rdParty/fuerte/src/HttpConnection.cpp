@@ -590,7 +590,7 @@ void HttpConnection<ST>::setTimeout(std::chrono::milliseconds millis, TimeoutTyp
 
   // expires_after cancels pending ops
   this->_timeout.expires_after(millis);
-  this->_timeout.async_wait([self = Connection::weak_from_this(), type, millis](auto const& ec) {
+  this->_timeout.async_wait([self = Connection::weak_from_this(), type](auto const& ec) {
     std::shared_ptr<Connection> s;
     if (ec || !(s = self.lock())) {  // was canceled / deallocated
       return;
