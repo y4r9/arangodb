@@ -61,11 +61,9 @@ using namespace arangodb::basics;
 using namespace arangodb::options;
 
 // Please leave this code in for the next time we have to debug fuerte.
-#if 0
-void LogHackWriter(char const* p) {
-  LOG_DEVEL << p;
+void FuerteLogWriter(char const* p) {
+  LOG_TOPIC("a234f", INFO, arangodb::Logger::FUERTE) << p;
 }
-#endif
 
 namespace arangodb {
 

@@ -25,6 +25,7 @@
 
 #include <fuerte/asio_ns.h>
 #include <fuerte/loop.h>
+#include <fuerte/FuerteLogger.h>
 
 namespace arangodb { namespace fuerte { inline namespace v1 {
 
@@ -112,7 +113,7 @@ struct Socket<fuerte::SocketType::Ssl> {
       // handlers have all been called. Therefore, it is safe to directly
       // close the lowest_layer socket here and call it a day!
       // It is not allowed, however, to call shutdown from here!
-      shutdownTcp();
+      shutdownTcp(true);
     } catch(...) {}
   }
 
@@ -162,16 +163,16 @@ struct Socket<fuerte::SocketType::Ssl> {
       timer.expires_from_now(std::chrono::seconds(3));
       timer.async_wait([connection, this](asio_ns::error_code ec) {
         if (!cleanupDone && !ec) {
-          this->shutdownTcp();
+          this->shutdownTcp(true);
           cleanupDone = true;
-        }
+	}
       });
       socket.async_shutdown([connection, this](auto const& ec) {
         timer.cancel();
         // I do not actually know why we do not do this on Windows (Max)
 #ifndef _WIN32
         if (!cleanupDone && (!ec || ec == asio_ns::error::basic_errors::not_connected)) {
-          this->shutdownTcp();
+          this->shutdownTcp(false);
           cleanupDone = true;
         }
 #endif
@@ -179,8 +180,14 @@ struct Socket<fuerte::SocketType::Ssl> {
     }
   }
 
-  void shutdownTcp() {
+  void shutdownTcp(bool log) {
     if (socket.lowest_layer().is_open()) {
+      if (log) {
+        std::string clientIp = socket.lowest_layer().remote_endpoint().address().to_string();
+        unsigned short clientPort = socket.lowest_layer().remote_endpoint().port();
+        LOG_EXTERNAL << "shutdown timed out: " << clientIp << ":" << clientPort;
+      }
+
       asio_ns::error_code ec; // ignored
       socket.lowest_layer().cancel(ec);
       ec.clear();
