@@ -150,6 +150,7 @@ class Logger {
   static LogTopic DEVEL;
   static LogTopic DUMP;
   static LogTopic ENGINES;
+  static LogTopic FUERTE;
   static LogTopic FIXME;
   static LogTopic FLUSH;
   static LogTopic GRAPHS;

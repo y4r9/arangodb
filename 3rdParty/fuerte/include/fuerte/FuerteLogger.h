@@ -19,27 +19,28 @@
 ///
 /// @author Frank Celler
 ////////////////////////////////////////////////////////////////////////////////
+
 #pragma once
 
-// Please leave the following debug code in for the next time we have to
-// debug fuerte.
-#if 0
 #include <sstream>
 #include <iostream>
 
-extern void LogHackWriter(char const* p);
+extern void FuerteLogWriter(char const* p);
 
-class LogHack {
+namespace arangodb { namespace fuerte { inline namespace v1 {
+class LogExternal {
   std::stringstream _s;
  public:
-  LogHack() {};
-  ~LogHack() { LogHackWriter(_s.str().c_str()); };
-  template<typename T> LogHack& operator<<(T const& o) { _s << o; return *this; }
+  LogExternal() {};
+  ~LogExternal() { FuerteLogWriter(_s.str().c_str()); };
+  template<typename T> LogExternal& operator<<(T const& o) { _s << o; return *this; }
   typedef std::basic_ostream<char, std::char_traits<char> > CoutType;
   typedef CoutType& (*StandardEndLine)(CoutType&);
-  LogHack& operator<<(StandardEndLine manip) { return *this; }
+  LogExternal& operator<<(StandardEndLine manip) { return *this; }
 };
-#endif
+
+extern LogExternal LOG_EXTERNAL;
+}}}  // namespace arangodb::fuerte::v1
 
 #ifndef ARANGO_CXX_DRIVER_FUERTE_LOGGER
 #define ARANGO_CXX_DRIVER_FUERTE_LOGGER 1

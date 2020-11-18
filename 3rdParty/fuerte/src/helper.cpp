@@ -27,11 +27,14 @@
 #include <sstream>
 #include <stdexcept>
 
+#include <fuerte/FuerteLogger.h>
+
 #include <velocypack/Iterator.h>
 #include <velocypack/Slice.h>
 #include <velocypack/velocypack-aliases.h>
 
 namespace arangodb { namespace fuerte { inline namespace v1 {
+LogExternal LOG_EXTERNAL;
 
 std::string to_string(VPackSlice const& slice) {
   std::stringstream ss;

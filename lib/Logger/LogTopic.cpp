@@ -126,6 +126,7 @@ LogTopic Logger::DATAFILES("datafiles", LogLevel::INFO);
 LogTopic Logger::DEVEL("development", LogLevel::FATAL);
 LogTopic Logger::DUMP("dump", LogLevel::INFO);
 LogTopic Logger::ENGINES("engines", LogLevel::INFO);
+LogTopic Logger::FUERTE("fuerte", LogLevel::WARN);
 LogTopic Logger::FIXME("general", LogLevel::INFO);
 LogTopic Logger::FLUSH("flush", LogLevel::INFO);
 LogTopic Logger::GRAPHS("graphs", LogLevel::INFO);
