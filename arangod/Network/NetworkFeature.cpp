@@ -80,9 +80,12 @@ NetworkFeature::NetworkFeature(application_features::ApplicationServer& server,
       _numIOThreads(config.numIOThreads),
       _verifyHosts(config.verifyHosts),
       _prepared(false),
-      _forwardedRequests(
-        server.getFeature<arangodb::MetricsFeature>().counter(
-          "arangodb_network_forwarded_requests", 0, "Number of requests forwarded to another coordinator")) {
+      _forwardedRequests(server.getFeature<arangodb::MetricsFeature>().counter(
+          "arangodb_network_forwarded_requests", 0,
+          "Number of requests forwarded to another coordinator")),
+      _requestsInFlight(server.getFeature<arangodb::MetricsFeature>().gauge<std::size_t>(
+          "arangodb_network_requests_in_flight", 0,
+          "Number of outgoing requests in flight")) {
   setOptional(true);
   startsAfter<ClusterFeature>();
   startsAfter<SchedulerFeature>();
@@ -236,6 +239,24 @@ bool NetworkFeature::prepared() const {
 
 void NetworkFeature::trackForwardedRequest() {
   ++_forwardedRequests;
+}
+
+std::size_t NetworkFeature::requestsInFlight() const {
+  return _requestsInFlight.load();
+}
+
+void NetworkFeature::prepareRequest() { _requestsInFlight += 1; }
+
+void NetworkFeature::finishRequest() { _requestsInFlight -= 1; }
+
+bool NetworkFeature::isCongested() const { return false; }
+
+bool NetworkFeature::isSaturated() const { return false; }
+
+void NetworkFeature::queueRequest(std::string const& endpoint,
+                                  std::unique_ptr<fuerte::Request>&& req,
+                                  RequestCallback&& cb) {
+  THROW_ARANGO_EXCEPTION(TRI_ERROR_NOT_IMPLEMENTED);
 }
 
 }  // namespace arangodb

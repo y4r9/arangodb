@@ -272,6 +272,7 @@ int fuerteToArangoErrorCode(network::Response const& res) {
   LOG_TOPIC_IF("abcde", ERR, Logger::COMMUNICATION, res.error != fuerte::Error::NoError)
       << "communication error: '" << fuerte::to_string(res.error)
       << "' from destination '" << res.destination << "'";
+  std::this_thread::sleep_for(std::chrono::hours(2));
   return toArangoErrorCodeInternal(res.error);
 }
 

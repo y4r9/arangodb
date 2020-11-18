@@ -166,30 +166,23 @@ FutureRes sendRequest(ConnectionPool* pool, DestinationId dest, RestVerb type,
       std::unique_ptr<fuerte::Response> tmp_res;
       std::unique_ptr<fuerte::Request> tmp_req;
       fuerte::Error tmp_err;
+      application_features::ApplicationServer& server;
       bool skipScheduler;
-      Pack(DestinationId&& dest, bool skip)
-          : dest(std::move(dest)), skipScheduler(skip) {}
+      Pack(DestinationId&& dest, application_features::ApplicationServer& serv, bool skip)
+          : dest(std::move(dest)), server(serv), skipScheduler(skip) {}
     };
+    static_assert(sizeof(std::shared_ptr<Pack>) <= 2 * sizeof(void*), "");
 
     // fits in SSO of std::function
-    static_assert(sizeof(std::shared_ptr<Pack>) <= 2 * sizeof(void*), "");
-    auto conn = pool->leaseConnection(spec.endpoint);
-    auto p = std::make_shared<Pack>(std::move(dest), options.skipScheduler);
-
+    auto& server = pool->config().clusterInfo->server();
+    auto p = std::make_shared<Pack>(std::move(dest), server, options.skipScheduler);
     FutureRes f = p->promise.getFuture();
-    Scheduler* sch = SchedulerFeature::SCHEDULER;
-    bool markedInFlight = false;
-    if (sch) {
-      sch->increaseInFlight();
-      markedInFlight = true;
-    }
-    conn->sendRequest(std::move(req), [p(std::move(p)), markedInFlight](fuerte::Error err,
-                                                        std::unique_ptr<fuerte::Request> req,
-                                                        std::unique_ptr<fuerte::Response> res) mutable {
-      Scheduler* sch = SchedulerFeature::SCHEDULER;
-      if (markedInFlight && sch) {
-        sch->decreaseInFlight();
-      }
+    auto cb = [p(std::move(p))](fuerte::Error err, std::unique_ptr<fuerte::Request> req,
+                                std::unique_ptr<fuerte::Response> res) mutable {
+      NetworkFeature& nf = p->server.getFeature<NetworkFeature>();
+      nf.finishRequest();
+
+      auto* sch = SchedulerFeature::SCHEDULER;
       if (p->skipScheduler || sch == nullptr) {
         p->promise.setValue(network::Response{std::move(p->dest), err,
                                               std::move(req), std::move(res)});
@@ -208,7 +201,21 @@ FutureRes sendRequest(ConnectionPool* pool, DestinationId dest, RestVerb type,
         p->promise.setValue(Response{std::move(p->dest), fuerte::Error::QueueCapacityExceeded,
                                      std::move(p->tmp_req), nullptr});
       }
-    });
+    };
+
+    NetworkFeature& nf = server.getFeature<NetworkFeature>();
+    if (options.priority != RequestOptions::Priority::Direct &&
+        pool == nf.pool() /*&& nf.isCongested()*/) {
+      // queue request for the sender thread to take care of
+      nf.queueRequest(spec.endpoint, std::move(req), std::move(cb));
+      return f;
+    }
+
+    // just send directly
+    nf.prepareRequest();
+    auto conn = pool->leaseConnection(spec.endpoint);
+    conn->sendRequest(std::move(req), std::move(cb));
+
     return f;
 
   } catch (std::exception const& e) {
@@ -300,21 +307,15 @@ class RequestsState final : public std::enable_shared_from_this<RequestsState> {
     _tmp_req->timeout(std::chrono::duration_cast<std::chrono::milliseconds>(t));
 
     auto conn = _pool->leaseConnection(spec.endpoint);
-    Scheduler* sch = SchedulerFeature::SCHEDULER;
-    bool markedInFlight = false;
-    if (sch) {
-      sch->increaseInFlight();
-      markedInFlight = true;
-    }
+    auto& server = _pool->config().clusterInfo->server();
+    NetworkFeature& nf = server.getFeature<NetworkFeature>();
+    nf.prepareRequest();
     conn->sendRequest(std::move(_tmp_req),
-                      [self = shared_from_this(), markedInFlight](fuerte::Error err,
-                                                  std::unique_ptr<fuerte::Request> req,
-                                                  std::unique_ptr<fuerte::Response> res) {
-                        
-                        Scheduler* sch = SchedulerFeature::SCHEDULER;
-                        if (markedInFlight && sch) {
-                          sch->decreaseInFlight();
-                        }
+                      [self = shared_from_this(),
+                       &server](fuerte::Error err, std::unique_ptr<fuerte::Request> req,
+                                std::unique_ptr<fuerte::Response> res) {
+                        NetworkFeature& nf = server.getFeature<NetworkFeature>();
+                        nf.finishRequest();
                         self->_tmp_err = err;
                         self->_tmp_req = std::move(req);
                         self->_tmp_res = std::move(res);

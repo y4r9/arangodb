@@ -100,29 +100,26 @@ template<typename T> class Gauge : public Metric {
   ~Gauge() = default;
   std::ostream& print (std::ostream&) const;
   Gauge<T>& operator+=(T const& t) {
-    _g.store(_g + t);
+    T tmp;
+    do {
+      tmp = _g.load(std::memory_order_acquire);
+    } while (!_g.compare_exchange_weak(tmp, tmp + t, std::memory_order_acq_rel,
+                                       std::memory_order_acquire));
     return *this;
   }
   Gauge<T>& operator-=(T const& t) {
-    _g.store(_g - t);
-    return *this;
-  }
-  Gauge<T>& operator*=(T const& t) {
-    _g.store(_g * t);
-    return *this;
-  }
-  Gauge<T>& operator/=(T const& t) {
-    TRI_ASSERT(t != T(0));
-    _g.store(_g / t);
+    T tmp;
+    do {
+      tmp = _g.load(std::memory_order_acquire);
+    } while (!_g.compare_exchange_weak(tmp, tmp - t, std::memory_order_acq_rel,
+                                       std::memory_order_acquire));
     return *this;
   }
   Gauge<T>& operator=(T const& t) {
-    _g.store(t);
+    _g.store(t, std::memory_order_release);
     return *this;
   }
-  T load() const {
-    return _g.load();
-  }
+  T load() const { return _g.load(std::memory_order_acquire); }
   virtual void toPrometheus(std::string& result) const override {
     result += "\n#TYPE " + name() + " gauge\n";
     result += "#HELP " + name() + " " + help() + "\n";

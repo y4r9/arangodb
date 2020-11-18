@@ -480,7 +480,6 @@ bool CommTask::handleRequestSync(std::shared_ptr<RestHandler> handler) {
   handler->statistics().SET_QUEUE_START(SchedulerFeature::SCHEDULER->queueStatistics()._queued);
 
   RequestLane lane = handler->getRequestLane();
-  RequestPriority prio = PriorityRequestLane(lane);
 
   ContentType respType = handler->request()->contentTypeResponse();
   uint64_t mid = handler->messageId();
@@ -488,15 +487,9 @@ bool CommTask::handleRequestSync(std::shared_ptr<RestHandler> handler) {
   // queue the operation in the scheduler, and make it eligible for direct execution
   // only if the current CommTask type allows it (HttpCommTask: yes, CommTask: no)
   // and there is currently only a single client handled by the IoContext
-  auto cb = [self = shared_from_this(), handler = std::move(handler), prio]() mutable {
-    if (prio == RequestPriority::LOW) {
-      SchedulerFeature::SCHEDULER->increaseOngoing();
-    }
+  auto cb = [self = shared_from_this(), handler = std::move(handler)]() mutable {
     handler->statistics().SET_QUEUE_END();
-    handler->runHandler([self = std::move(self), prio](rest::RestHandler* handler) {
-      if (prio == RequestPriority::LOW) {
-        SchedulerFeature::SCHEDULER->decreaseOngoing();
-      }
+    handler->runHandler([self = std::move(self)](rest::RestHandler* handler) {
       try {
         // Pass the response to the io context
         self->sendResponse(handler->stealResponse(), handler->stealStatistics());

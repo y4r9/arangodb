@@ -420,7 +420,7 @@ void ApplicationServer::setupDependencies(bool failOnMissing) {
         }
         continue;
       }
-      getFeature<ApplicationFeature>(other).startsAfter(std::type_index(typeid(feature)));
+      getFeature<ApplicationFeature>(other).startsAfter(it.first);
     }
   }
 
@@ -450,34 +450,33 @@ void ApplicationServer::setupDependencies(bool failOnMissing) {
   }
 
   // first insert all features, even the inactive ones
-  std::vector<std::reference_wrapper<ApplicationFeature>> features;
-  for (auto& it : _features) {
-    auto const& us = *it.second;
+  std::vector<std::pair<std::type_index, std::reference_wrapper<ApplicationFeature>>> features;
+  for (auto& us : _features) {
     auto insertPosition = features.end();
 
     for (size_t i = features.size(); i > 0; --i) {
-      auto const& other = features[i - 1].get();
-      if (us.doesStartBefore(std::type_index(typeid(other)))) {
+      auto const& other = features[i - 1];
+      if (us.second->doesStartBefore(other.first)) {
         // we start before the other feature. so move ourselves up
         insertPosition = features.begin() + (i - 1);
-      } else if (other.doesStartBefore(std::type_index(typeid(us)))) {
+      } else if (other.second.get().doesStartBefore(us.first)) {
         // the other feature starts before us. so stop moving up
         break;
       } else {
         // no dependencies between the two features
-        if (us.name() < other.name()) {
+        if (us.second->name() < other.second.get().name()) {
           insertPosition = features.begin() + (i - 1);
         }
       }
     }
-    features.insert(insertPosition, *it.second);
+    features.insert(insertPosition, {us.first, *us.second});
   }
 
   LOG_TOPIC("0fafb", TRACE, Logger::STARTUP) << "ordered features:";
 
   int position = 0;
-  for (ApplicationFeature& feature : features) {
-    auto const& startsAfter = feature.startsAfter();
+  for (auto& [type, feature] : features) {
+    auto const& startsAfter = feature.get().startsAfter();
 
     std::string dependencies;
     if (!startsAfter.empty()) {
@@ -486,13 +485,13 @@ void ApplicationServer::setupDependencies(bool failOnMissing) {
       dependencies = " - depends on: " + StringUtils::join(startsAfter, ", ", cb);
     }
     LOG_TOPIC("b2ad5", TRACE, Logger::STARTUP)
-        << "feature #" << ++position << ": " << feature.name()
-        << (feature.isEnabled() ? "" : " (disabled)") << dependencies;
+        << "feature #" << ++position << ": " << feature.get().name()
+        << (feature.get().isEnabled() ? "" : " (disabled)") << dependencies;
   }
 
   // remove all inactive features
   for (auto it = features.begin(); it != features.end(); /* no hoisting */) {
-    ApplicationFeature& feature = (*it).get();
+    ApplicationFeature& feature = it->second.get();
     if (feature.isEnabled()) {
       // keep feature
       feature.state(ApplicationFeature::State::INITIALIZED);
@@ -503,7 +502,11 @@ void ApplicationServer::setupDependencies(bool failOnMissing) {
     }
   }
 
-  _orderedFeatures = features;
+  _orderedFeatures.clear();
+  _orderedFeatures.reserve(features.size());
+  for (auto& [type, feature] : features) {
+    _orderedFeatures.emplace_back(feature);
+  }
 }
 
 void ApplicationServer::daemonize() {

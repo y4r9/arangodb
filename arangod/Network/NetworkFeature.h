@@ -24,18 +24,24 @@
 #ifndef ARANGOD_NETWORK_NETWORK_FEATURE_H
 #define ARANGOD_NETWORK_NETWORK_FEATURE_H 1
 
+#include <atomic>
+#include <mutex>
+
+#include <fuerte/requests.h>
+
 #include "ApplicationFeatures/ApplicationFeature.h"
 #include "Network/ConnectionPool.h"
 #include "RestServer/Metrics.h"
 #include "Scheduler/Scheduler.h"
 
-#include <atomic>
-#include <mutex>
-
 namespace arangodb {
 
-class NetworkFeature final : public application_features::ApplicationFeature {
+class NetworkFeature : public application_features::ApplicationFeature {
  public:
+  using RequestCallback =
+      std::function<void(fuerte::Error err, std::unique_ptr<fuerte::Request> req,
+                         std::unique_ptr<fuerte::Response> res)>;
+
   explicit NetworkFeature(application_features::ApplicationServer& server);
   explicit NetworkFeature(application_features::ApplicationServer& server,
                           network::ConnectionPool::Config);
@@ -59,6 +65,15 @@ class NetworkFeature final : public application_features::ApplicationFeature {
   /// @brief increase the counter for forwarded requests
   void trackForwardedRequest();
 
+  std::size_t requestsInFlight() const;
+  virtual void prepareRequest();
+  virtual void finishRequest();
+
+  virtual bool isCongested() const;  // in-flight above low-water mark
+  virtual bool isSaturated() const;  // in-flight above high-water mark
+  virtual void queueRequest(std::string const& endpoint,
+                            std::unique_ptr<fuerte::Request>&& req, RequestCallback&& cb);
+
  private:
   std::string _protocol;
   uint64_t _maxOpenConnections;
@@ -79,6 +94,9 @@ class NetworkFeature final : public application_features::ApplicationFeature {
   /// (from one coordinator to another, in case load-balancing
   /// is used)
   Counter& _forwardedRequests;
+
+ protected:
+  Gauge<std::size_t>& _requestsInFlight;
 };
 
 }  // namespace arangodb

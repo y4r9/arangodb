@@ -157,14 +157,6 @@ class Scheduler {
       });
     }
 
-    std::size_t inFlight() const;
-    void increaseInFlight();
-    void decreaseInFlight();
-
-    std::size_t onGoing() const;
-    void increaseOngoing();
-    void decreaseOngoing();
-
   // ---------------------------------------------------------------------------
   // CronThread and delayed tasks
   // ---------------------------------------------------------------------------
@@ -198,8 +190,6 @@ class Scheduler {
   std::mutex _cronQueueMutex;
   std::condition_variable _croncv;
   std::unique_ptr<SchedulerCronThread> _cronThread;
-  std::atomic<std::size_t> _inFlight;
-  std::atomic<std::size_t> _onGoing;    // requests ongoing from low prio queue
 
   // ---------------------------------------------------------------------------
   // Statistics stuff

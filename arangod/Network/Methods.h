@@ -87,6 +87,8 @@ static constexpr Timeout TimeoutDefault = Timeout(120.0);
 
 // Container for optional (often defaulted) parameters
 struct RequestOptions {
+  enum class Priority { Default, Direct };
+
   std::string database;
   std::string contentType;  // uses vpack by default
   std::string acceptType;   // uses vpack by default
@@ -94,6 +96,7 @@ struct RequestOptions {
   Timeout timeout = TimeoutDefault;
   bool retryNotFound = false;  // retry if answers is "datasource not found"
   bool skipScheduler = false;  // do not use Scheduler queue
+  Priority priority = Priority::Default;
 
   template <typename K, typename V>
   RequestOptions& param(K&& key, V&& val) {

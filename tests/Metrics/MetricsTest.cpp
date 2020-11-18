@@ -250,8 +250,7 @@ TEST_F(MetricsTest, test_counter) {
 }
 
 template<typename T> void gauge_test() {
-
-  T zdo = .1, zero = 0., one = 1.;
+  T zdo = .1, zero = 0.;
   Gauge g(zero, "gauge_1", "Gauge 1");
 
   ASSERT_DOUBLE_EQ(g.load(),  zero);
@@ -260,10 +259,6 @@ template<typename T> void gauge_test() {
   g -= zdo;
   ASSERT_DOUBLE_EQ(g.load(),  zero);
   g += zdo;
-  g *= g.load();
-  ASSERT_DOUBLE_EQ(g.load(),  zdo*zdo);
-  g /= g.load();
-  ASSERT_DOUBLE_EQ(g.load(),  one);
   g -= g.load();
   ASSERT_DOUBLE_EQ(g.load(),  zero);
 
