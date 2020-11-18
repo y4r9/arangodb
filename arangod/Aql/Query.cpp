@@ -1459,7 +1459,7 @@ void Query::cleanupPlanAndEngineSync(int errorCode, VPackBuilder* statsBuilder) 
 
 /// @brief cleanup plan and engine for current query
 ExecutionState Query::cleanupPlanAndEngine(int errorCode, VPackBuilder* statsBuilder) {
-  if (_engine != nullptr && !_engine->wasShutdown()) {
+  if (_engine != nullptr) { 
     try {
       ExecutionState state;
       std::tie(state, std::ignore) = _engine->shutdown(errorCode);
