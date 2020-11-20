@@ -29,6 +29,7 @@
 #include "Futures/Future.h"
 #include "Network/ConnectionPool.h"
 #include "Network/types.h"
+#include "RestServer/Metrics.h"
 
 #include <fuerte/message.h>
 #include <velocypack/Buffer.h>
@@ -97,6 +98,7 @@ struct RequestOptions {
   bool retryNotFound = false;  // retry if answers is "datasource not found"
   bool skipScheduler = false;  // do not use Scheduler queue
   Priority priority = Priority::Default;
+  std::shared_ptr<RequestTracker> tracker;
 
   template <typename K, typename V>
   RequestOptions& param(K&& key, V&& val) {

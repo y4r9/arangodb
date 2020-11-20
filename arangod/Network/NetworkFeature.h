@@ -69,14 +69,20 @@ class NetworkFeature : public application_features::ApplicationFeature {
   void trackForwardedRequest();
 
   std::size_t requestsInFlight() const;
-  virtual void prepareRequest();
-  virtual void finishRequest();
 
   virtual bool isCongested() const;  // in-flight above low-water mark
   virtual bool isSaturated() const;  // in-flight above high-water mark
-  virtual void sendRequest(network::ConnectionPool* pool,
+  virtual void sendRequest(network::ConnectionPool& pool,
                            network::RequestOptions const& options, std::string const& endpoint,
                            std::unique_ptr<fuerte::Request>&& req, RequestCallback&& cb);
+
+ protected:
+  virtual void prepareRequest(network::ConnectionPool const& pool,
+                              std::unique_ptr<fuerte::Request>& req);
+  virtual void finishRequest(network::ConnectionPool const& pool,
+                             std::unique_ptr<fuerte::Request> const& req,
+                             std::unique_ptr<fuerte::Response>& res,
+                             std::shared_ptr<network::RequestTracker> tracker);
 
  private:
   std::string _protocol;
@@ -101,6 +107,7 @@ class NetworkFeature : public application_features::ApplicationFeature {
 
  protected:
   Gauge<std::size_t>& _requestsInFlight;
+  network::RequestTracker& _globalRequestTimes;
 };
 
 }  // namespace arangodb

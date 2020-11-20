@@ -38,6 +38,7 @@
 #include "Replication/ReplicationApplierConfiguration.h"
 #include "Rest/GeneralResponse.h"
 #include "RestServer/DatabaseFeature.h"
+#include "RestServer/MetricsFeature.h"
 #include "RestServer/SystemDatabaseFeature.h"
 #include "StorageEngine/StorageEngineFeature.h"
 #include "VocBase/vocbase.h"
@@ -71,6 +72,8 @@ void writeError(int code, arangodb::GeneralResponse* response) {
 
   response->setPayload(std::move(buffer), VPackOptions::Defaults);
 }
+
+constexpr std::size_t HistoryCount = 10;
 } // namespace
 
 
@@ -88,7 +91,12 @@ ReplicationFeature::ReplicationFeature(ApplicationServer& server)
       _enableActiveFailover(false),
       _syncByRevision(true),
       _parallelTailingInvocations(0),
-      _maxParallelTailingInvocations(0) {
+      _maxParallelTailingInvocations(0),
+      _synchronousRequestTimes(server.getFeature<arangodb::MetricsFeature>().heatmap("arangodb_replication_synchronous_request_duration_as_percentage_of_timeout",
+                                                                                     ::HistoryCount,
+                                                                                     fixed_scale_t(0.0, 100.0,
+                                                                                                   {1.0, 5.0, 15.0, 50.0}),
+                                                                                     "Synchronous replication request round-trip time as a percentage of timeout [%]")) {
   setOptional(true);
   startsAfter<BasicFeaturePhaseServer>();
 
@@ -357,6 +365,10 @@ void ReplicationFeature::prepareFollowerResponse(GeneralResponse* response,
       break;
     }
   }
+}
+
+std::shared_ptr<network::RequestTracker> ReplicationFeature::synchronousRequestTracker() {
+  return _synchronousRequestTimes.shared_from_this();
 }
 
 }  // namespace arangodb

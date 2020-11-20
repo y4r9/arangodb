@@ -25,6 +25,7 @@
 
 #include "ApplicationFeatures/ApplicationServer.h"
 #include "ApplicationFeatures/GreetingsFeaturePhase.h"
+#include "Basics/FunctionUtils.h"
 #include "Basics/application-exit.h"
 #include "Logger/LogMacros.h"
 #include "Logger/Logger.h"
@@ -33,6 +34,7 @@
 #include "ProgramOptions/Section.h"
 #include "RestServer/Metrics.h"
 #include "RocksDBEngine/RocksDBEngine.h"
+#include "Scheduler/SchedulerFeature.h"
 #include "Statistics/StatisticsFeature.h"
 #include "StorageEngine/EngineSelectorFeature.h"
 #include "StorageEngine/StorageEngine.h"
@@ -46,6 +48,30 @@ using namespace arangodb::application_features;
 using namespace arangodb::basics;
 using namespace arangodb::options;
 
+namespace {
+void queuePeriodicMonitoring(std::mutex& mutex, arangodb::Scheduler::WorkHandle& workItem,
+                             std::function<void(bool)>& periodic,
+                             std::chrono::seconds offset) {
+  bool queued = false;
+  {
+    std::lock_guard<std::mutex> guard(mutex);
+    std::tie(queued, workItem) =
+        arangodb::basics::function_utils::retryUntilTimeout<arangodb::Scheduler::WorkHandle>(
+            [&periodic, offset]() -> std::pair<bool, arangodb::Scheduler::WorkHandle> {
+              return arangodb::SchedulerFeature::SCHEDULER->queueDelay(
+                  arangodb::RequestLane::INTERNAL_LOW, offset, periodic);
+            },
+            arangodb::Logger::STATISTICS, "queue periodic metrics monitoring");
+  }
+  if (!queued) {
+    LOG_TOPIC("c8b3e", FATAL, arangodb::Logger::STATISTICS)
+        << "Failed to queue periodic metrics monitoring for 5 minutes, "
+           "exiting.";
+    FATAL_ERROR_EXIT();
+  }
+}
+}  // namespace
+
 // -----------------------------------------------------------------------------
 // --SECTION--                                                 MetricsFeature
 // -----------------------------------------------------------------------------
@@ -55,6 +81,24 @@ MetricsFeature::MetricsFeature(application_features::ApplicationServer& server)
   setOptional(false);
   startsAfter<LoggerFeature>();
   startsBefore<GreetingsFeaturePhase>();
+
+  _periodic = [this](bool canceled) {
+    if (canceled) {
+      return;
+    }
+
+    {
+      std::unique_lock<std::mutex> guard;
+      for (auto& metric : _periodicRegistry) {
+        metric->setSnapshot();
+      }
+    }
+
+    if (!this->server().isStopping()) {
+      std::chrono::seconds off(5);
+      ::queuePeriodicMonitoring(_workItemMutex, _workItem, _periodic, off);
+    }
+  };
 }
 
 void MetricsFeature::collectOptions(std::shared_ptr<ProgramOptions> options) {
@@ -72,6 +116,14 @@ bool MetricsFeature::exportAPI() const {
 }
 
 void MetricsFeature::validateOptions(std::shared_ptr<ProgramOptions>) {}
+
+void MetricsFeature::start() {
+  Scheduler* scheduler = SchedulerFeature::SCHEDULER;
+  if (scheduler != nullptr) {  // is nullptr in catch tests
+    auto off = std::chrono::seconds(10);
+    ::queuePeriodicMonitoring(_workItemMutex, _workItem, _periodic, off);
+  }
+}
 
 void MetricsFeature::toPrometheus(std::string& result) const {
 

@@ -26,6 +26,7 @@
 
 #include "ApplicationFeatures/ApplicationFeature.h"
 #include "Cluster/ServerState.h"
+#include "Network/types.h"
 
 struct TRI_vocbase_t;
 
@@ -102,6 +103,8 @@ class ReplicationFeature final : public application_features::ApplicationFeature
 
   static ReplicationFeature* INSTANCE;
 
+  std::shared_ptr<network::RequestTracker> synchronousRequestTracker();
+
  private:
   /// @brief connection timeout for replication requests
   double _connectTimeout;
@@ -132,6 +135,8 @@ class ReplicationFeature final : public application_features::ApplicationFeature
   uint64_t _maxParallelTailingInvocations;
 
   std::unique_ptr<GlobalReplicationApplier> _globalReplicationApplier;
+
+  network::RequestTracker& _synchronousRequestTimes;
 };
 
 }  // namespace arangodb

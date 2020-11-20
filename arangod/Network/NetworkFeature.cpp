@@ -62,6 +62,8 @@ void queueGarbageCollection(std::mutex& mutex, arangodb::Scheduler::WorkHandle& 
     FATAL_ERROR_EXIT();
   }
 }
+
+constexpr std::size_t HistoryCount = 10;
 }  // namespace
 
 using namespace arangodb::basics;
@@ -88,7 +90,11 @@ NetworkFeature::NetworkFeature(application_features::ApplicationServer& server,
           "Number of requests forwarded to another coordinator")),
       _requestsInFlight(server.getFeature<arangodb::MetricsFeature>().gauge<std::size_t>(
           "arangodb_network_requests_in_flight", 0,
-          "Number of outgoing internal requests in flight")) {
+          "Number of outgoing internal requests in flight")),
+      _globalRequestTimes(server.getFeature<arangodb::MetricsFeature>().heatmap(
+          "arangodb_network_request_duration_as_percentage_of_timeout",
+          ::HistoryCount, fixed_scale_t(0.0, 100.0, {1.0, 5.0, 15.0, 50.0}),
+          "Internal request round-trip time as a percentage of timeout [%]")) {
   setOptional(true);
   startsAfter<ClusterFeature>();
   startsAfter<SchedulerFeature>();
@@ -248,21 +254,54 @@ std::size_t NetworkFeature::requestsInFlight() const {
   return _requestsInFlight.load();
 }
 
-void NetworkFeature::prepareRequest() { _requestsInFlight += 1; }
-
-void NetworkFeature::finishRequest() { _requestsInFlight -= 1; }
-
 bool NetworkFeature::isCongested() const { return false; }
 
 bool NetworkFeature::isSaturated() const { return false; }
 
-void NetworkFeature::sendRequest(network::ConnectionPool* pool,
-                                 network::RequestOptions const&, std::string const& endpoint,
+void NetworkFeature::sendRequest(network::ConnectionPool& pool,
+                                 network::RequestOptions const& options,
+                                 std::string const& endpoint,
                                  std::unique_ptr<fuerte::Request>&& req,
                                  RequestCallback&& cb) {
-  prepareRequest();
-  auto conn = pool->leaseConnection(endpoint);
-  conn->sendRequest(std::move(req), std::move(cb));
+  prepareRequest(pool, req);
+  auto conn = pool.leaseConnection(endpoint);
+  conn->sendRequest(std::move(req),
+                    [this, &pool, tracker = options.tracker,
+                     cb = std::move(cb)](fuerte::Error err,
+                                         std::unique_ptr<fuerte::Request> req,
+                                         std::unique_ptr<fuerte::Response> res) {
+                      finishRequest(pool, req, res, tracker);
+                      cb(err, std::move(req), std::move(res));
+                    });
+}
+
+void NetworkFeature::prepareRequest(network::ConnectionPool const& pool,
+                                    std::unique_ptr<fuerte::Request>& req) {
+  _requestsInFlight += 1;
+  if (req) {
+    req->timestamp(std::chrono::steady_clock::now());
+  }
+}
+void NetworkFeature::finishRequest(network::ConnectionPool const& pool,
+                                   std::unique_ptr<fuerte::Request> const& req,
+                                   std::unique_ptr<fuerte::Response>& res,
+                                   std::shared_ptr<network::RequestTracker> tracker) {
+  _requestsInFlight -= 1;
+  if (req && res) {
+    res->timestamp(std::chrono::steady_clock::now());
+    std::chrono::milliseconds duration =
+        std::chrono::duration_cast<std::chrono::milliseconds>(res->timestamp() -
+                                                              req->timestamp());
+    std::chrono::milliseconds timeout = req->timeout();
+    double percentage = std::clamp(100.0 * static_cast<double>(duration.count()) /
+                                       static_cast<double>(timeout.count()),
+                                   0.0, 100.0);
+    _globalRequestTimes.count(percentage);
+    if (tracker) {
+      LOG_DEVEL << "tracked";
+      tracker->count(percentage);
+    }
+  }
 }
 
 }  // namespace arangodb

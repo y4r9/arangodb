@@ -25,16 +25,16 @@
 #define ARANGODB_REST_SERVER_METRICS_H 1
 
 #include <atomic>
-#include <map>
-#include <iostream>
-#include <string>
-#include <memory>
-#include <variant>
-#include <vector>
-#include <unordered_map>
 #include <cassert>
 #include <cmath>
+#include <deque>
+#include <iostream>
 #include <limits>
+#include <memory>
+#include <numeric>
+#include <string>
+#include <unordered_map>
+#include <vector>
 
 #include "Basics/VelocyPackHelper.h"
 #include "Logger/LogMacros.h"
@@ -53,6 +53,12 @@ class Metric {
   std::string const _name;
   std::string const _help;
   std::string const _labels;
+};
+
+class PeriodicMetric {
+ public:
+  virtual ~PeriodicMetric() = default;
+  virtual void setSnapshot() = 0;
 };
 
 struct Metrics {
@@ -131,7 +137,7 @@ template<typename T> class Gauge : public Metric {
 
 std::ostream& operator<< (std::ostream&, Metrics::hist_type const&);
 
-enum ScaleType {LINEAR, LOGARITHMIC};
+enum ScaleType { FIXED, LINEAR, LOGARITHMIC };
 
 template<typename T>
 struct scale_t {
@@ -303,6 +309,39 @@ struct lin_scale_t : public scale_t<T> {
   T _base, _div;
 };
 
+template <typename T>
+struct fixed_scale_t : public scale_t<T> {
+ public:
+  using value_type = T;
+  static constexpr ScaleType scale_type = FIXED;
+
+  fixed_scale_t(T const& low, T const& high, std::initializer_list<T> const& list)
+      : scale_t<T>(low, high, list.size() + 1) {
+    this->_delim = list;
+  }
+  virtual ~fixed_scale_t() = default;
+  /**
+   * @brief index for val
+   * @param val value
+   * @return    index
+   */
+  size_t pos(T const& val) const {
+    for (std::size_t i = 0; i < this->_delim.size(); ++i) {
+      if (val <= this->_delim[i]) {
+        return i;
+      }
+    }
+    return this->_delim.size();
+  }
+
+  virtual void toVelocyPack(VPackBuilder& b) const override {
+    b.add("scale-type", VPackValue("fixed"));
+    scale_t<T>::toVelocyPack(b);
+  }
+
+ private:
+  T _base, _div;
+};
 
 template<typename ... Args>
 std::string strfmt (std::string const& format, Args ... args) {
@@ -427,6 +466,57 @@ template<typename Scale> class Histogram : public Metric {
   value_type _lowr, _highr;
   size_t _n;
 
+};
+
+template <typename Scale>
+class Heatmap : public Histogram<Scale>,
+                public PeriodicMetric,
+                public std::enable_shared_from_this<Heatmap<Scale>> {
+ public:
+  Heatmap() = delete;
+
+  Heatmap(std::size_t historyCount, Scale const& scale, std::string const& name,
+          std::string const& help, std::string const& labels = std::string())
+      : Histogram<Scale>(scale, name, help, labels), _historyCount(historyCount) {}
+
+  void setSnapshot() override {
+    std::unique_lock<std::mutex> guard(_lock);
+    _history.emplace_front(Histogram<Scale>::load());
+    while (_history.size() > _historyCount) {
+      _history.pop_back();
+    }
+  }
+
+  std::vector<uint64_t> diff(std::size_t steps = 1) {
+    std::size_t const size = Histogram<Scale>::size();
+    std::vector<uint64_t> v(size, 0);
+    std::unique_lock<std::mutex> guard(_lock);
+    if (_history.size() == 1) {
+      return _history[0];  // nothing to subtract
+    } else if (!_history.empty()) {
+      std::size_t const offset = std::min(steps, _history.size() - 1);
+      for (std::size_t i = 0; i < size; ++i) {
+        v[i] = _history[0][i] - _history[offset][i];
+      }
+    }
+    return v;
+  }
+
+  std::vector<double> normalizedDiff(std::size_t steps = 1) {
+    std::size_t const size = Histogram<Scale>::size();
+    std::vector<double> n(size, 0.0);
+    std::vector<uint64_t> h = diff(steps);
+    uint64_t sum = std::reduce(h.begin(), h.end());
+    for (std::size_t i = 0; i < size; ++i) {
+      n[i] = static_cast<double>(h[i]) / static_cast<double>(sum);
+    }
+    return n;
+  }
+
+ private:
+  std::mutex _lock;
+  std::size_t _historyCount;
+  std::deque<std::vector<uint64_t>> _history;
 };
 
 std::ostream& operator<< (std::ostream&, Metrics::counter_type const&);

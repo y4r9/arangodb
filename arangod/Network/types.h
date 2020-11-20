@@ -27,6 +27,8 @@
 #include <fuerte/types.h>
 #include <chrono>
 
+#include "RestServer/Metrics.h"
+
 namespace arangodb {
 namespace network {
 
@@ -34,6 +36,7 @@ struct Response;
 typedef std::string DestinationId;
 
 using Headers = std::map<std::string, std::string>;
+using RequestTracker = Heatmap<fixed_scale_t<double>>;
 using Timeout = std::chrono::duration<double>;
 
 struct EndpointSpec {

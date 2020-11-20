@@ -57,6 +57,7 @@
 #include "Network/Methods.h"
 #include "Network/NetworkFeature.h"
 #include "Network/Utils.h"
+#include "Replication/ReplicationFeature.h"
 #include "RocksDBEngine/RocksDBEngine.h"
 #include "StorageEngine/EngineSelectorFeature.h"
 #include "StorageEngine/PhysicalCollection.h"
@@ -2217,12 +2218,16 @@ Future<Result> Methods::replicateOperations(
     return Result();
   }
 
+  auto& rf = vocbase().server().getFeature<ReplicationFeature>();
+
   // path and requestType are different for insert/remove/modify.
 
   network::RequestOptions reqOpts;
   reqOpts.database = vocbase().name();
   reqOpts.param(StaticStrings::IsRestoreString, "true");
   reqOpts.param(StaticStrings::IsSynchronousReplicationString, ServerState::instance()->getId());
+  reqOpts.tracker = rf.synchronousRequestTracker();
+  TRI_ASSERT(reqOpts.tracker);
 
   std::string url = "/_api/document/";
   url.append(arangodb::basics::StringUtils::urlEncode(collection->name()));
