@@ -23,6 +23,8 @@
 
 #include "NetworkFeature.h"
 
+#include <fuerte/connection.h>
+
 #include "ApplicationFeatures/ApplicationServer.h"
 #include "Basics/FunctionUtils.h"
 #include "Basics/application-exit.h"
@@ -30,6 +32,7 @@
 #include "Cluster/ClusterInfo.h"
 #include "GeneralServer/GeneralServerFeature.h"
 #include "Network/ConnectionPool.h"
+#include "Network/Methods.h"
 #include "ProgramOptions/ProgramOptions.h"
 #include "ProgramOptions/Section.h"
 #include "RestServer/MetricsFeature.h"
@@ -85,7 +88,7 @@ NetworkFeature::NetworkFeature(application_features::ApplicationServer& server,
           "Number of requests forwarded to another coordinator")),
       _requestsInFlight(server.getFeature<arangodb::MetricsFeature>().gauge<std::size_t>(
           "arangodb_network_requests_in_flight", 0,
-          "Number of outgoing requests in flight")) {
+          "Number of outgoing internal requests in flight")) {
   setOptional(true);
   startsAfter<ClusterFeature>();
   startsAfter<SchedulerFeature>();
@@ -253,10 +256,13 @@ bool NetworkFeature::isCongested() const { return false; }
 
 bool NetworkFeature::isSaturated() const { return false; }
 
-void NetworkFeature::queueRequest(std::string const& endpoint,
-                                  std::unique_ptr<fuerte::Request>&& req,
-                                  RequestCallback&& cb) {
-  THROW_ARANGO_EXCEPTION(TRI_ERROR_NOT_IMPLEMENTED);
+void NetworkFeature::sendRequest(network::ConnectionPool* pool,
+                                 network::RequestOptions const&, std::string const& endpoint,
+                                 std::unique_ptr<fuerte::Request>&& req,
+                                 RequestCallback&& cb) {
+  prepareRequest();
+  auto conn = pool->leaseConnection(endpoint);
+  conn->sendRequest(std::move(req), std::move(cb));
 }
 
 }  // namespace arangodb

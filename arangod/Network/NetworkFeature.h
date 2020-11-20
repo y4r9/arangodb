@@ -35,6 +35,9 @@
 #include "Scheduler/Scheduler.h"
 
 namespace arangodb {
+namespace network {
+struct RequestOptions;
+}
 
 class NetworkFeature : public application_features::ApplicationFeature {
  public:
@@ -71,8 +74,9 @@ class NetworkFeature : public application_features::ApplicationFeature {
 
   virtual bool isCongested() const;  // in-flight above low-water mark
   virtual bool isSaturated() const;  // in-flight above high-water mark
-  virtual void queueRequest(std::string const& endpoint,
-                            std::unique_ptr<fuerte::Request>&& req, RequestCallback&& cb);
+  virtual void sendRequest(network::ConnectionPool* pool,
+                           network::RequestOptions const& options, std::string const& endpoint,
+                           std::unique_ptr<fuerte::Request>&& req, RequestCallback&& cb);
 
  private:
   std::string _protocol;

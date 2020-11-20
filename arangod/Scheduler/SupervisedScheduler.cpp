@@ -605,9 +605,6 @@ bool SupervisedScheduler::canPullFromQueue(uint64_t queueIndex) const {
   // _maxInFlight is just the max size_t
   TRI_ASSERT(_server.hasFeature<NetworkFeature>());
   if (_server.getFeature<NetworkFeature>().isSaturated()) {
-    LOG_DEVEL << "REFUSED to dequeue because network is saturated ("
-              << _server.getFeature<NetworkFeature>().requestsInFlight()
-              << " requests in flight)";
     return false;
   }
 
