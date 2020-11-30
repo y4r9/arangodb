@@ -82,7 +82,7 @@ class NetworkFeature : public application_features::ApplicationFeature {
   virtual void finishRequest(network::ConnectionPool const& pool,
                              std::unique_ptr<fuerte::Request> const& req,
                              std::unique_ptr<fuerte::Response>& res,
-                             std::shared_ptr<network::RequestTracker> tracker);
+                             network::RequestTracker const& tracker);
 
  private:
   std::string _protocol;
@@ -107,7 +107,7 @@ class NetworkFeature : public application_features::ApplicationFeature {
 
  protected:
   Gauge<std::size_t>& _requestsInFlight;
-  network::RequestTracker& _globalRequestTimes;
+  network::RequestDurationTracker& _globalRequestDurations;
 };
 
 }  // namespace arangodb

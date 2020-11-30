@@ -26,6 +26,7 @@
 
 #include "Basics/Common.h"
 #include "Basics/ReadWriteLock.h"
+#include "Cluster/ServerState.h"
 #include "RestHandler/RestVocbaseBaseHandler.h"
 #include "Transaction/Status.h"
 
@@ -43,7 +44,12 @@ class RestTransactionHandler : public arangodb::RestVocbaseBaseHandler {
 
  public:
   char const* name() const override final { return "RestTransactionHandler"; }
-  RequestLane lane() const override final { return RequestLane::CLIENT_V8; }
+  RequestLane lane() const override final {
+    if (ServerState::instance()->isDBServer()) {
+      return RequestLane::CLIENT_FAST;
+    }
+    return RequestLane::CLIENT_V8;
+  }
   RestStatus execute() override;
   void cancel() override final;
 

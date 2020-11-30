@@ -59,7 +59,7 @@ void queuePeriodicMonitoring(std::mutex& mutex, arangodb::Scheduler::WorkHandle&
         arangodb::basics::function_utils::retryUntilTimeout<arangodb::Scheduler::WorkHandle>(
             [&periodic, offset]() -> std::pair<bool, arangodb::Scheduler::WorkHandle> {
               return arangodb::SchedulerFeature::SCHEDULER->queueDelay(
-                  arangodb::RequestLane::INTERNAL_LOW, offset, periodic);
+                  arangodb::RequestLane::CLUSTER_INTERNAL, offset, periodic);
             },
             arangodb::Logger::STATISTICS, "queue periodic metrics monitoring");
   }
@@ -89,8 +89,10 @@ MetricsFeature::MetricsFeature(application_features::ApplicationServer& server)
 
     {
       std::unique_lock<std::mutex> guard;
-      for (auto& metric : _periodicRegistry) {
-        metric->setSnapshot();
+      for (std::shared_ptr<PeriodicMetric>& metric : _periodicRegistry) {
+        if (metric) {
+          metric->setSnapshot();
+        }
       }
     }
 

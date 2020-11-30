@@ -32,11 +32,15 @@
 namespace arangodb {
 namespace network {
 
+class ConnectionPool;
 struct Response;
 typedef std::string DestinationId;
 
 using Headers = std::map<std::string, std::string>;
-using RequestTracker = Heatmap<fixed_scale_t<double>>;
+using RequestDurationTracker = Heatmap<fixed_scale_t<double>>;
+using RequestTracker =
+    std::function<void(ConnectionPool const& pool, std::unique_ptr<fuerte::Request> const& req,
+                       std::unique_ptr<fuerte::Response> const& res)>;
 using Timeout = std::chrono::duration<double>;
 
 struct EndpointSpec {

@@ -135,6 +135,126 @@ template<typename T> class Gauge : public Metric {
   std::atomic<T> _g;
 };
 
+template <typename T>
+class PeriodicStatistics;
+
+template <typename T>
+class Statistics : public Metric {
+ public:
+  class Snapshot {
+    friend class Statistics<T>;
+    friend class PeriodicStatistics<T>;
+
+    std::size_t _count = 0;
+    T _sum = {};
+    T _min = {};
+    T _max = {};
+
+   public:
+    T min() const { return _min; };
+    T max() const { return _max; };
+    T median() const {
+      return _count > 0 ? _sum / static_cast<T>(_count) : T{};
+    }
+  };
+
+  Statistics() = delete;
+  Statistics(std::string const& name, std::string const& help,
+             std::string const& labels = std::string())
+      : Metric(name, help, labels) {}
+  Statistics(Statistics const&) = delete;
+  virtual ~Statistics() = default;
+
+  std::ostream& print(std::ostream&) const;
+
+  void count(T& sample) {
+    Snapshot exp = load();
+    while (true) {
+      Snapshot mod = exp;
+      if (mod._count == 0) {
+        mod._min = sample;
+        mod._max = sample;
+      } else {
+        mod._min = std::min(sample, mod._min);
+        mod._max = std::max(sample, mod._max);
+      }
+      mod._sum += sample;
+      ++mod._count;
+      if (_snapshot.compare_exchange_strong(exp, mod, std::memory_order_acq_rel,
+                                            std::memory_order_acquire)) {
+        break;
+      }
+    }
+  }
+
+  Snapshot load() const { return _snapshot.load(std::memory_order_acquire); }
+  virtual void toPrometheus(std::string& result) const override {
+    Snapshot snap = load();
+    result += "\n#TYPE " + name() + "_min gauge\n";
+    result += "#HELP " + name() + "_min " + help() + "\n";
+    result +=
+        name() + "_min{" + labels() + "} " + std::to_string(snap.min()) + "\n";
+    result += "\n#TYPE " + name() + "_max gauge\n";
+    result += "#HELP " + name() + +"_max " + help() + "\n";
+    result +=
+        name() + "_max{" + labels() + "} " + std::to_string(snap.max()) + "\n";
+    result += "\n#TYPE " + name() + "_median gauge\n";
+    result += "#HELP " + name() + "_median " + help() + "\n";
+    result += name() + "_median{" + labels() + "} " +
+              std::to_string(snap.median()) + "\n";
+  };
+
+ protected:
+  std::atomic<Snapshot> _snapshot;
+};
+
+template <typename T>
+class PeriodicStatistics : public Statistics<T>, public PeriodicMetric {
+ public:
+  using Snapshot = typename Statistics<T>::Snapshot;
+
+  PeriodicStatistics() = delete;
+
+  PeriodicStatistics(std::size_t historyCount, std::string const& name,
+                     std::string const& help, std::string const& labels = std::string())
+      : Statistics<T>(name, help, labels), _historyCount(historyCount) {}
+
+  void setSnapshot() override {
+    std::unique_lock<std::mutex> guard(_lock);
+    Snapshot reset;
+    Snapshot exp = Statistics<T>::load();
+    while (!this->_snapshot.compare_exchange_strong(exp, reset, std::memory_order_acq_rel,
+                                                    std::memory_order_acquire)) {
+      continue;
+    }
+    _history.emplace_front(exp);
+    while (_history.size() > _historyCount) {
+      _history.pop_back();
+    }
+  }
+
+  Snapshot since(std::size_t steps = 0) const {
+    std::unique_lock<std::mutex> guard(_lock);
+    Snapshot s;
+    for (std::size_t i = 0; i <= steps && i < _history.size(); ++i) {
+      if (s._count == 0) {
+        s = _history[i];
+      } else if (_history[i]._count > 0) {
+        s._min = std::min(s._min, _history[i]._min);
+        s._max = std::max(s._max, _history[i]._max);
+        s._sum += _history[i]._sum;
+        s._count += _history[i]._count;
+      }
+    }
+    return s;
+  }
+
+ private:
+  mutable std::mutex _lock;
+  std::size_t _historyCount;
+  std::deque<Snapshot> _history;
+};
+
 std::ostream& operator<< (std::ostream&, Metrics::hist_type const&);
 
 enum ScaleType { FIXED, LINEAR, LOGARITHMIC };
@@ -469,9 +589,7 @@ template<typename Scale> class Histogram : public Metric {
 };
 
 template <typename Scale>
-class Heatmap : public Histogram<Scale>,
-                public PeriodicMetric,
-                public std::enable_shared_from_this<Heatmap<Scale>> {
+class Heatmap : public Histogram<Scale>, public PeriodicMetric {
  public:
   Heatmap() = delete;
 
@@ -487,7 +605,7 @@ class Heatmap : public Histogram<Scale>,
     }
   }
 
-  std::vector<uint64_t> diff(std::size_t steps = 1) {
+  std::vector<uint64_t> diff(std::size_t steps = 1) const {
     std::size_t const size = Histogram<Scale>::size();
     std::vector<uint64_t> v(size, 0);
     std::unique_lock<std::mutex> guard(_lock);
@@ -502,7 +620,7 @@ class Heatmap : public Histogram<Scale>,
     return v;
   }
 
-  std::vector<double> normalizedDiff(std::size_t steps = 1) {
+  std::vector<double> normalizedDiff(std::size_t steps = 1) const {
     std::size_t const size = Histogram<Scale>::size();
     std::vector<double> n(size, 0.0);
     std::vector<uint64_t> h = diff(steps);
@@ -514,7 +632,7 @@ class Heatmap : public Histogram<Scale>,
   }
 
  private:
-  std::mutex _lock;
+  mutable std::mutex _lock;
   std::size_t _historyCount;
   std::deque<std::vector<uint64_t>> _history;
 };

@@ -98,7 +98,9 @@ struct RequestOptions {
   bool retryNotFound = false;  // retry if answers is "datasource not found"
   bool skipScheduler = false;  // do not use Scheduler queue
   Priority priority = Priority::Default;
-  std::shared_ptr<RequestTracker> tracker;
+  RequestTracker tracker = [](network::ConnectionPool const&,
+                              std::unique_ptr<fuerte::Request> const&,
+                              std::unique_ptr<fuerte::Response> const&) -> void {};
 
   template <typename K, typename V>
   RequestOptions& param(K&& key, V&& val) {

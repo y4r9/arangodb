@@ -91,7 +91,7 @@ NetworkFeature::NetworkFeature(application_features::ApplicationServer& server,
       _requestsInFlight(server.getFeature<arangodb::MetricsFeature>().gauge<std::size_t>(
           "arangodb_network_requests_in_flight", 0,
           "Number of outgoing internal requests in flight")),
-      _globalRequestTimes(server.getFeature<arangodb::MetricsFeature>().heatmap(
+      _globalRequestDurations(server.getFeature<arangodb::MetricsFeature>().heatmap(
           "arangodb_network_request_duration_as_percentage_of_timeout",
           ::HistoryCount, fixed_scale_t(0.0, 100.0, {1.0, 5.0, 15.0, 50.0}),
           "Internal request round-trip time as a percentage of timeout [%]")) {
@@ -285,7 +285,7 @@ void NetworkFeature::prepareRequest(network::ConnectionPool const& pool,
 void NetworkFeature::finishRequest(network::ConnectionPool const& pool,
                                    std::unique_ptr<fuerte::Request> const& req,
                                    std::unique_ptr<fuerte::Response>& res,
-                                   std::shared_ptr<network::RequestTracker> tracker) {
+                                   network::RequestTracker const& tracker) {
   _requestsInFlight -= 1;
   if (req && res) {
     res->timestamp(std::chrono::steady_clock::now());
@@ -296,11 +296,8 @@ void NetworkFeature::finishRequest(network::ConnectionPool const& pool,
     double percentage = std::clamp(100.0 * static_cast<double>(duration.count()) /
                                        static_cast<double>(timeout.count()),
                                    0.0, 100.0);
-    _globalRequestTimes.count(percentage);
-    if (tracker) {
-      LOG_DEVEL << "tracked";
-      tracker->count(percentage);
-    }
+    _globalRequestDurations.count(percentage);
+    tracker(pool, req, res);
   }
 }
 

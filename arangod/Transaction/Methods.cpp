@@ -979,22 +979,37 @@ Future<OperationResult> transaction::Methods::insertCoordinator(std::string cons
 
 /// @brief choose a timeout for synchronous replication, based on the
 /// number of documents we ship over
-static double chooseTimeout(size_t count, size_t totalBytes) {
-  // We usually assume that a server can process at least 2500 documents
-  // per second (this is a low estimate), and use a low limit of 0.5s
-  // and a high timeout of 120s
-  double timeout = count / 2500.0;
+static double chooseTimeout(size_t count, PeriodicStatistics<double>& perDoc,
+                            size_t totalBytes, PeriodicStatistics<double>& per4Kb) {
+  // We now select the maximum of two different estimate formulae, then clamp
+  // the resulting value within some server-wide minimum and maximum. Finally
+  // we scale by some server-wide factor.
 
-  // Really big documents need additional adjustment. Using total size
-  // of all messages to handle worst case scenario of constrained resource
-  // processing all
-  timeout += (totalBytes / 4096.0) * ReplicationTimeoutFeature::timeoutPer4k;
+  // First the traditional formula, which uses some fixed assumptions about how
+  // much we can handle. Typically this formula will be used in the case we have
+  // fast, non-congested networks. It will also be used to bootstrap things when
+  // we do have not done much/any replication in the last few minutes.
+  double oldFormula = count / 2500.0;
+  oldFormula += (totalBytes / 4096.0) * ReplicationTimeoutFeature::timeoutPer4k;
 
-  if (timeout < ReplicationTimeoutFeature::lowerLimit) {
-    return ReplicationTimeoutFeature::lowerLimit * ReplicationTimeoutFeature::timeoutFactor;
-  }
-  return (std::min)(ReplicationTimeoutFeature::upperLimit, timeout) *
-         ReplicationTimeoutFeature::timeoutFactor;
+  // Next the newer formula. This takes into account the duration of recent
+  // replication requests, essentially learning how long replication takes as
+  // a function of the request size and guessing a safe timeout based on current
+  // cluster conditions. This estimate will likely kick in in the case of
+  // network congestion or cluster overwhelm.
+  auto statsPerDoc = perDoc.since(60);
+  double byDoc = static_cast<double>(count) *
+                 std::max(statsPerDoc.median() * 5.0, statsPerDoc.max() * 2.0);
+  auto statsPer4Kb = per4Kb.since(60);
+  double by4Kb = static_cast<double>(totalBytes) / 4096.0 *
+                 std::max(statsPer4Kb.median() * 5.0, statsPer4Kb.max() * 2.0);
+  double newFormula = std::max(byDoc, by4Kb) / 1000.0;
+
+  // Now we take the max and clamp, as described above, then scale.
+  double chosen = std::max(oldFormula, newFormula);
+  double clamped = std::clamp(chosen, ReplicationTimeoutFeature::lowerLimit,
+                              ReplicationTimeoutFeature::upperLimit);
+  return clamped * ReplicationTimeoutFeature::timeoutFactor;
 }
 
 /// @brief create one or multiple documents in a collection, local
@@ -2218,16 +2233,12 @@ Future<Result> Methods::replicateOperations(
     return Result();
   }
 
-  auto& rf = vocbase().server().getFeature<ReplicationFeature>();
-
   // path and requestType are different for insert/remove/modify.
 
   network::RequestOptions reqOpts;
   reqOpts.database = vocbase().name();
   reqOpts.param(StaticStrings::IsRestoreString, "true");
   reqOpts.param(StaticStrings::IsSynchronousReplicationString, ServerState::instance()->getId());
-  reqOpts.tracker = rf.synchronousRequestTracker();
-  TRI_ASSERT(reqOpts.tracker);
 
   std::string url = "/_api/document/";
   url.append(arangodb::basics::StringUtils::urlEncode(collection->name()));
@@ -2306,8 +2317,36 @@ Future<Result> Methods::replicateOperations(
     return Result();
   }
 
-  reqOpts.timeout = network::Timeout(chooseTimeout(count, payload->size()));
+  auto& rf = vocbase().server().getFeature<ReplicationFeature>();
+  reqOpts.timeout = network::Timeout(
+      chooseTimeout(count, rf.synchronousRequestDurationPerDocumentTracker(),
+                    payload->size(), rf.synchronousRequestDurationPer4KbTracker()));
+  reqOpts.tracker = [this, count,
+                     totalBytes =
+                         payload->size()](network::ConnectionPool const&,
+                                          std::unique_ptr<fuerte::Request> const& req,
+                                          std::unique_ptr<fuerte::Response> const& res) {
+    if (req && res) {
+      std::chrono::milliseconds duration =
+          std::chrono::duration_cast<std::chrono::milliseconds>(res->timestamp() -
+                                                                req->timestamp());
+      std::chrono::milliseconds timeout = req->timeout();
+      double percentage = std::clamp(100.0 * static_cast<double>(duration.count()) /
+                                         static_cast<double>(timeout.count()),
+                                     0.0, 100.0);
 
+      auto& rf = vocbase().server().getFeature<ReplicationFeature>();
+      rf.synchronousRequestDurationTracker().count(percentage);
+
+      double perDocument =
+          static_cast<double>(duration.count()) / static_cast<double>(count);
+      rf.synchronousRequestDurationPerDocumentTracker().count(perDocument);
+
+      double per4Kb = static_cast<double>(duration.count()) /
+                      static_cast<double>(totalBytes) * 4096.0;
+      rf.synchronousRequestDurationPer4KbTracker().count(per4Kb);
+    }
+  };
   // Now prepare the requests:
   std::vector<Future<network::Response>> futures;
   futures.reserve(followerList->size());

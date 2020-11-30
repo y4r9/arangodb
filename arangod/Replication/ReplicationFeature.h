@@ -103,7 +103,12 @@ class ReplicationFeature final : public application_features::ApplicationFeature
 
   static ReplicationFeature* INSTANCE;
 
-  std::shared_ptr<network::RequestTracker> synchronousRequestTracker();
+  network::RequestDurationTracker& synchronousRequestDurationTracker();
+  PeriodicStatistics<double>& synchronousRequestDurationPerDocumentTracker();
+  PeriodicStatistics<double>& synchronousRequestDurationPer4KbTracker();
+
+  bool isCongested() const;
+  bool isSaturated() const;
 
  private:
   /// @brief connection timeout for replication requests
@@ -136,7 +141,9 @@ class ReplicationFeature final : public application_features::ApplicationFeature
 
   std::unique_ptr<GlobalReplicationApplier> _globalReplicationApplier;
 
-  network::RequestTracker& _synchronousRequestTimes;
+  network::RequestDurationTracker& _synchronousRequestDurations;
+  PeriodicStatistics<double>& _synchronousRequestDurationPerDocument;
+  PeriodicStatistics<double>& _synchronousRequestDurationPer4Kb;
 };
 
 }  // namespace arangodb
