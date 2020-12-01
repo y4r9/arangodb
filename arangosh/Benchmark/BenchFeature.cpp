@@ -324,6 +324,7 @@ void BenchFeature::start() {
                               (unsigned long)_batchSize, &operationsCounter,
                               client, _keepAlive, _async, _verbose,
                               _histogramIntervalSize, _histogramNumIntervals);
+      std::cout << " STEP " << (size_t)(i * realStep);
       thread->setOffset((size_t)(i * realStep));
       thread->start();
       threads.push_back(thread);

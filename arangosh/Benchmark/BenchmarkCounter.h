@@ -96,12 +96,15 @@ class BenchmarkCounter {
 
     T oldValue = _value;
     if (_runUntil != 0.0) {
+      std::cout << "DELTA " << _runUntil - TRI_microtime() << std::endl;
       if (_runUntil - TRI_microtime() <= 0.0) {
         _value = _maxValue;
         _done = _maxValue;
+        std::cout << " done!" << std::endl;
         return 0;
       }
       _value += realValue;
+      std::cout << "REAL: " << realValue << " " << value << std::endl;
       return realValue;
     } else if (oldValue + realValue > _maxValue) {
       _value = _maxValue;

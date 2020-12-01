@@ -219,8 +219,9 @@ class BenchmarkThread : public arangodb::Thread {
     }
 
     while (!isStopping()) {
+      std::cout << " BATCH " << _batchSize << std::endl;
       unsigned long numOps = _operationsCounter->next(_batchSize);
-
+      std::cout << " numOps " << numOps << std::endl;
       if (numOps == 0) {
         break;
       }
@@ -415,6 +416,7 @@ class BenchmarkThread : public arangodb::Thread {
   void executeSingleRequest() {
     size_t const threadCounter = _counter++;
     size_t const globalCounter = _offset + threadCounter;
+    std::cout << " globalcounter " << globalCounter << std::endl;
     rest::RequestType const type =
         _operation->type(_threadNumber, threadCounter, globalCounter);
     std::string const url = _operation->url(_threadNumber, threadCounter, globalCounter);
