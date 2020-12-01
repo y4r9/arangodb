@@ -320,6 +320,7 @@ void BenchFeature::start() {
 
     BenchmarkCounter<unsigned long> operationsCounter(0, (unsigned long)_operations, runUntil);
     ConditionVariable startCondition;
+
     // start client threads
     _started = 0;
     for (uint64_t i = 0; i < _concurrency; ++i) {
@@ -362,9 +363,12 @@ void BenchFeature::start() {
     }
 
     while (true) {
-      size_t const numOperations = operationsCounter.getDone();
+      unsigned long const numOperations = operationsCounter.getDone();
 
-      if (numOperations >= (size_t)_operations) {
+      std::cout << "numOperations " << numOperations << std::endl;
+      std::cout << "operaions " << _operations << std::endl;
+
+      if (numOperations >= _operations) {
         break;
       }
 
