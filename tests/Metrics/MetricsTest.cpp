@@ -128,7 +128,7 @@ TEST_F(MetricsTest, test_histogram_concurrency_distributed) {
         // start at the approximate same time
       }
       for (uint64_t i = 0; i < ::numOpsPerThread; ++i) {
-        h.count(value);
+        h.count(static_cast<int>(value));
       }
     }, i * 30);
   }
@@ -250,7 +250,8 @@ TEST_F(MetricsTest, test_counter) {
 }
 
 template<typename T> void gauge_test() {
-  T zdo = .1, zero = 0.;
+  T zdo = static_cast<T>(.1);
+  T zero = static_cast<T>(0.);
   Gauge g(zero, "gauge_1", "Gauge 1");
 
   ASSERT_DOUBLE_EQ(g.load(),  zero);
@@ -279,7 +280,7 @@ template<typename Scale> void histogram_test(Scale const& scale) {
 
   int buckets = static_cast<int>(scale.n());
   T mx = scale.high(), mn = scale.low(), d;
-  ADB_IGNORE_UNUSED T base = 0.;
+  ADB_IGNORE_UNUSED T base = static_cast<T>(0.);
   T span = mx - mn;
   ADB_IGNORE_UNUSED T step = span / static_cast<T>(buckets);
   T mmin = (std::is_floating_point<T>::value) ? span / T(1.e6) : T(1), one(1), ten(10);
@@ -294,7 +295,7 @@ template<typename Scale> void histogram_test(Scale const& scale) {
     if constexpr (linear) {
       d = mn + step*i + mmin;
     } else {
-      d = mn + (mx-mn) * pow(base, i-buckets) + mmin;
+      d = mn + (mx-mn) * static_cast<T>(pow(base, i-buckets)) + mmin;
     }
     h.count(d);
 //    ASSERT_DOUBLE_EQ(h.load(i), 1);
@@ -305,7 +306,7 @@ template<typename Scale> void histogram_test(Scale const& scale) {
     if constexpr (linear) {
       d = mn + step*(i+1) - mmin;
     } else {
-      d = mn + (mx-mn) * pow(base, i-buckets+1) - mmin;
+      d = mn + (mx-mn) * static_cast<T>(pow(base, i-buckets+1)) - mmin;
     }
     h.count(d);
 //    ASSERT_DOUBLE_EQ(h.load(i), 2);
@@ -383,5 +384,5 @@ TEST_F(MetricsTest, test_int64_log_bin_histogram) {
   histogram_test(log_scale_t<int64_t>(2, 50,  8000,  10));
 }
 TEST_F(MetricsTest, test_uint64_log_bin_histogram) {
-  histogram_test(log_scale_t<uint64_t>(2, 50., 8.0e3, 10));
+  histogram_test(log_scale_t<uint64_t>(2, 50, 8000, 10));
 }

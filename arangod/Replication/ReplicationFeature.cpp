@@ -104,7 +104,10 @@ ReplicationFeature::ReplicationFeature(ApplicationServer& server)
       _synchronousRequestDurationPer4Kb(
           server.getFeature<arangodb::MetricsFeature>().periodicStatistics<double>("arangodb_replication_synchronous_request_duration_per_4kb",
                                                                                    ::HistoryCount,
-                                                                                   "Synchronous replication request round-trip time divided by the amount of data sent")) {
+                                                                                   "Synchronous replication request round-trip time divided by the amount of data sent")),
+      _inventoryRequests(
+        server.getFeature<arangodb::MetricsFeature>().counter(
+          "arangodb_replication_cluster_inventory_requests", 0, "Number of cluster replication inventory requests received")) {
   setOptional(true);
   startsAfter<BasicFeaturePhaseServer>();
 

@@ -26,7 +26,11 @@
 
 #include "ApplicationFeatures/ApplicationFeature.h"
 #include "Cluster/ServerState.h"
+<<<<<<< HEAD
 #include "Network/types.h"
+=======
+#include "RestServer/Metrics.h"
+>>>>>>> devel
 
 struct TRI_vocbase_t;
 
@@ -95,6 +99,8 @@ class ReplicationFeature final : public application_features::ApplicationFeature
   /// must only be called after a successful call to trackTailingstart
   void trackTailingEnd() noexcept;
 
+  void trackInventoryRequest() { ++_inventoryRequests; }
+
   /// @brief set the x-arango-endpoint header
   static void setEndpointHeader(GeneralResponse*, arangodb::ServerState::Mode);
 
@@ -144,6 +150,7 @@ class ReplicationFeature final : public application_features::ApplicationFeature
   network::RequestDurationTracker& _synchronousRequestDurations;
   PeriodicStatistics<double>& _synchronousRequestDurationPerDocument;
   PeriodicStatistics<double>& _synchronousRequestDurationPer4Kb;
+  Counter& _inventoryRequests;
 };
 
 }  // namespace arangodb
