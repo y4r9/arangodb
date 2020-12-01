@@ -311,8 +311,13 @@ void BenchFeature::start() {
     status("starting threads...");
     double runUntil = 0.0;
     if (_duration != 0) {
-      runUntil = TRI_microtime() + _duration;
+      double mt = TRI_microtime();
+      runUntil = mt + _duration;
+      std::cout << "MICROTIME " << mt << std::endl;
+      std::cout << "DURATION " << _duration << std::endl;
+      std::cout << "RUNUNTIL " << runUntil << std::endl;
     }
+
     BenchmarkCounter<unsigned long> operationsCounter(0, (unsigned long)_operations, runUntil);
     ConditionVariable startCondition;
     // start client threads
