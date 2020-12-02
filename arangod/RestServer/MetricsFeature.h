@@ -30,7 +30,6 @@
 #include "Logger/LoggerFeature.h"
 #include "ProgramOptions/ProgramOptions.h"
 #include "RestServer/Metrics.h"
-#include "Scheduler/Scheduler.h"
 #include "Statistics/ServerStatistics.h"
 
 namespace arangodb {
@@ -71,46 +70,6 @@ class MetricsFeature final : public application_features::ApplicationFeature {
 
   void collectOptions(std::shared_ptr<options::ProgramOptions>) override final;
   void validateOptions(std::shared_ptr<options::ProgramOptions>) override final;
-  void start() override;
-
-  template <typename Scale>
-  Heatmap<Scale>& heatmap(std::string const& name, std::size_t historyCount,
-                          Scale const& scale, std::string const& help = std::string()) {
-    return heatmap<Scale>(metrics_key(name), historyCount, scale, help);
-  }
-
-  template <typename Scale>
-  Heatmap<Scale>& heatmap(metrics_key const& mk, std::size_t historyCount,
-                          Scale const& scale, std::string const& help = std::string()) {
-    std::string labels = mk.labels;
-    if (ServerState::instance() != nullptr &&
-        ServerState::instance()->getRole() != ServerState::ROLE_UNDEFINED) {
-      if (!labels.empty()) {
-        labels += ",";
-      }
-      labels +=
-          "role=\"" + ServerState::roleToString(ServerState::instance()->getRole()) +
-          "\",shortname=\"" + ServerState::instance()->getShortName() + "\"";
-    }
-
-    auto metric =
-        std::make_shared<Heatmap<Scale>>(historyCount, scale, mk.name, help, labels);
-    bool success = false;
-    {
-      std::lock_guard<std::recursive_mutex> guard(_lock);
-      success =
-          _registry.try_emplace(mk, std::dynamic_pointer_cast<Metric>(metric)).second;
-      if (success) {
-        _periodicRegistry.emplace_back(std::dynamic_pointer_cast<PeriodicMetric>(metric));
-      }
-    }
-    if (!success) {
-      THROW_ARANGO_EXCEPTION_MESSAGE(TRI_ERROR_INTERNAL,
-                                     std::string("heatmap ") + mk.name +
-                                         " alredy exists");
-    }
-    return *metric;
-  };
 
   template <typename Scale>
   Histogram<Scale>& histogram(std::string const& name, Scale const& scale,
@@ -298,58 +257,14 @@ class MetricsFeature final : public application_features::ApplicationFeature {
     return *metric;
   }
 
-  template <typename T>
-  PeriodicStatistics<T>& periodicStatistics(std::string const& name, std::size_t historyCount,
-                                            std::string const& help = std::string()) {
-    return periodicStatistics<T>(metrics_key(name), historyCount, help);
-  }
-
-  template <typename T>
-  PeriodicStatistics<T>& periodicStatistics(metrics_key const& mk, std::size_t historyCount,
-                                            std::string const& help = std::string()) {
-    std::string labels = mk.labels;
-    if (ServerState::instance() != nullptr &&
-        ServerState::instance()->getRole() != ServerState::ROLE_UNDEFINED) {
-      if (!labels.empty()) {
-        labels += ",";
-      }
-      labels +=
-          "role=\"" + ServerState::roleToString(ServerState::instance()->getRole()) +
-          "\",shortname=\"" + ServerState::instance()->getShortName() + "\"";
-    }
-
-    auto metric =
-        std::make_shared<PeriodicStatistics<T>>(historyCount, mk.name, help, labels);
-    bool success = false;
-    {
-      std::lock_guard<std::recursive_mutex> guard(_lock);
-      success =
-          _registry.try_emplace(mk, std::dynamic_pointer_cast<Metric>(metric)).second;
-      if (success) {
-        _periodicRegistry.emplace_back(std::dynamic_pointer_cast<PeriodicMetric>(metric));
-      }
-    }
-    if (!success) {
-      THROW_ARANGO_EXCEPTION_MESSAGE(TRI_ERROR_INTERNAL,
-                                     std::string("periodic statistcs ") +
-                                         mk.name + " alredy exists");
-    }
-    return *metric;
-  };
-
   void toPrometheus(std::string& result) const;
 
   ServerStatistics& serverStatistics();
 
  private:
   registry_type _registry;
-  std::vector<std::shared_ptr<PeriodicMetric>> _periodicRegistry;
 
   mutable std::recursive_mutex _lock;
-
-  std::mutex _workItemMutex;
-  Scheduler::WorkHandle _workItem;
-  std::function<void(bool)> _periodic;
 
   std::unique_ptr<ServerStatistics> _serverStatistics;
 

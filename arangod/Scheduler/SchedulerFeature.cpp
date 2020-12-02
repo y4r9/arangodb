@@ -104,8 +104,6 @@ void SchedulerFeature::collectOptions(std::shared_ptr<options::ProgramOptions> o
                      new UInt64Parameter(&_nrMinimalThreads),
                      arangodb::options::makeDefaultFlags(arangodb::options::Flags::Hidden));
 
-    // max / min number of threads
-
   options->addOption("--server.maximal-queue-size",
                      "size of the priority 2 fifo", new UInt64Parameter(&_fifo2Size));
 

@@ -72,8 +72,6 @@ void writeError(int code, arangodb::GeneralResponse* response) {
 
   response->setPayload(std::move(buffer), VPackOptions::Defaults);
 }
-
-constexpr std::size_t HistoryCount = 60;
 } // namespace
 
 
@@ -92,19 +90,6 @@ ReplicationFeature::ReplicationFeature(ApplicationServer& server)
       _syncByRevision(true),
       _parallelTailingInvocations(0),
       _maxParallelTailingInvocations(0),
-      _synchronousRequestDurations(server.getFeature<arangodb::MetricsFeature>().heatmap("arangodb_replication_synchronous_request_duration_as_percentage_of_timeout",
-                                                                                         ::HistoryCount,
-                                                                                         fixed_scale_t(0.0, 100.0,
-                                                                                                       {1.0, 5.0, 15.0, 50.0}),
-                                                                                         "Synchronous replication request round-trip time as a percentage of timeout [%]")),
-      _synchronousRequestDurationPerDocument(
-          server.getFeature<arangodb::MetricsFeature>().periodicStatistics<double>("arangodb_replication_synchronous_request_duration_per_document",
-                                                                                   ::HistoryCount,
-                                                                                   "Synchronous replication request round-trip time divided by the number of documents")),
-      _synchronousRequestDurationPer4Kb(
-          server.getFeature<arangodb::MetricsFeature>().periodicStatistics<double>("arangodb_replication_synchronous_request_duration_per_4kb",
-                                                                                   ::HistoryCount,
-                                                                                   "Synchronous replication request round-trip time divided by the amount of data sent")),
       _inventoryRequests(
         server.getFeature<arangodb::MetricsFeature>().counter(
           "arangodb_replication_cluster_inventory_requests", 0, "Number of cluster replication inventory requests received")) {
@@ -376,43 +361,6 @@ void ReplicationFeature::prepareFollowerResponse(GeneralResponse* response,
       break;
     }
   }
-}
-
-network::RequestDurationTracker& ReplicationFeature::synchronousRequestDurationTracker() {
-  return _synchronousRequestDurations;
-}
-
-PeriodicStatistics<double>& ReplicationFeature::synchronousRequestDurationPerDocumentTracker() {
-  return _synchronousRequestDurationPerDocument;
-}
-
-PeriodicStatistics<double>& ReplicationFeature::synchronousRequestDurationPer4KbTracker() {
-  return _synchronousRequestDurationPer4Kb;
-}
-
-bool ReplicationFeature::isCongested() const {
-  std::vector<double> const weights5s = _synchronousRequestDurations.normalizedDiff(1);
-  std::size_t const last = weights5s.size() - 1;
-  if (weights5s[last] >= 0.02 || weights5s[last - 1] >= 0.05) {
-    return true;
-  }
-
-  std::vector<double> const weights1m = _synchronousRequestDurations.normalizedDiff(12);
-  if (weights1m[last] >= 0.05 || weights1m[last - 1] >= 0.1) {
-    return true;
-  }
-
-  return false;
-}
-
-bool ReplicationFeature::isSaturated() const {
-  std::vector<double> const weights5s = _synchronousRequestDurations.normalizedDiff(1);
-  std::size_t const last = weights5s.size() - 1;
-  if (weights5s[last] >= 0.15 || weights5s[last] + weights5s[last - 1] >= 0.75) {
-    return true;
-  }
-
-  return false;
 }
 
 }  // namespace arangodb

@@ -26,7 +26,6 @@
 
 #include "ApplicationFeatures/ApplicationFeature.h"
 #include "Cluster/ServerState.h"
-#include "Network/types.h"
 #include "RestServer/Metrics.h"
 
 struct TRI_vocbase_t;
@@ -106,13 +105,6 @@ class ReplicationFeature final : public application_features::ApplicationFeature
 
   static ReplicationFeature* INSTANCE;
 
-  network::RequestDurationTracker& synchronousRequestDurationTracker();
-  PeriodicStatistics<double>& synchronousRequestDurationPerDocumentTracker();
-  PeriodicStatistics<double>& synchronousRequestDurationPer4KbTracker();
-
-  bool isCongested() const;
-  bool isSaturated() const;
-
  private:
   /// @brief connection timeout for replication requests
   double _connectTimeout;
@@ -144,9 +136,6 @@ class ReplicationFeature final : public application_features::ApplicationFeature
 
   std::unique_ptr<GlobalReplicationApplier> _globalReplicationApplier;
 
-  network::RequestDurationTracker& _synchronousRequestDurations;
-  PeriodicStatistics<double>& _synchronousRequestDurationPerDocument;
-  PeriodicStatistics<double>& _synchronousRequestDurationPer4Kb;
   Counter& _inventoryRequests;
 };
 

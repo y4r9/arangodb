@@ -697,8 +697,8 @@ void RocksDBEngine::start() {
   cfFamilies.emplace_back("GeoIndex", fixedPrefCF);         // 5
   cfFamilies.emplace_back("FulltextIndex", fixedPrefCF);    // 6
 
-  /*  TRI_ASSERT(static_cast<int>(_options.max_write_buffer_number) >=
-               static_cast<int>(cfFamilies.size()));*/
+  TRI_ASSERT(static_cast<int>(_options.max_write_buffer_number) >=
+             static_cast<int>(cfFamilies.size()));
   // Update max_write_buffer_number above if you change number of families used
 
   std::vector<rocksdb::ColumnFamilyHandle*> cfHandles;

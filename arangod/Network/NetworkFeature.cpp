@@ -63,7 +63,9 @@ void queueGarbageCollection(std::mutex& mutex, arangodb::Scheduler::WorkHandle& 
   }
 }
 
-constexpr std::size_t HistoryCount = 10;
+constexpr double CongestionRatio = 0.5;
+constexpr std::size_t MaxAllowedInFlight = 65536;
+constexpr std::size_t MinAllowedInFlight = 64;
 }  // namespace
 
 using namespace arangodb::basics;
@@ -88,12 +90,16 @@ NetworkFeature::NetworkFeature(application_features::ApplicationServer& server,
       _forwardedRequests(server.getFeature<arangodb::MetricsFeature>().counter(
           "arangodb_network_forwarded_requests", 0,
           "Number of requests forwarded to another coordinator")),
+      _maxInFlight(::MaxAllowedInFlight),
       _requestsInFlight(server.getFeature<arangodb::MetricsFeature>().gauge<std::size_t>(
           "arangodb_network_requests_in_flight", 0,
           "Number of outgoing internal requests in flight")),
-      _globalRequestDurations(server.getFeature<arangodb::MetricsFeature>().heatmap(
+      _requestTimeouts(server.getFeature<arangodb::MetricsFeature>().counter(
+          "arangodb_network_request_timeouts", 0,
+          "Number of internal requests that have timed out")),
+      _requestDurations(server.getFeature<arangodb::MetricsFeature>().histogram(
           "arangodb_network_request_duration_as_percentage_of_timeout",
-          ::HistoryCount, fixed_scale_t(0.0, 100.0, {1.0, 5.0, 15.0, 50.0}),
+          fixed_scale_t(0.0, 100.0, {1.0, 5.0, 15.0, 50.0}),
           "Internal request round-trip time as a percentage of timeout [%]")) {
   setOptional(true);
   startsAfter<ClusterFeature>();
@@ -126,6 +132,12 @@ void NetworkFeature::collectOptions(std::shared_ptr<options::ProgramOptions> opt
   options->addOption("--network.protocol", "network protocol to use for cluster-internal communication",
                      new DiscreteValuesParameter<StringParameter>(&_protocol, protos))
                      .setIntroducedIn(30700);
+
+  options
+      ->addOption("--network.max-requests-in-flight", std::string("controls the number of internal requests that can be in flight at a given point in time"),
+                  new options::UInt64Parameter(&_maxInFlight),
+                  options::makeDefaultFlags(options::Flags::Dynamic, options::Flags::Hidden))
+      .setIntroducedIn(30800);
 }
 
 void NetworkFeature::validateOptions(std::shared_ptr<options::ProgramOptions> opts) {
@@ -139,6 +151,8 @@ void NetworkFeature::validateOptions(std::shared_ptr<options::ProgramOptions> op
   if (_idleTtlMilli < 10000) {
     _idleTtlMilli = 10000;
   }
+
+  _maxInFlight = std::clamp(_maxInFlight, ::MinAllowedInFlight, ::MaxAllowedInFlight);
 }
 
 void NetworkFeature::prepare() {
@@ -254,9 +268,13 @@ std::size_t NetworkFeature::requestsInFlight() const {
   return _requestsInFlight.load();
 }
 
-bool NetworkFeature::isCongested() const { return false; }
+bool NetworkFeature::isCongested() const {
+  return _requestsInFlight.load() >= (_maxInFlight * ::CongestionRatio);
+}
 
-bool NetworkFeature::isSaturated() const { return false; }
+bool NetworkFeature::isSaturated() const {
+  return _requestsInFlight.load() >= _maxInFlight;
+}
 
 void NetworkFeature::sendRequest(network::ConnectionPool& pool,
                                  network::RequestOptions const& options,
@@ -266,11 +284,11 @@ void NetworkFeature::sendRequest(network::ConnectionPool& pool,
   prepareRequest(pool, req);
   auto conn = pool.leaseConnection(endpoint);
   conn->sendRequest(std::move(req),
-                    [this, &pool, tracker = options.tracker,
+                    [this, &pool,
                      cb = std::move(cb)](fuerte::Error err,
                                          std::unique_ptr<fuerte::Request> req,
                                          std::unique_ptr<fuerte::Response> res) {
-                      finishRequest(pool, req, res, tracker);
+                      finishRequest(pool, err, req, res);
                       cb(err, std::move(req), std::move(res));
                     });
 }
@@ -282,12 +300,13 @@ void NetworkFeature::prepareRequest(network::ConnectionPool const& pool,
     req->timestamp(std::chrono::steady_clock::now());
   }
 }
-void NetworkFeature::finishRequest(network::ConnectionPool const& pool,
+void NetworkFeature::finishRequest(network::ConnectionPool const& pool, fuerte::Error err,
                                    std::unique_ptr<fuerte::Request> const& req,
-                                   std::unique_ptr<fuerte::Response>& res,
-                                   network::RequestTracker const& tracker) {
+                                   std::unique_ptr<fuerte::Response>& res) {
   _requestsInFlight -= 1;
-  if (req && res) {
+  if (err == fuerte::Error::RequestTimeout) {
+    _requestTimeouts.count();
+  } else if (req && res) {
     res->timestamp(std::chrono::steady_clock::now());
     std::chrono::milliseconds duration =
         std::chrono::duration_cast<std::chrono::milliseconds>(res->timestamp() -
@@ -296,8 +315,7 @@ void NetworkFeature::finishRequest(network::ConnectionPool const& pool,
     double percentage = std::clamp(100.0 * static_cast<double>(duration.count()) /
                                        static_cast<double>(timeout.count()),
                                    0.0, 100.0);
-    _globalRequestDurations.count(percentage);
-    tracker(pool, req, res);
+    _requestDurations.count(percentage);
   }
 }
 

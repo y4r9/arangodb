@@ -831,7 +831,6 @@ add_library(arangoserver STATIC
 
 add_library(arango_network STATIC
   ${LIB_ARANGO_NETWORK_SOURCES}
-  ${ADDITIONAL_LIB_ARANGO_NETWORK_SOURCES}
 )
 
 add_library(arango_rocksdb STATIC

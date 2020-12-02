@@ -215,6 +215,7 @@ static int runServer(int argc, char** argv, ArangoGlobalContext& context) {
     server.addFeature<LoggerFeature>(true);
     server.addFeature<MaintenanceFeature>();
     server.addFeature<MaxMapCountFeature>();
+    server.addFeature<NetworkFeature>();
     server.addFeature<NonceFeature>();
     server.addFeature<PrivilegeFeature>();
     server.addFeature<QueryRegistryFeature>();
@@ -261,7 +262,6 @@ static int runServer(int argc, char** argv, ArangoGlobalContext& context) {
 #ifdef USE_ENTERPRISE
     setupServerEE(server);
 #else
-    server.addFeature<NetworkFeature>();
     server.addFeature<SslServerFeature>();
 #endif
 

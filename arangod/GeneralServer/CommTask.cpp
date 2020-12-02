@@ -480,7 +480,6 @@ bool CommTask::handleRequestSync(std::shared_ptr<RestHandler> handler) {
   handler->statistics().SET_QUEUE_START(SchedulerFeature::SCHEDULER->queueStatistics()._queued);
 
   RequestLane lane = handler->getRequestLane();
-
   ContentType respType = handler->request()->contentTypeResponse();
   uint64_t mid = handler->messageId();
 

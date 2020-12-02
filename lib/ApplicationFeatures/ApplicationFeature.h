@@ -168,9 +168,6 @@ class ApplicationFeature {
     return _startsBefore;
   }
 
-  std::type_index registration() const;
-  void setRegistration(std::type_index registration);
-
  protected:
   void setOptional() { setOptional(true); }
 
@@ -227,9 +224,6 @@ class ApplicationFeature {
 
   // pointer to application server
   ApplicationServer& _server;
-
-  // type registration for lookup within the ApplicationServer
-  std::type_index _registration;
 
   // name of feature
   std::string const _name;

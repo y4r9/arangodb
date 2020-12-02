@@ -39,7 +39,7 @@ namespace network {
 struct RequestOptions;
 }
 
-class NetworkFeature : public application_features::ApplicationFeature {
+class NetworkFeature final : public application_features::ApplicationFeature {
  public:
   using RequestCallback =
       std::function<void(fuerte::Error err, std::unique_ptr<fuerte::Request> req,
@@ -70,19 +70,18 @@ class NetworkFeature : public application_features::ApplicationFeature {
 
   std::size_t requestsInFlight() const;
 
-  virtual bool isCongested() const;  // in-flight above low-water mark
-  virtual bool isSaturated() const;  // in-flight above high-water mark
-  virtual void sendRequest(network::ConnectionPool& pool,
-                           network::RequestOptions const& options, std::string const& endpoint,
-                           std::unique_ptr<fuerte::Request>&& req, RequestCallback&& cb);
+  bool isCongested() const;  // in-flight above low-water mark
+  bool isSaturated() const;  // in-flight above high-water mark
+  void sendRequest(network::ConnectionPool& pool,
+                   network::RequestOptions const& options, std::string const& endpoint,
+                   std::unique_ptr<fuerte::Request>&& req, RequestCallback&& cb);
 
  protected:
-  virtual void prepareRequest(network::ConnectionPool const& pool,
-                              std::unique_ptr<fuerte::Request>& req);
-  virtual void finishRequest(network::ConnectionPool const& pool,
-                             std::unique_ptr<fuerte::Request> const& req,
-                             std::unique_ptr<fuerte::Response>& res,
-                             network::RequestTracker const& tracker);
+  void prepareRequest(network::ConnectionPool const& pool,
+                      std::unique_ptr<fuerte::Request>& req);
+  void finishRequest(network::ConnectionPool const& pool, fuerte::Error err,
+                     std::unique_ptr<fuerte::Request> const& req,
+                     std::unique_ptr<fuerte::Response>& res);
 
  private:
   std::string _protocol;
@@ -105,9 +104,11 @@ class NetworkFeature : public application_features::ApplicationFeature {
   /// is used)
   Counter& _forwardedRequests;
 
- protected:
+  std::size_t _maxInFlight;
   Gauge<std::size_t>& _requestsInFlight;
-  network::RequestDurationTracker& _globalRequestDurations;
+
+  Counter& _requestTimeouts;
+  Histogram<fixed_scale_t<double>>& _requestDurations;
 };
 
 }  // namespace arangodb

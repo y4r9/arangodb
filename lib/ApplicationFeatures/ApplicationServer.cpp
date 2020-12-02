@@ -420,7 +420,7 @@ void ApplicationServer::setupDependencies(bool failOnMissing) {
         }
         continue;
       }
-      getFeature<ApplicationFeature>(other).startsAfter(feature.registration());
+      getFeature<ApplicationFeature>(other).startsAfter(std::type_index(typeid(feature)));
     }
   }
 
@@ -452,15 +452,15 @@ void ApplicationServer::setupDependencies(bool failOnMissing) {
   // first insert all features, even the inactive ones
   std::vector<std::reference_wrapper<ApplicationFeature>> features;
   for (auto& it : _features) {
-    auto& us = *it.second;
+    auto const& us = *it.second;
     auto insertPosition = features.end();
 
     for (size_t i = features.size(); i > 0; --i) {
       auto const& other = features[i - 1].get();
-      if (us.doesStartBefore(other.registration())) {
+      if (us.doesStartBefore(std::type_index(typeid(other)))) {
         // we start before the other feature. so move ourselves up
         insertPosition = features.begin() + (i - 1);
-      } else if (other.doesStartBefore(us.registration())) {
+      } else if (other.doesStartBefore(std::type_index(typeid(us)))) {
         // the other feature starts before us. so stop moving up
         break;
       } else {
@@ -470,7 +470,7 @@ void ApplicationServer::setupDependencies(bool failOnMissing) {
         }
       }
     }
-    features.insert(insertPosition, us);
+    features.insert(insertPosition, *it.second);
   }
 
   LOG_TOPIC("0fafb", TRACE, Logger::STARTUP) << "ordered features:";

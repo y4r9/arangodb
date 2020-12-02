@@ -29,7 +29,6 @@
 #include "Futures/Future.h"
 #include "Network/ConnectionPool.h"
 #include "Network/types.h"
-#include "RestServer/Metrics.h"
 
 #include <fuerte/message.h>
 #include <velocypack/Buffer.h>
@@ -88,8 +87,6 @@ static constexpr Timeout TimeoutDefault = Timeout(120.0);
 
 // Container for optional (often defaulted) parameters
 struct RequestOptions {
-  enum class Priority { Default, Direct };
-
   std::string database;
   std::string contentType;  // uses vpack by default
   std::string acceptType;   // uses vpack by default
@@ -97,10 +94,6 @@ struct RequestOptions {
   Timeout timeout = TimeoutDefault;
   bool retryNotFound = false;  // retry if answers is "datasource not found"
   bool skipScheduler = false;  // do not use Scheduler queue
-  Priority priority = Priority::Default;
-  RequestTracker tracker = [](network::ConnectionPool const&,
-                              std::unique_ptr<fuerte::Request> const&,
-                              std::unique_ptr<fuerte::Response> const&) -> void {};
 
   template <typename K, typename V>
   RequestOptions& param(K&& key, V&& val) {

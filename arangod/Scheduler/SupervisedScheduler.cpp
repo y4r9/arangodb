@@ -634,9 +634,8 @@ bool SupervisedScheduler::canPullFromQueue(uint64_t queueIndex) const noexcept {
     return (jobsDequeued - jobsDone) < (_maxNumWorkers * 3 / 4);
   }
 
-  // For low priority we also throttle user jobs on the coordinator if we have
-  // too many requests in flight internally; If we aren't a coordinator, then
-  // _maxInFlight is just the max size_t
+  // For low priority we also throttle user jobs if we have too many requests
+  // in flight internally
   TRI_ASSERT(_server.hasFeature<NetworkFeature>());
   if (_server.getFeature<NetworkFeature>().isSaturated()) {
     return false;
