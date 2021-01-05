@@ -483,7 +483,7 @@ EvalResult SpecialLet(Machine& ctx, ArrayIterator paramIterator, VPackBuilder& r
   });
 }
 
-EvalResult Evaluate(Machine& ctx, ArrayIterator paramIterator, VPackBuilder& result);
+EvalResult EvaluateCall(Machine& ctx, ArrayIterator paramIterator, VPackBuilder& result);
 
 EvalResult SpecialQuasiQuoteInternal(Machine& ctx, ArrayIterator other, VPackBuilder& result) {
   if (other.valid()) {
@@ -549,44 +549,66 @@ EvalResult SpecialQuasiQuote(Machine& ctx, ArrayIterator paramIterator, VPackBui
   return {};
 }
 
+EvalResult SpecialStr(Machine& ctx, ArrayIterator paramIterator, VPackBuilder& result) {
+
+  std::string s;
+
+  for (; paramIterator.valid(); ++paramIterator) {
+    auto const& p = *paramIterator;
+    if (!p.isString()) {
+      return EvalError("Expected string, found: " + p.toJson());
+    }
+    s += p.stringView();
+  }
+
+  result.add(VPackValue(s));
+  return {};
+}
+
+EvalResult CallByName(Machine& ctx, const VPackSlice& functionSlice, ArrayIterator& paramIterator,
+                      VPackBuilder& result, bool isEvaluateParameter) {
+  auto callSpecialForm = [&](auto specialForm) {
+    return specialForm(ctx, paramIterator, result).mapError([&](EvalError& err) {
+      return err.wrapSpecialForm(functionSlice.copyString());
+    });
+  };
+  // check for special forms
+  if (functionSlice.isEqualString("if")) {
+    return callSpecialForm(SpecialIf);
+  } else if (functionSlice.isEqualString("quote")) {
+    return callSpecialForm(SpecialQuote);
+  } else if (functionSlice.isEqualString("quote-splice")) {
+    return callSpecialForm(SpecialQuoteSplice);
+  } else if (functionSlice.isEqualString("quasi-quote")) {
+    return callSpecialForm(SpecialQuasiQuote);
+  } else if (functionSlice.isEqualString("cons")) {
+    return callSpecialForm(SpecialCons);
+  } else if (functionSlice.isEqualString("and")) {
+    return callSpecialForm(SpecialAnd);
+  } else if (functionSlice.isEqualString("or")) {
+    return callSpecialForm(SpecialOr);
+  } else if (functionSlice.isEqualString("seq")) {
+    return callSpecialForm(SpecialSeq);
+  } else if (functionSlice.isEqualString("match")) {
+    return callSpecialForm(SpecialMatch);
+  } else if (functionSlice.isEqualString("for-each")) {
+    return callSpecialForm(SpecialForEach);
+  } else if (functionSlice.isEqualString("let")) {
+    return callSpecialForm(SpecialLet);
+  }  if (functionSlice.isEqualString("str")) {
+    return callSpecialForm(SpecialStr);
+  } else {
+    return Call(ctx, functionSlice, paramIterator, result, isEvaluateParameter);
+  }
+}
+
 EvalResult EvaluateApply(Machine& ctx, VPackSlice const functionSlice,
                          ArrayIterator paramIterator, VPackBuilder& result,
                          bool isEvaluateParameter) {
   if (functionSlice.isString()) {
-    auto callSpecialForm = [&](auto specialForm) {
-      return specialForm(ctx, paramIterator, result).mapError([&](EvalError& err) {
-        return err.wrapSpecialForm(functionSlice.copyString());
-      });
-    };
-    // check for special forms
-    if (functionSlice.isEqualString("if")) {
-      return callSpecialForm(SpecialIf);
-    } else if (functionSlice.isEqualString("quote")) {
-      return callSpecialForm(SpecialQuote);
-    } else if (functionSlice.isEqualString("quote-splice")) {
-      return callSpecialForm(SpecialQuoteSplice);
-    } else if (functionSlice.isEqualString("quasi-quote")) {
-      return callSpecialForm(SpecialQuasiQuote);
-    } else if (functionSlice.isEqualString("cons")) {
-      return callSpecialForm(SpecialCons);
-    } else if (functionSlice.isEqualString("and")) {
-      return callSpecialForm(SpecialAnd);
-    } else if (functionSlice.isEqualString("or")) {
-      return callSpecialForm(SpecialOr);
-    } else if (functionSlice.isEqualString("seq")) {
-      return callSpecialForm(SpecialSeq);
-    } else if (functionSlice.isEqualString("match")) {
-      return callSpecialForm(SpecialMatch);
-    } else if (functionSlice.isEqualString("for-each")) {
-      return callSpecialForm(SpecialForEach);
-    } else if (functionSlice.isEqualString("let")) {
-      return callSpecialForm(SpecialLet);
-    } else {
-      return Call(ctx, functionSlice, paramIterator, result, isEvaluateParameter);
-    }
+    return CallByName(ctx, functionSlice, paramIterator, result, isEvaluateParameter);
   } else if (functionSlice.isObject()) {
-    auto body = functionSlice.get("_call");
-    if (!body.isNone()) {
+    if (auto body = functionSlice.get("_call"); !body.isNone()) {
       auto params = functionSlice.get("_params");
       if (!params.isArray()) {
         return EvalError("lambda params have to be an array, found: " + params.toJson());
@@ -597,6 +619,9 @@ EvalResult EvaluateApply(Machine& ctx, VPackSlice const functionSlice,
                          params.toJson());
       }
       return LambdaCall(ctx, params, captures, paramIterator, body, result, isEvaluateParameter);
+    } else if (auto internal = functionSlice.get("_internal_function");
+               internal.isString()) {
+      return CallByName(ctx, internal, paramIterator, result, isEvaluateParameter);
     }
   }
   return EvalError("function is not a string, found " + functionSlice.toJson());
@@ -611,7 +636,16 @@ auto exceptionIntoResult(F&& f) -> std::invoke_result_t<F> try {
   return EvalError("uncaught exception");
 }
 
-EvalResult Evaluate(Machine& ctx, ArrayIterator paramIterator, VPackBuilder& result) {
+EvalResult EvaluateFunctionName(Machine& ctx, VPackSlice const slice, VPackBuilder& result) {
+  if (slice.isArray()) {
+    return EvaluateCall(ctx, ArrayIterator(slice), result);
+  }
+
+  result.add(slice);
+  return {};
+}
+
+EvalResult EvaluateCall(Machine& ctx, ArrayIterator paramIterator, VPackBuilder& result) {
   return exceptionIntoResult([&]() -> EvalResult {
     if (!paramIterator.valid()) {
       return EvalError("empty application");
@@ -620,7 +654,7 @@ EvalResult Evaluate(Machine& ctx, ArrayIterator paramIterator, VPackBuilder& res
     VPackBuilder functionBuilder;
     {
       StackFrameGuard<StackFrameGuardMode::KEEP_SCOPE> guard(ctx);
-      auto err = Evaluate(ctx, *paramIterator, functionBuilder);
+      auto err = EvaluateFunctionName(ctx, *paramIterator, functionBuilder);
       if (err.fail()) {
         return err.mapError(
             [&](EvalError& err) { err.wrapMessage("in function expression"); });
@@ -634,7 +668,11 @@ EvalResult Evaluate(Machine& ctx, ArrayIterator paramIterator, VPackBuilder& res
 
 EvalResult Evaluate(Machine& ctx, VPackSlice const slice, VPackBuilder& result) {
   if (slice.isArray()) {
-    return Evaluate(ctx, ArrayIterator(slice), result);
+    return EvaluateCall(ctx, ArrayIterator(slice), result);
+  }
+
+  if (slice.isString()) {
+    return ctx.getVariable(slice.copyString(), result);
   }
 
   result.add(slice);
@@ -701,8 +739,21 @@ EvalResult Machine::setFunction(std::string_view name, function_type&& f) {
   if (functions.find(sname) != functions.end()) {
     return EvalError("function `" + sname + "` already registered");
   }
-  functions.try_emplace(sname, std::move(f));
-  return {};
+
+  velocypack::SharedSlice slice;
+  {
+    VPackBufferUInt8 buffer;
+    {
+      VPackBuilder builder(buffer);
+      VPackObjectBuilder ob(&builder);
+      builder.add("_internal_function", VPackValue(name));
+    }
+
+    slice = velocypack::SharedSlice(std::move(buffer));
+  }
+
+  auto const& result = functions.try_emplace(sname, FunctionRecord{std::move(f), std::move(slice)});
+  return setVariable(std::string{name}, result.first->second.valueSlice.slice());
 }
 
 EvalResult Machine::applyFunction(std::string function, VPackSlice const params,
@@ -711,7 +762,7 @@ EvalResult Machine::applyFunction(std::string function, VPackSlice const params,
 
   auto f = functions.find(function);
   if (f != functions.end()) {
-    return f->second(*this, params, result).mapError([&](EvalError& err) {
+    return f->second.function(*this, params, result).mapError([&](EvalError& err) {
       err.wrapCall(function, params);
     });
   }

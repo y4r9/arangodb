@@ -1387,7 +1387,7 @@ TEST_F(GreenspunTest, sort) {
   }
   ASSERT_EQ(result.slice().toJson(), "[1,2,3]");
 }
-/*
+
 TEST_F(GreenspunTest, str_empty) {
   auto program = arangodb::velocypack::Parser::fromJson(R"aql(
       ["str"]
@@ -1427,18 +1427,6 @@ TEST_F(GreenspunTest, str_multi) {
   ASSERT_EQ(result.slice().copyString(), "yelloworld");
 }
 
-TEST_F(GreenspunTest, for_each) {
-  auto program = arangodb::velocypack::Parser::fromJson(R"aql(
-      ["str", "yello", "world"]
-    )aql");
-
-  auto res = Evaluate(m, program->slice(), result);
-  if (res.fail()) {
-    FAIL() << res.error().toString();
-  }
-  ASSERT_TRUE(result.slice().isString());
-  ASSERT_EQ(result.slice().copyString(), "yelloworld");
-}*/
 
 // TODO error testing for str
 

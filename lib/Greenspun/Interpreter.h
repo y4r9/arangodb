@@ -93,8 +93,13 @@ struct Machine {
   VariableBindings getAllVariables();
 
  private:
+  struct FunctionRecord {
+    function_type function;
+    velocypack::SharedSlice valueSlice;
+  };
+
   std::vector<StackFrame> frames;
-  std::unordered_map<std::string, function_type> functions;
+  std::unordered_map<std::string, FunctionRecord> functions;
 
   print_callback_type printCallback;
 };
