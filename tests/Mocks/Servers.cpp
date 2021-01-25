@@ -56,6 +56,7 @@
 #include "Logger/LogTopic.h"
 #include "Logger/Logger.h"
 #include "Network/NetworkFeature.h"
+#include "Rest/Version.h"
 #include "RestServer/AqlFeature.h"
 #include "RestServer/DatabaseFeature.h"
 #include "RestServer/DatabasePathFeature.h"
@@ -588,6 +589,27 @@ MockCoordinator::MockCoordinator(bool start) : MockClusterServer() {
 }
 
 MockCoordinator::~MockCoordinator() = default;
+
+void MockCoordinator::registerFakedDBServer(std::string const& serverName) {
+  VPackBuilder builder;
+  {
+    VPackObjectBuilder b(&builder);
+    builder.add("endpoint", VPackValue("tcp://invalid-url-type-name:98234"));
+    builder.add("advertisedEndpoint",
+                VPackValue("tcp://invalid-url-type-name:98234"));
+    builder.add("host", VPackValue("FakedHost"));
+    builder.add("version", VPackValue(rest::Version::getNumericServerVersion()));
+    builder.add("versionString", VPackValue(rest::Version::getServerVersion()));
+    builder.add("engine", VPackValue("testEngine"));
+    builder.add("timestamp",
+                VPackValue(timepointToString(std::chrono::system_clock::now())));
+  }
+  agencyTrx("/arango/Current/ServersRegistered/" + serverName, builder.toJson());
+  _server.getFeature<arangodb::ClusterFeature>()
+      .clusterInfo()
+      .waitForCurrent(agencyTrx("/arango/Current/Version", R"=({"op":"increment"})="))
+      .wait();
+}
 
 TRI_vocbase_t* MockCoordinator::createDatabase(std::string const& name) {
   agencyCreateDatabase(name);

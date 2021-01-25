@@ -234,6 +234,7 @@ set(ARANGODB_TESTS_SOURCES
   Replication/ReplicationClientsProgressTrackerTest.cpp
   RestHandler/RestAnalyzerHandler-test.cpp
   RestHandler/RestDocumentHandler-test.cpp
+  RestHandler/RestDocumentApiHandler-test.cpp
   RestHandler/RestUsersHandler-test.cpp
   RestHandler/RestViewHandler-test.cpp
   RestServer/FlushFeature-test.cpp
