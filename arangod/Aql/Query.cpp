@@ -117,6 +117,10 @@ Query::Query(std::shared_ptr<transaction::Context> const& ctx,
     }
   }
 
+  if (!_queryString.empty()) {
+    LOG_TOPIC("9a2dc", INFO, Logger::DEVEL) << "starting AQL query '" << _queryString.extract(2048) << "'";
+  }
+
   ProfileLevel level = _queryOptions.profile;
   if (level >= ProfileLevel::TraceOne) {
     LOG_TOPIC("22a70", INFO, Logger::QUERIES) << elapsedSince(_startTime)

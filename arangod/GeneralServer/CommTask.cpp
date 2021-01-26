@@ -140,6 +140,22 @@ CommTask::Flow CommTask::prepareExecution(auth::TokenCache::Entry const& authTok
                      req.messageId(), TRI_ERROR_SHUTTING_DOWN);
     return Flow::Abort;
   }
+  
+  {
+    std::string const& source = req.header(StaticStrings::ClusterCommSource);
+    if (source.empty()) {
+      LOG_TOPIC("1a9fa", INFO, Logger::DEVEL) 
+          << "client request to " 
+          << GeneralRequest::translateMethod(req.requestType()) 
+          << " " << req.fullUrl();
+    } else {
+      LOG_TOPIC("1a9fb", INFO, Logger::DEVEL) 
+          << "cluster-internal request from "
+          << source << " to " 
+          << GeneralRequest::translateMethod(req.requestType()) 
+          << " " << req.fullUrl();
+    }
+  }
 
   if (Logger::isEnabled(arangodb::LogLevel::DEBUG, Logger::REQUESTS)) {
     bool found;

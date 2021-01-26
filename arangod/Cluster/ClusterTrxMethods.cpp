@@ -150,6 +150,7 @@ Future<network::Response> beginTransactionRequest(TransactionState& state,
 /// check the transaction cluster response with desited TID and status
 Result checkTransactionResult(TransactionId desiredTid, transaction::Status desStatus,
                               network::Response const& resp) {
+  // TODO: can we use combinedResult here?
   int commError = network::fuerteToArangoErrorCode(resp);
   if (commError != TRI_ERROR_NO_ERROR) {
     // oh-oh cluster is in a bad state
@@ -211,7 +212,7 @@ Future<Result> commitAbortTransaction(arangodb::TransactionState* state,
   reqOpts.database = state->vocbase().name();
 
   TransactionId tidPlus = state->id().child();
-  const std::string path = "/_api/transaction/" + std::to_string(tidPlus.id());
+  std::string const path = "/_api/transaction/" + std::to_string(tidPlus.id());
   if (state->isDBServer()) {
     // This is a leader replicating the transaction commit or abort and
     // we should tell the follower that this is a replication operation.
@@ -261,11 +262,11 @@ Future<Result> commitAbortTransaction(arangodb::TransactionState* state,
           network::Response const& resp = tryRes.get();  // throws exceptions upwards
 
           Result res = ::checkTransactionResult(tidPlus, status, resp);
-          if (res.fail()) {  // remove follower from all collections
+          if (res.fail()) {  // remove followers for all participating collections
             ServerID follower = resp.serverId();
             LOG_TOPIC("230c3", INFO, Logger::REPLICATION)
-                << "synchronous replication: dropping follower " << follower
-                << " for all participating shards in"
+                << "synchronous replication of transaction commit/abort operation: "
+                << "dropping follower " << follower << " for all participating shards in"
                 << " transaction " << state->id().id() << " (status "
                 << arangodb::transaction::statusString(status)
                 << "), status code: " << static_cast<int>(resp.statusCode())
@@ -274,16 +275,16 @@ Future<Result> commitAbortTransaction(arangodb::TransactionState* state,
               auto cc = tc.collection();
               if (cc) {
                 LOG_TOPIC("709c9", WARN, Logger::REPLICATION)
-                    << "synchronous replication: dropping follower " << follower
-                    << " for shard " << tc.collectionName() << " in database "
-                    << cc->vocbase().name() << ": "
+                    << "synchronous replication of transaction commit/abort operation: "
+                    << "dropping follower " << follower << " for shard " 
+                    << cc->vocbase().name() << "/" << tc.collectionName() << ": "
                     << resp.combinedResult().errorMessage();
 
                 Result r = cc->followers()->remove(follower);
                 if (r.fail()) {
                   LOG_TOPIC("4971f", ERR, Logger::REPLICATION)
-                      << "synchronous replication: could not drop follower "
-                      << follower << " for shard " << tc.collectionName()
+                      << "synchronous replication: could not drop follower " << follower
+                      << " for shard " << cc->vocbase().name() << "/" << tc.collectionName()
                       << ": " << r.errorMessage();
                   res.reset(TRI_ERROR_CLUSTER_COULD_NOT_DROP_FOLLOWER);
                 }
@@ -457,7 +458,7 @@ void addTransactionHeader(transaction::Methods const& trx,
   TRI_ASSERT(!tidPlus.isLegacyTransactionId());
   TRI_ASSERT(!state.hasHint(transaction::Hints::Hint::SINGLE_OPERATION));
 
-  const bool addBegin = !state.knowsServer(server);
+  bool const addBegin = !state.knowsServer(server);
   if (addBegin) {
     if (state.isCoordinator() && state.hasHint(transaction::Hints::Hint::FROM_TOPLEVEL_AQL)) {
       return;  // do not add header to servers without a snippet
@@ -492,7 +493,7 @@ void addAQLTransactionHeader(transaction::Methods const& trx,
   }
 
   std::string value = std::to_string(state.id().child().id());
-  const bool addBegin = !state.knowsServer(server);
+  bool const addBegin = !state.knowsServer(server);
   if (addBegin) {
     if (state.hasHint(transaction::Hints::Hint::FROM_TOPLEVEL_AQL)) {
       value.append(" aql");  // This is a single AQL query

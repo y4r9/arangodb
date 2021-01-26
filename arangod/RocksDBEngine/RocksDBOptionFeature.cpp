@@ -146,7 +146,7 @@ RocksDBOptionFeature::RocksDBOptionFeature(application_features::ApplicationServ
       _level0StopTrigger(rocksDBDefaults.level0_stop_writes_trigger),
       _recycleLogFileNum(rocksDBDefaults.recycle_log_file_num),
       _enforceBlockCacheSizeLimit(false),
-      _cacheIndexAndFilterBlocks(rocksDBTableOptionsDefaults.cache_index_and_filter_blocks),
+      _cacheIndexAndFilterBlocks(true), //rocksDBTableOptionsDefaults.cache_index_and_filter_blocks),
       _cacheIndexAndFilterBlocksWithHighPriority(
           rocksDBTableOptionsDefaults.cache_index_and_filter_blocks_with_high_priority),
       _pinl0FilterAndIndexBlocksInCache(

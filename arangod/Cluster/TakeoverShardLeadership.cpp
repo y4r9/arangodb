@@ -177,9 +177,9 @@ static void handleLeadership(uint64_t planIndex, LogicalCollection& collection,
 
   if (plannedLeader.empty()) {   // Planned to lead
     if (!localLeader.empty()) {  // We were not leader, assume leadership
-      LOG_TOPIC("5632f", DEBUG, Logger::MAINTENANCE)
-      << "handling leadership of shard '" << databaseName << "/"
-      << collection.name() << ": becoming leader";
+      LOG_TOPIC("5632f", INFO, Logger::MAINTENANCE)
+        << "handling leadership of shard '" << databaseName << "/"
+        << collection.name() << ": becoming leader";
 
       auto& ci = collection.vocbase().server().getFeature<ClusterFeature>().clusterInfo();
       // This will block the thread until our ClusterInfo cache fetched a
@@ -198,11 +198,11 @@ static void handleLeadership(uint64_t planIndex, LogicalCollection& collection,
       std::vector<ServerID> currentServers = currentInfo->servers(collection.name());
       std::shared_ptr<std::vector<ServerID>> realInsyncFollowers;
 
-      if (currentServers.size() > 0) {
-        std::string& oldLeader = currentServers.at(0);
+      if (!currentServers.empty()) {
+        std::string& oldLeader = currentServers[0];
         // Check if the old leader has resigned and stopped all write
         // (if so, we can assume that all servers are still in sync)
-        if (oldLeader.at(0) == '_') {
+        if (!oldLeader.empty() && oldLeader[0] == '_') {
           // remove the underscore from the list as it is useless anyway
           oldLeader = oldLeader.substr(1);
 
@@ -229,7 +229,7 @@ static void handleLeadership(uint64_t planIndex, LogicalCollection& collection,
       // agency. If this list would be empty, then the supervision
       // would be very angry with us!
 
-      LOG_TOPIC("5632e", DEBUG, Logger::MAINTENANCE)
+      LOG_TOPIC("5632e", INFO, Logger::MAINTENANCE)
           << "handling leadership of shard '" << databaseName << "/"
           << collection.name() << ": following " << plannedLeader;
 

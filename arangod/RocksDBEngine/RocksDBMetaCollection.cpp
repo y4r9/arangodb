@@ -242,13 +242,13 @@ uint64_t RocksDBMetaCollection::recalculateCounts() {
   ro.fill_cache = false;
   
   rocksdb::ColumnFamilyHandle* cf = bounds.columnFamily();
+  rocksdb::Comparator const* cmp = cf->GetComparator();
   std::unique_ptr<rocksdb::Iterator> it(db->NewIterator(ro, cf));
   std::size_t count = 0;
  
-
   application_features::ApplicationServer& server = vocbase.server();
 
-  for (it->Seek(bounds.start()); it->Valid(); it->Next()) {
+  for (it->Seek(bounds.start()); it->Valid() && cmp->Compare(it->key(), upper) < 0; it->Next()) {
     TRI_ASSERT(it->key().compare(upper) < 0);
     ++count;
 
@@ -264,13 +264,20 @@ uint64_t RocksDBMetaCollection::recalculateCounts() {
     LOG_TOPIC("ad613", WARN, Logger::REPLICATION)
       << "inconsistent collection count detected for "
       << vocbase.name() << "/" << _logicalCollection.name()
-      << ", an offet of " << adjustment << " will be applied";
+      << ": counted value: " << count << ", snapshot value: " << snapNumberOfDocuments 
+      << ", current value: " << _meta.numberDocuments()
+      << ",  an offet of " << adjustment << " will be applied";
     auto adjustSeq = engine.db()->GetLatestSequenceNumber();
     if (adjustSeq <= snapSeq) {
       adjustSeq = ::forceWrite(engine);
       TRI_ASSERT(adjustSeq > snapSeq);
     }
     _meta.adjustNumberDocuments(adjustSeq, RevisionId::none(), adjustment);
+  } else {
+    LOG_TOPIC("55df5", INFO, Logger::REPLICATION)
+      << "no collection count adjustment needs to be applied for "
+      << vocbase.name() << "/" << _logicalCollection.name()
+      << ": counted value: " << count;
   }
   
   return _meta.numberDocuments();
