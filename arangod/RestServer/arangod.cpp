@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 /// DISCLAIMER
 ///
-/// Copyright 2014-2020 ArangoDB GmbH, Cologne, Germany
+/// Copyright 2014-2021 ArangoDB GmbH, Cologne, Germany
 /// Copyright 2004-2014 triAGENS GmbH, Cologne, Germany
 ///
 /// Licensed under the Apache License, Version 2.0 (the "License");
@@ -41,6 +41,7 @@
 #include "ApplicationFeatures/MaxMapCountFeature.h"
 #include "ApplicationFeatures/NonceFeature.h"
 #include "ApplicationFeatures/PrivilegeFeature.h"
+#include "ApplicationFeatures/SharedPRNGFeature.h"
 #include "ApplicationFeatures/ShellColorsFeature.h"
 #include "ApplicationFeatures/ShutdownFeature.h"
 #include "ApplicationFeatures/SupervisorFeature.h"
@@ -228,6 +229,7 @@ static int runServer(int argc, char** argv, ArangoGlobalContext& context) {
     server.addFeature<ServerIdFeature>();
     server.addFeature<ServerSecurityFeature>();
     server.addFeature<ShardingFeature>();
+    server.addFeature<SharedPRNGFeature>();
     server.addFeature<ShellColorsFeature>();
     server.addFeature<ShutdownFeature>(
         std::vector<std::type_index>{std::type_index(typeid(ScriptFeature))});

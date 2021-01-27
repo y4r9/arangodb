@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 /// DISCLAIMER
 ///
-/// Copyright 2014-2020 ArangoDB GmbH, Cologne, Germany
+/// Copyright 2014-2021 ArangoDB GmbH, Cologne, Germany
 /// Copyright 2004-2014 triAGENS GmbH, Cologne, Germany
 ///
 /// Licensed under the Apache License, Version 2.0 (the "License");
@@ -265,8 +265,7 @@ Result FollowerInfo::remove(ServerID const& sid) {
       _docColl->vocbase().name() + "/" + std::to_string(_docColl->planId().id()) +
       ": " + TRI_errno_string(agencyRes.errorNumber());
   LOG_TOPIC("a0dcc", ERR, Logger::CLUSTER) << errorMessage;
-  agencyRes.resetErrorMessage<std::string>(std::move(errorMessage));
-  return agencyRes;
+  return Result{agencyRes.errorNumber(), std::move(errorMessage)};
 }
 
 //////////////////////////////////////////////////////////////////////////////

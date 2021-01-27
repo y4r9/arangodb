@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 /// DISCLAIMER
 ///
-/// Copyright 2014-2020 ArangoDB GmbH, Cologne, Germany
+/// Copyright 2014-2021 ArangoDB GmbH, Cologne, Germany
 /// Copyright 2004-2014 triAGENS GmbH, Cologne, Germany
 ///
 /// Licensed under the Apache License, Version 2.0 (the "License");
@@ -147,6 +147,15 @@ size_t AqlItemBlockInputRange::skipAllRemainingDataRows() {
     ++_rowIndex;
   }
   return 0;
+}
+
+size_t AqlItemBlockInputRange::countAndSkipAllRemainingDataRows() {
+  size_t skipped = 0;
+  while (hasDataRow()) {
+    ++_rowIndex;
+    ++skipped;
+  }
+  return skipped;
 }
 
 size_t AqlItemBlockInputRange::skipAllShadowRowsOfDepth(size_t depth) {

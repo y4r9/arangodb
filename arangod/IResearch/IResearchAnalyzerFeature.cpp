@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 /// DISCLAIMER
 ///
-/// Copyright 2014-2020 ArangoDB GmbH, Cologne, Germany
+/// Copyright 2014-2021 ArangoDB GmbH, Cologne, Germany
 /// Copyright 2004-2014 triAGENS GmbH, Cologne, Germany
 ///
 /// Licensed under the Apache License, Version 2.0 (the "License");
@@ -2218,10 +2218,9 @@ Result IResearchAnalyzerFeature::cleanupAnalyzersCollection(irs::string_ref cons
     if (deleteResult.fail()) {
       return {
         TRI_ERROR_INTERNAL,
-        "failure to remove dangling analyzers from '" + std::string(database) + "' Aql error: (" +
-        std::to_string(deleteResult.errorNumber()) + " ) " +
-        deleteResult.errorMessage()
-      };
+              arangodb::basics::StringUtils::concatT(
+                  "failure to remove dangling analyzers from '", database,
+                  "' Aql error: (", deleteResult.errorNumber(), " ) ", deleteResult.errorMessage())};
     }
 
     static const auto queryUpdateString = arangodb::aql::QueryString(
@@ -2236,9 +2235,11 @@ Result IResearchAnalyzerFeature::cleanupAnalyzersCollection(irs::string_ref cons
     if (updateResult.fail()) {
       return {
         TRI_ERROR_INTERNAL,
-        "failure to restore dangling analyzers from '" + std::string(database) + "' Aql error: (" +
-        std::to_string(updateResult.errorNumber()) + " ) " +
-        updateResult.errorMessage()
+              arangodb::basics::StringUtils::concatT(
+                  "failure to restore dangling analyzers from '", database,
+                  "' Aql error: (", updateResult.errorNumber(), " ) ",
+                  updateResult.errorMessage())
+
       };
     }
 

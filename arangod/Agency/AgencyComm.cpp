@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 /// DISCLAIMER
 ///
-/// Copyright 2014-2020 ArangoDB GmbH, Cologne, Germany
+/// Copyright 2014-2021 ArangoDB GmbH, Cologne, Germany
 /// Copyright 2004-2014 triAGENS GmbH, Cologne, Germany
 ///
 /// Licensed under the Apache License, Version 2.0 (the "License");
@@ -430,7 +430,7 @@ int AgencyCommResult::errorCode() const {
 }
 
 std::string AgencyCommResult::errorMessage() const {
-  return asResult().errorMessage();
+  return std::string{asResult().errorMessage()};
 }
 
 std::pair<std::optional<int>, std::optional<std::string_view>> AgencyCommResult::parseBodyError() const {
@@ -877,7 +877,7 @@ uint64_t AgencyComm::uniqid(uint64_t count, double timeout) {
 
     try {
       oldValue = oldSlice.getNumber<decltype(oldValue)>();
-    } catch (velocypack::Exception& e) {
+    } catch (velocypack::Exception const& e) {
       LOG_TOPIC("74f97", ERR, Logger::AGENCYCOMM)
           << "Sync/LatestID in agency could not be parsed: " << e.what()
           << "; If this error persists, contact the ArangoDB support.";

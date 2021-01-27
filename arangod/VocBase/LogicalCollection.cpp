@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 /// DISCLAIMER
 ///
-/// Copyright 2014-2020 ArangoDB GmbH, Cologne, Germany
+/// Copyright 2014-2021 ArangoDB GmbH, Cologne, Germany
 /// Copyright 2004-2014 triAGENS GmbH, Cologne, Germany
 ///
 /// Licensed under the Apache License, Version 2.0 (the "License");
@@ -649,6 +649,28 @@ void LogicalCollection::setStatus(TRI_vocbase_col_status_e status) {
   if (status == TRI_VOC_COL_STATUS_LOADED) {
     increaseV8Version();
   }
+}
+
+void LogicalCollection::toVelocyPackForInventory(VPackBuilder& result) const {
+  result.openObject();
+  result.add(VPackValue("indexes"));
+  getIndexesVPack(result, [](arangodb::Index const* idx, decltype(Index::makeFlags())& flags) {
+    // we have to exclude the primary and edge index for dump / restore
+    switch (idx->type()) {
+      case Index::TRI_IDX_TYPE_PRIMARY_INDEX:
+      case Index::TRI_IDX_TYPE_EDGE_INDEX:
+        return false;
+      default:
+        flags = Index::makeFlags(Index::Serialize::Basics);
+        return !idx->isHidden();
+    }
+  });
+  result.add("parameters", VPackValue(VPackValueType::Object));
+  toVelocyPackIgnore(
+     result, {"objectId", "path", "statusString", "indexes"},
+     LogicalDataSource::Serialization::Inventory);
+  result.close(); // parameters
+  result.close(); // collection
 }
 
 void LogicalCollection::toVelocyPackForClusterInventory(VPackBuilder& result,

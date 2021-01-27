@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 /// DISCLAIMER
 ///
-/// Copyright 2014-2020 ArangoDB GmbH, Cologne, Germany
+/// Copyright 2014-2021 ArangoDB GmbH, Cologne, Germany
 /// Copyright 2004-2014 triAGENS GmbH, Cologne, Germany
 ///
 /// Licensed under the Apache License, Version 2.0 (the "License");
@@ -85,11 +85,13 @@ class V8DealerFeature final : public application_features::ApplicationFeature {
   uint64_t _maxContextInvocations;  // maximum number of V8 context invocations
   bool _allowAdminExecute;
   bool _allowJavaScriptTransactions;
+  bool _allowJavaScriptTasks;
   bool _enableJS;
 
  public:
   bool allowAdminExecute() const { return _allowAdminExecute; }
   bool allowJavaScriptTransactions() const { return _allowJavaScriptTransactions; }
+  bool allowJavaScriptTasks() const { return _allowJavaScriptTasks; }
 
   bool addGlobalContextMethod(std::string const&);
   void collectGarbage();

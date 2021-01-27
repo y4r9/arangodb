@@ -1,7 +1,8 @@
 ////////////////////////////////////////////////////////////////////////////////
 /// DISCLAIMER
 ///
-/// Copyright 2020-2020 ArangoDB GmbH, Cologne, Germany
+/// Copyright 2014-2021 ArangoDB GmbH, Cologne, Germany
+/// Copyright 2004-2014 triAGENS GmbH, Cologne, Germany
 ///
 /// Licensed under the Apache License, Version 2.0 (the "License");
 /// you may not use this file except in compliance with the License.
@@ -142,7 +143,7 @@ auto TwoSidedEnumerator<QueueType, PathStoreType, ProviderType, PathValidator>::
     futures::Future<std::vector<Step*>> futureEnds = _provider.fetch(looseEnds);
     // Will throw all network errors here
     auto&& preparedEnds = futureEnds.get();
-    LOG_DEVEL << "needs to be implemented: " << preparedEnds;
+    LOG_FIXME_DEVEL << "needs to be implemented: " << preparedEnds;
     // TODO: we need to ensure that we now have all vertices fetched - (future - not yet implemented and not relevant yet)
     // or that we need to refetch at some later point.
     // TODO: maybe we can combine this with prefetching of paths
@@ -162,7 +163,7 @@ auto TwoSidedEnumerator<QueueType, PathStoreType, ProviderType, PathValidator>::
     // Will throw all network errors here
     /*
     auto&& preparedEnds = futureEnds.get();
-    LOG_DEVEL << "needs to be implemented: " << preparedEnds;
+    LOG_FIXME_DEVEL << "needs to be implemented: " << preparedEnds;
     */
     // TODO we somehow need to handover those looseends to - (future - not yet implemented and not relevant yet)
     // the queue again, in order to remove them from the loosend list.
