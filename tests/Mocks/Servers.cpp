@@ -84,6 +84,8 @@
 #include "IResearch/AgencyMock.h"
 #include "IResearch/common.h"
 
+#include "Mocks/PreparedResponseConnectionPool.h"
+
 #if USE_ENTERPRISE
 #include "Enterprise/Ldap/LdapFeature.h"
 #include "Enterprise/StorageEngine/HotBackupFeature.h"
@@ -219,7 +221,7 @@ void MockServer::startFeatures() {
 
   for (ApplicationFeature& f : orderedFeatures) {
     auto info = _features.find(&f);
-    if(info != _features.end()) {
+    if (info != _features.end()) {
       if (f.name() == "Endpoint") {
         // We need this feature to be there but do not use it.
         continue;
@@ -444,7 +446,8 @@ std::pair<std::vector<consensus::apply_ret_t>, consensus::index_t> AgencyCache::
 
 consensus::Store& AgencyCache::store() { return _readDB; }
 
-MockClusterServer::MockClusterServer() : MockServer() {
+MockClusterServer::MockClusterServer(bool useAgencyMockPool)
+    : MockServer(), _useAgencyMockPool(useAgencyMockPool) {
   _oldRole = arangodb::ServerState::instance()->getRole();
 
   // Add features
@@ -478,8 +481,15 @@ void MockClusterServer::startFeatures() {
   poolConfig.numIOThreads = 1;
   poolConfig.maxOpenConnections = 3;
   poolConfig.verifyHosts = false;
+  if (_useAgencyMockPool) {
+    _pool = std::make_unique<AsyncAgencyStorePoolMock>(_server, poolConfig);
+  } else {
+    _pool = std::make_unique<PreparedResponseConnectionPool>(
+        _server.getFeature<ClusterFeature>().agencyCache(), poolConfig);
 
-  _pool = std::make_unique<AsyncAgencyStorePoolMock>(_server, poolConfig);
+    // Inject the faked Pool into NetworkFeature
+    _server.getFeature<arangodb::NetworkFeature>().setPoolTesting(_pool.get());
+  }
 
   arangodb::AgencyCommHelper::initialize("arango");
   AsyncAgencyCommManager::initialize(server());
@@ -568,7 +578,8 @@ void MockClusterServer::agencyDropDatabase(std::string const& name) {
       .wait();
 }
 
-MockDBServer::MockDBServer(bool start) : MockClusterServer() {
+MockDBServer::MockDBServer(bool useAgencyMock, bool start)
+    : MockClusterServer(useAgencyMock) {
   arangodb::ServerState::instance()->setRole(arangodb::ServerState::RoleEnum::ROLE_DBSERVER);
   addFeature<arangodb::FlushFeature>(false);        // do not start the thread
   addFeature<arangodb::MaintenanceFeature>(false);  // do not start the thread
@@ -617,8 +628,8 @@ void MockDBServer::dropDatabase(std::string const& name) {
   dd.first();  // Does the job
 }
 
-
-MockCoordinator::MockCoordinator(bool start) : MockClusterServer() {
+MockCoordinator::MockCoordinator(bool useAgencyMock, bool start)
+    : MockClusterServer(useAgencyMock) {
   arangodb::ServerState::instance()->setRole(arangodb::ServerState::RoleEnum::ROLE_COORDINATOR);
   if (start) {
     startFeatures();
@@ -628,14 +639,16 @@ MockCoordinator::MockCoordinator(bool start) : MockClusterServer() {
 
 MockCoordinator::~MockCoordinator() = default;
 
-void MockCoordinator::registerFakedDBServer(std::string const& serverName) {
+std::pair<std::string, std::string> MockCoordinator::registerFakedDBServer(std::string const& serverName) {
   VPackBuilder builder;
+  std::string fakedHost = "invalid-url-type-name";
+  std::string fakedPort = "98234";
+  std::string fakedEndpoint = "tcp://" + fakedHost + ":" + fakedPort;
   {
     VPackObjectBuilder b(&builder);
-    builder.add("endpoint", VPackValue("tcp://invalid-url-type-name:98234"));
-    builder.add("advertisedEndpoint",
-                VPackValue("tcp://invalid-url-type-name:98234"));
-    builder.add("host", VPackValue("FakedHost"));
+    builder.add("endpoint", VPackValue(fakedEndpoint));
+    builder.add("advertisedEndpoint",VPackValue(fakedEndpoint));
+    builder.add("host", VPackValue(fakedHost));
     builder.add("version", VPackValue(rest::Version::getNumericServerVersion()));
     builder.add("versionString", VPackValue(rest::Version::getServerVersion()));
     builder.add("engine", VPackValue("testEngine"));
@@ -647,6 +660,7 @@ void MockCoordinator::registerFakedDBServer(std::string const& serverName) {
       .clusterInfo()
       .waitForCurrent(agencyTrx("/arango/Current/Version", R"=({"op":"increment"})="))
       .wait();
+  return std::make_pair(fakedHost, fakedPort);
 }
 
 TRI_vocbase_t* MockCoordinator::createDatabase(std::string const& name) {
@@ -663,4 +677,8 @@ void MockCoordinator::dropDatabase(std::string const& name) {
   auto& databaseFeature = _server.getFeature<arangodb::DatabaseFeature>();
   auto vocbase = databaseFeature.lookupDatabase(name);
   TRI_ASSERT(vocbase == nullptr);
+}
+
+arangodb::network::ConnectionPool* MockCoordinator::getPool() {
+  return _pool.get();
 }
