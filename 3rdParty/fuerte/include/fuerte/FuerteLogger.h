@@ -23,7 +23,7 @@
 
 // Please leave the following debug code in for the next time we have to
 // debug fuerte.
-#if 0
+#if 1
 #include <iostream>
 #include <sstream>
 
@@ -49,7 +49,7 @@ class LogHack {
 #endif
 
 #ifndef ENABLE_FUERTE_LOG_DEBUG
-#define ENABLE_FUERTE_LOG_DEBUG 0
+#define ENABLE_FUERTE_LOG_DEBUG 1
 #endif
 
 #ifndef ENABLE_FUERTE_LOG_TRACE
@@ -74,49 +74,49 @@ class LogHack {
 #endif
 
 #if ENABLE_FUERTE_LOG_ERROR > 0
-#define FUERTE_LOG_ERROR std::cout
+#define FUERTE_LOG_ERROR LogHack()
 #else
 #define FUERTE_LOG_ERROR \
   if (0) std::cout
 #endif
 
 #if ENABLE_FUERTE_LOG_DEBUG > 0
-#define FUERTE_LOG_DEBUG std::cout
+#define FUERTE_LOG_DEBUG LogHack()
 #else
 #define FUERTE_LOG_DEBUG \
   if (0) std::cout
 #endif
 
 #if ENABLE_FUERTE_LOG_TRACE > 0
-#define FUERTE_LOG_TRACE std::cout
+#define FUERTE_LOG_TRACE LogHack()
 #else
 #define FUERTE_LOG_TRACE \
   if (0) std::cout
 #endif
 
 #if ENABLE_FUERTE_LOG_VSTTRACE > 0
-#define FUERTE_LOG_VSTTRACE std::cout << "[vst] "
+#define FUERTE_LOG_VSTTRACE LogHack() << "[vst] "
 #else
 #define FUERTE_LOG_VSTTRACE \
   if (0) std::cout
 #endif
 
 #if ENABLE_FUERTE_LOG_VSTCHUNKTRACE > 0
-#define FUERTE_LOG_VSTCHUNKTRACE std::cout << "[vst] "
+#define FUERTE_LOG_VSTCHUNKTRACE LogHack() << "[vst] "
 #else
 #define FUERTE_LOG_VSTCHUNKTRACE \
   if (0) std::cout
 #endif
 
 #if ENABLE_FUERTE_LOG_HTTPTRACE > 0
-#define FUERTE_LOG_HTTPTRACE std::cout << "[http] "
+#define FUERTE_LOG_HTTPTRACE LogHack() << "[http] "
 #else
 #define FUERTE_LOG_HTTPTRACE \
   if (0) std::cout
 #endif
 
 #if ENABLE_FUERTE_LOG_NODE > 0
-#define FUERTE_LOG_NODE std::cout
+#define FUERTE_LOG_NODE LogHack()
 #else
 #define FUERTE_LOG_NODE \
   if (0) std::cout

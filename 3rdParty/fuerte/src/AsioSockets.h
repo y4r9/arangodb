@@ -23,6 +23,8 @@
 #ifndef ARANGO_CXX_DRIVER_ASIO_CONNECTION_H
 #define ARANGO_CXX_DRIVER_ASIO_CONNECTION_H 1
 
+#include <chrono>
+
 #include <fuerte/asio_ns.h>
 #include <fuerte/loop.h>
 #include "debugging.h"
@@ -34,12 +36,17 @@ template <typename SocketT, typename F>
 void resolveConnect(detail::ConnectionConfiguration const& config,
                     asio_ns::ip::tcp::resolver& resolver, SocketT& socket,
                     F&& done) {
-  auto cb = [&socket, done(std::forward<F>(done))](auto ec, auto it) mutable {
+  auto startTime = std::chrono::steady_clock::now();
+  auto cb = [&socket, done(std::forward<F>(done)), startTime](auto ec, auto it) mutable {
     if (ec) {  // error in address resolver
       done(ec);
       return;
     }
 
+    auto endTime = std::chrono::steady_clock::now();
+    FUERTE_LOG_DEBUG << "Time for DNS lookup: "
+      << std::chrono::nanoseconds(endTime - startTime).count()
+      << " [ns]";
     // A successful resolve operation is guaranteed to pass a
     // non-empty range to the handler.
     asio_ns::async_connect(socket, it,

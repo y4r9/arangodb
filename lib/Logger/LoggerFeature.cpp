@@ -60,7 +60,7 @@ using namespace arangodb::basics;
 using namespace arangodb::options;
 
 // Please leave this code in for the next time we have to debug fuerte.
-#if 0
+#if 1
 void LogHackWriter(char const* p) {
   LOG_DEVEL << p;
 }
