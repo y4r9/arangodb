@@ -545,6 +545,7 @@ set(LIB_ARANGO_REPLICATION_SOURCES
   )
 
 set (LIB_ARANGO_METRICS_SOURCES
+  Metrics/MetricsDefinitions.cpp
   RestServer/Metrics.cpp
   RestServer/MetricsFeature.cpp
   RestHandler/RestMetricsHandler.cpp
