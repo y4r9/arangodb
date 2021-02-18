@@ -79,15 +79,15 @@ static constexpr inline std::underlying_type<ExposedBy>::type exposedBy(ExposedB
 }
 
 struct Helptext {
-  std::string value;
+  char const* value;
 };
 
 struct Description {
-  std::string value;
+  char const* value;
 };
 
 struct Threshold {
-  std::string value;
+  char const* value;
 };
 
 struct Metric {
