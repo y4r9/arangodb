@@ -26,6 +26,7 @@
 #include "GeneralServer/ServerSecurityFeature.h"
 #include "Rest/Version.h"
 #include "RestServer/ServerFeature.h"
+#include "Metrics/MetricsDefinitions.h"
 #include "RestVersionHandler.h"
 
 #include <velocypack/Builder.h>
@@ -78,6 +79,7 @@ RestStatus RestVersionHandler::execute() {
       if (!host.empty()) {
         result.add("host", VPackValue(host));
       }
+      result.add("longlong", VPackValue(arangodb::metrics::testMetric2.description.value));
       result.close();
     }  // found
   }    // allowInfo

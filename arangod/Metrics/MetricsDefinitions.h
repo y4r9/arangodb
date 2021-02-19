@@ -107,6 +107,7 @@ struct Metric {
   std::underlying_type<ExposedBy>::type const exposedBy;
 };
 
+extern Metric const testMetric2;
 }  // namespace metrics
 }  // namespace arangodb
 
