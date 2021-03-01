@@ -335,7 +335,8 @@ std::string const& RocksDBReplicationContext::patchCount() const {
 // creating a new iterator if one does not exist for this collection
 RocksDBReplicationContext::DumpResult RocksDBReplicationContext::dumpJson(
     TRI_vocbase_t& vocbase, std::string const& cname,
-    basics::StringBuffer& buff, uint64_t chunkSize, bool useEnvelope) {
+    basics::StringBuffer& buff, uint64_t chunkSize, bool useEnvelope,
+    bool validateKeys) {
   TRI_ASSERT(_users > 0);
   CollectionIterator* cIter{nullptr};
   auto guard = scopeGuard([&] { releaseDumpIterator(cIter); });
@@ -370,14 +371,46 @@ RocksDBReplicationContext::DumpResult RocksDBReplicationContext::dumpJson(
   arangodb::basics::VPackStringBufferAdapter adapter(buff.stringBuffer());
   VPackDumper dumper(&adapter, &cIter->vpackOptions);
   TRI_ASSERT(cIter->iter && !cIter->sorted());
+   
+  uint64_t primaryObjectId = 0;
+  {
+    auto index = cIter->logical->getPhysical()->lookupIndex(IndexId::primary());  // RocksDBCollection->primaryIndex() is private
+    TRI_ASSERT(index->type() == Index::IndexType::TRI_IDX_TYPE_PRIMARY_INDEX);
+    primaryObjectId = static_cast<RocksDBIndex const*>(index.get())->objectId();
+  }
+
   while (cIter->hasMore() && buff.length() < chunkSize) {
+    VPackSlice doc =  velocypack::Slice(reinterpret_cast<uint8_t const*>(cIter->iter->value().data()));
+    if (validateKeys) {
+      VPackStringRef keyRef = doc.get(StaticStrings::KeyString).stringRef();
+      LocalDocumentId docId = RocksDBKey::documentId(cIter->iter->key());
+
+      std::string lookupResult;
+  
+      RocksDBKey keyBuilder;
+      keyBuilder.constructPrimaryIndexValue(primaryObjectId, keyRef);
+
+      rocksdb::Status s = _engine.db()->Get(
+          rocksdb::ReadOptions(), 
+          RocksDBColumnFamilyManager::get(RocksDBColumnFamilyManager::Family::PrimaryIndex),
+          keyBuilder.string(), &lookupResult); 
+
+      TRI_ASSERT(s.ok());
+      LocalDocumentId otherId = RocksDBValue::documentId(lookupResult);
+      if (docId != otherId) {
+        // exclude
+        cIter->iter->Next();
+        continue;
+      }
+    }
+
     if (useEnvelope) {
       buff.appendText("{\"type\":");
       buff.appendInteger(REPLICATION_MARKER_DOCUMENT);  // set type
       buff.appendText(",\"data\":");
     }
     // printing the data, note: we need the CustomTypeHandler here
-    dumper.dump(velocypack::Slice(reinterpret_cast<uint8_t const*>(cIter->iter->value().data())));
+    dumper.dump(doc);
     if (useEnvelope) {
       buff.appendChar('}');
     }
@@ -414,7 +447,8 @@ RocksDBReplicationContext::DumpResult RocksDBReplicationContext::dumpJson(
 // creating a new iterator if one does not exist for this collection
 RocksDBReplicationContext::DumpResult RocksDBReplicationContext::dumpVPack(
     TRI_vocbase_t& vocbase, std::string const& cname,
-    VPackBuffer<uint8_t>& buffer, uint64_t chunkSize, bool useEnvelope) {
+    VPackBuffer<uint8_t>& buffer, uint64_t chunkSize, bool useEnvelope,
+    bool validateKeys) {
   TRI_ASSERT(_users > 0 && chunkSize > 0);
 
   CollectionIterator* cIter{nullptr};

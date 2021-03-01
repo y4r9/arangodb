@@ -1527,3 +1527,9 @@ ArangoCollection.prototype.loadIndexesIntoMemory = function () {
   arangosh.checkRequestResult(requestResult);
   return { result: true };
 };
+
+ArangoCollection.prototype.dropShard = function (shard) {
+  var requestResult = this._database._connection.PUT(this._baseurl('dropShard') + '?shard=' + encodeURIComponent(shard), null);
+  arangosh.checkRequestResult(requestResult);
+  return { result: true };
+};

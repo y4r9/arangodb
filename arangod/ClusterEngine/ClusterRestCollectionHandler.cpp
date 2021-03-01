@@ -23,6 +23,10 @@
 
 #include "ClusterRestCollectionHandler.h"
 #include "ClusterEngine/RocksDBMethods.h"
+#include "Cluster/ClusterFeature.h"
+#include "Cluster/ClusterInfo.h"
+#include "Cluster/ServerState.h"
+#include "Network/Methods.h"
 #include "VocBase/LogicalCollection.h"
 
 using namespace arangodb;
@@ -43,6 +47,46 @@ Result ClusterRestCollectionHandler::handleExtraCommandPut(std::shared_ptr<Logic
       VPackObjectBuilder guard(&builder);
       builder.add("result", VPackValue(true));
     }
+    return res;
+  } else if (suffix == "dropShard") {
+    std::string const& shard = _request->value("shard");
+
+    if (shard.empty()) {
+      return {TRI_ERROR_BAD_PARAMETER};
+    }
+
+    network::RequestOptions reqOpts;
+    reqOpts.database = _vocbase.name();
+    reqOpts.timeout = network::Timeout(1200.0);
+
+    std::vector<futures::Future<network::Response>> futures;
+                              
+    VPackBuffer<uint8_t> b;
+    b.append(VPackSlice::emptyObjectSlice().start(), 1);
+
+    auto* pool = _vocbase.server().getFeature<NetworkFeature>().pool();
+    for (auto const& s : _vocbase.server().getFeature<ClusterFeature>().clusterInfo().getCurrentDBServers()) {
+      auto future =
+         network::sendRequest(pool, "server:" + s, fuerte::RestVerb::Delete,
+                              "/_api/collection/" + shard,
+                              b, reqOpts);
+      futures.emplace_back(std::move(future));
+    }
+       
+    auto responses = futures::collectAll(futures).get();
+    Result res;
+    for (auto const& it : responses) {
+      auto& resp = it.get();
+      res.reset(resp.combinedResult());
+      if (res.is(TRI_ERROR_ARANGO_DATA_SOURCE_NOT_FOUND)) {
+        continue;
+      }
+
+      if (res.fail()) {
+        break;
+      }
+    }
+ 
     return res;
   }
 

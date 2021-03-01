@@ -239,7 +239,7 @@ bool RocksDBMetadata::applyAdjustments(rocksdb::SequenceNumber commitSeq) {
 void RocksDBMetadata::adjustNumberDocuments(rocksdb::SequenceNumber seq,
                                             RevisionId revId, int64_t adj) {
   TRI_ASSERT(seq != 0 && (adj || revId.isSet()));
-  TRI_ASSERT(seq > _count._committedSeq);
+  // TRI_ASSERT(seq > _count._committedSeq);
   std::lock_guard<std::mutex> guard(_bufferLock);
   _bufferedAdjs.try_emplace(seq, Adjustment{revId, adj});
   LOG_TOPIC("1587e", TRACE, Logger::ENGINES)

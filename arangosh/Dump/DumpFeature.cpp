@@ -301,7 +301,8 @@ arangodb::Result dumpCollection(arangodb::httpclient::SimpleHttpClient& client,
   uint64_t chunkSize = job.options.initialChunkSize;  // will grow adaptively up to max
   std::string baseUrl = "/_api/replication/dump?collection=" + urlEncode(name) +
                         "&batchId=" + itoa(batchId) + "&ticks=false" + 
-                        "&useEnvelope=" + (job.options.useEnvelope ? "true" : "false");
+                        "&useEnvelope=" + (job.options.useEnvelope ? "true" : "false") +
+                        "&validateKeys=" + (job.options.validateKeys ? "true" : "false");
   if (job.options.clusterMode) {
     // we are in cluster mode, must specify dbserver
     baseUrl += "&DBserver=" + server;
@@ -687,6 +688,11 @@ void DumpFeature::collectOptions(std::shared_ptr<options::ProgramOptions> option
   options->addOption("--envelope", "wrap each document into a {type, data} envelope "
                      "(this is required from compatibility with v3.7 and before)",
                      new BooleanParameter(&_options.useEnvelope))
+                     .setIntroducedIn(30800);
+  
+  options->addOption("--validate-keys", "validate that document keys exist",
+                     new BooleanParameter(&_options.validateKeys),
+                     arangodb::options::makeDefaultFlags(arangodb::options::Flags::Hidden))
                      .setIntroducedIn(30800);
 
   options->addOption("--tick-start", "only include data after this tick",

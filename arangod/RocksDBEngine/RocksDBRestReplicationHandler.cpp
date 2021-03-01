@@ -757,6 +757,7 @@ void RocksDBRestReplicationHandler::handleCommandDump() {
   }
 
   bool const useEnvelope = _request->parsedValue("useEnvelope", true);
+  bool const validateKeys = _request->parsedValue("validateKeys", false);
 
   uint64_t chunkSize = determineChunkSize();
   size_t reserve = std::max<size_t>(chunkSize, 8192);
@@ -768,7 +769,7 @@ void RocksDBRestReplicationHandler::handleCommandDump() {
 
     auto trxCtx = transaction::StandaloneContext::Create(_vocbase);
 
-    res = ctx->dumpVPack(_vocbase, cname, buffer, chunkSize, useEnvelope);
+    res = ctx->dumpVPack(_vocbase, cname, buffer, chunkSize, useEnvelope, validateKeys);
     // generate the result
     if (res.fail()) {
       generateError(res.result());
@@ -792,7 +793,7 @@ void RocksDBRestReplicationHandler::handleCommandDump() {
     StringBuffer dump(reserve, false);
 
     // do the work!
-    res = ctx->dumpJson(_vocbase, cname, dump, determineChunkSize(), useEnvelope);
+    res = ctx->dumpJson(_vocbase, cname, dump, determineChunkSize(), useEnvelope, validateKeys);
 
     if (res.fail()) {
       if (res.is(TRI_ERROR_BAD_PARAMETER)) {
