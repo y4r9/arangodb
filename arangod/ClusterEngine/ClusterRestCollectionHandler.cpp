@@ -79,6 +79,7 @@ Result ClusterRestCollectionHandler::handleExtraCommandPut(std::shared_ptr<Logic
       auto& resp = it.get();
       res.reset(resp.combinedResult());
       if (res.is(TRI_ERROR_ARANGO_DATA_SOURCE_NOT_FOUND)) {
+        res.reset();
         continue;
       }
 
