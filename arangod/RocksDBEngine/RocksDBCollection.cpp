@@ -76,6 +76,8 @@
 #include "VocBase/ticks.h"
 #include "VocBase/voc-types.h"
 
+#include "Random/RandomGenerator.h"
+
 #include <rocksdb/utilities/transaction.h>
 #include <rocksdb/utilities/transaction_db.h>
 #include <velocypack/Iterator.h>
@@ -1449,6 +1451,20 @@ void RocksDBCollection::figuresSpecific(bool details, arangodb::velocypack::Buil
     rocksdb::DB* rootDB = db->GetRootDB();
 
     builder.add("engine", VPackValue(VPackValueType::Object));
+
+    if (_logicalCollection.useSyncByRevision()) {
+      VPackBuilder b;
+      revisionTreeSummary(b);
+
+      if (b.slice().isObject()) {
+        VPackSlice s = b.slice().get(StaticStrings::RevisionTreeCount);
+        if (!s.isNone()) {
+          builder.add("revisions", s);
+        }
+      } else {
+        builder.add("revisions", VPackValue(0));
+      }
+    }
 
     builder.add("documents",
                 VPackValue(rocksutils::countKeyRange(

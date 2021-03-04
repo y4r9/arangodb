@@ -395,7 +395,10 @@ RocksDBReplicationContext::DumpResult RocksDBReplicationContext::dumpJson(
           RocksDBColumnFamilyManager::get(RocksDBColumnFamilyManager::Family::PrimaryIndex),
           keyBuilder.string(), &lookupResult); 
 
-      TRI_ASSERT(s.ok());
+      if (!s.ok()) {
+        cIter->iter->Next();
+        continue;
+      }
       LocalDocumentId otherId = RocksDBValue::documentId(lookupResult);
       if (docId != otherId) {
         // exclude

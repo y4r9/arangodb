@@ -873,6 +873,12 @@ void aggregateClusterFigures(bool details, bool isSmartEdgeCollectionPart,
 
   if (details && value.hasKey("engine")) {
     updated.add("engine", VPackValue(VPackValueType::Object));
+        
+    if (VPackSlice revisionsSlice = value.get({"engine", "revisions"}); revisionsSlice.isNumber()) {
+      updated.add("revisions", VPackValue(addFigures<size_t>(value, builder.slice(), {"engine", "revisions"})));
+    }
+
+
     if (isSmartEdgeCollectionPart) {
       // don't count documents from the sub-collections of a smart edge collection
       // multiple times
@@ -1159,7 +1165,7 @@ futures::Future<OperationResult> figuresOnCoordinator(ClusterFeature& feature,
   network::RequestOptions reqOpts;
   reqOpts.database = dbname;
   reqOpts.param("details", details ? "true" : "false");
-  reqOpts.timeout = network::Timeout(300.0);
+  reqOpts.timeout = network::Timeout(600.0);
 
   // If we get here, the sharding attributes are not only _key, therefore
   // we have to contact everybody:

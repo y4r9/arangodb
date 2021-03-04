@@ -48,6 +48,67 @@ Result ClusterRestCollectionHandler::handleExtraCommandPut(std::shared_ptr<Logic
       builder.add("result", VPackValue(true));
     }
     return res;
+  } else if (suffix == "analyze") {
+    std::string const& shard = _request->value("shard");
+
+    if (shard.empty()) {
+      return {TRI_ERROR_BAD_PARAMETER, "invalid shard id"};
+    }
+
+    auto& ci = coll->vocbase().server().getFeature<ClusterFeature>().clusterInfo();
+    auto shards = ci.getShardList(std::to_string(coll->id().id()));
+
+    if (std::find(shards->begin(), shards->end(), shard) == shards->end()) {
+      return {TRI_ERROR_BAD_PARAMETER, "shard is not part of this collection"};
+    }
+
+    network::RequestOptions reqOpts;
+    reqOpts.database = _vocbase.name();
+    reqOpts.timeout = network::Timeout(1800.0);
+    reqOpts.param("details", "true");
+
+    std::vector<futures::Future<network::Response>> futures;
+                              
+    VPackBuffer<uint8_t> b;
+    b.append(VPackSlice::emptyObjectSlice().start(), 1);
+
+    auto* pool = _vocbase.server().getFeature<NetworkFeature>().pool();
+    std::vector<ServerID> servers;
+    ci.getShardServers(shard, servers);
+    for (auto const& s : servers) {
+      auto future =
+         network::sendRequest(pool, "server:" + s, fuerte::RestVerb::Get,
+                              "/_api/collection/" + shard + "/figures",
+                              b, reqOpts);
+      futures.emplace_back(std::move(future));
+    }
+       
+    auto responses = futures::collectAll(futures).get();
+    Result res;
+    builder.openObject();
+    builder.add("servers", VPackValue(VPackValueType::Object));
+    for (auto const& it : responses) {
+      auto& resp = it.get();
+      res.reset(resp.combinedResult());
+      if (res.is(TRI_ERROR_ARANGO_DATA_SOURCE_NOT_FOUND)) {
+        res.reset();
+        continue;
+      }
+
+      if (res.fail()) {
+        break;
+      }
+
+      VPackSlice fig = resp.slice().get("figures");
+      if (fig.isObject() && fig.hasKey("engine")) {
+        builder.add(resp.destination, fig.get("engine"));
+      }
+    }
+    builder.close();
+    builder.close();
+ 
+    return res;
+
   } else if (suffix == "dropShard") {
     std::string const& shard = _request->value("shard");
 

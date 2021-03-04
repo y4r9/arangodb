@@ -1533,3 +1533,9 @@ ArangoCollection.prototype.dropShard = function (shard) {
   arangosh.checkRequestResult(requestResult);
   return { result: true };
 };
+
+ArangoCollection.prototype.analyze = function (shard) {
+  var requestResult = this._database._connection.PUT(this._baseurl('analyze') + '?shard=' + encodeURIComponent(shard), null);
+  arangosh.checkRequestResult(requestResult);
+  return requestResult;
+};
