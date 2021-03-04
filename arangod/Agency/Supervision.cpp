@@ -1067,16 +1067,6 @@ void Supervision::run() {
                 // 55 seconds is less than a minute, which fits to the
                 // 60 seconds timeout in /_admin/cluster/health
 
-                // wait 5 min or until next scheduled run
-                if (_agent->leaderFor() > 300 &&
-                    _nextServerCleanup < std::chrono::system_clock::now()) {
-                  LOG_TOPIC("dcded", TRACE, Logger::SUPERVISION)
-                      << "Begin cleanupExpiredServers";
-                  cleanupExpiredServers(snapshot(), _transient);
-                  LOG_TOPIC("dedcd", TRACE, Logger::SUPERVISION)
-                      << "Finished cleanupExpiredServers";
-                }
-
                 try {
                   LOG_TOPIC("aa565", TRACE, Logger::SUPERVISION)
                       << "Begin doChecks";
@@ -1091,6 +1081,17 @@ void Supervision::run() {
                       << "Supervision::doChecks() generated an uncaught "
                          "exception.";
                 }
+                
+                // wait 5 min or until next scheduled run
+                if (_agent->leaderFor() > 300 &&
+                    _nextServerCleanup < std::chrono::system_clock::now()) {
+                  LOG_TOPIC("dcded", TRACE, Logger::SUPERVISION)
+                      << "Begin cleanupExpiredServers";
+                  cleanupExpiredServers(snapshot(), _transient);
+                  LOG_TOPIC("dedcd", TRACE, Logger::SUPERVISION)
+                      << "Finished cleanupExpiredServers";
+                }
+
               } else {
                 LOG_TOPIC("7928f", INFO, Logger::SUPERVISION)
                     << "Postponing supervision for now, waiting for incoming "
