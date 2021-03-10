@@ -130,6 +130,11 @@ void ExportFeature::collectOptions(std::shared_ptr<options::ProgramOptions> opti
                      new BooleanParameter(&_useGzip))
                      .setIntroducedIn(30408)
                      .setIntroducedIn(30501);
+
+  options->addOption("--batch-size",
+                     "number of documents to fetch per request",
+                     new UInt64Parameter(&_batchSize))
+                     .setIntroducedIn(30800);
 }
 
 void ExportFeature::validateOptions(std::shared_ptr<options::ProgramOptions> options) {
@@ -318,6 +323,9 @@ void ExportFeature::collectionExport(SimpleHttpClient* httpClient) {
     post.add("@collection", VPackValue(collection));
     post.close();
     post.add("ttl", VPackValue(::ttlValue));
+    if (_batchSize > 0) {
+      post.add("batchSize", VPackValue(_batchSize));
+    }
     post.add("options", VPackValue(VPackValueType::Object));
     post.add("stream", VPackSlice::trueSlice());
     post.close();
@@ -371,6 +379,9 @@ void ExportFeature::queryExport(SimpleHttpClient* httpClient) {
   post.openObject();
   post.add("query", VPackValue(_query));
   post.add("ttl", VPackValue(::ttlValue));
+  if (_batchSize > 0) {
+    post.add("batchSize", VPackValue(_batchSize));
+  }
   post.add("options", VPackValue(VPackValueType::Object));
   post.add("stream", VPackSlice::trueSlice());
   post.close();
@@ -662,6 +673,9 @@ directed="1">
     post.add("@collection", VPackValue(collection));
     post.close();
     post.add("ttl", VPackValue(::ttlValue));
+    if (_batchSize > 0) {
+      post.add("batchSize", VPackValue(_batchSize));
+    }
     post.add("options", VPackValue(VPackValueType::Object));
     post.add("stream", VPackSlice::trueSlice());
     post.close();
