@@ -29,12 +29,17 @@
 
 namespace {
 static constexpr std::uint32_t WriteLock{1};
+static_assert(0b00000000'00000000'00000000'00000001 == WriteLock);
 
 static constexpr std::uint32_t ReaderIncrement{static_cast<std::uint32_t>(1) << 16};
 static constexpr std::uint32_t ReaderMask{~(::ReaderIncrement - 1)};
+static_assert(0b00000000'00000001'00000000'00000000 == ReaderIncrement);
+static_assert(0b11111111'11111111'00000000'00000000 == ReaderMask);
 
 static constexpr std::uint32_t QueuedWriterIncrement{static_cast<std::uint32_t>(1) << 1};
 static constexpr std::uint32_t QueuedWriterMask{(::ReaderIncrement - 1) & ~::WriteLock};
+static_assert(0b00000000'00000000'00000000'00000010 == QueuedWriterIncrement);
+static_assert(0b00000000'00000000'11111111'11111110 == QueuedWriterMask);
 
 static_assert((::ReaderMask & ::WriteLock) == 0,
               "::ReaderMask and ::WriteLock conflict");
