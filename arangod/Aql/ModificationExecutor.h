@@ -150,10 +150,12 @@ class ModifierOutput {
  protected:
   InputAqlItemRow const _inputRow;
   Type const _type;
+  // The guards are only constructed and never read, but that's fine: Their
+  // value lies in their destructor. Thus [[maybe_unused]].
   std::optional<AqlValue> _oldValue;
-  std::optional<AqlValueGuard> _oldValueGuard;
+  [[maybe_unused]] std::optional<AqlValueGuard> _oldValueGuard;
   std::optional<AqlValue> _newValue;
-  std::optional<AqlValueGuard> _newValueGuard;
+  [[maybe_unused]] std::optional<AqlValueGuard> _newValueGuard;
 };
 
 template <typename FetcherType, typename ModifierType>
