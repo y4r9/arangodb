@@ -22,6 +22,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include "Basics/ResourceUsage.h"
+#include "Basics/StringUtils.h"
 
 using namespace arangodb;
 
@@ -37,7 +38,11 @@ void ResourceMonitor::increaseMemoryUsage(std::size_t value) {
 
   if (maxMemoryUsage > 0 && ADB_UNLIKELY(current > maxMemoryUsage)) {
     currentResources.memoryUsage.fetch_sub(value, std::memory_order_relaxed);
-    THROW_ARANGO_EXCEPTION(TRI_ERROR_RESOURCE_LIMIT);
+    THROW_ARANGO_EXCEPTION_MESSAGE(
+        TRI_ERROR_RESOURCE_LIMIT,
+        basics::StringUtils::concatT(
+            "AQL query memory limit of ", maxMemoryUsage,
+            " bytes exceeded when trying to increase to ", current, " bytes"));
   }
   
   std::size_t peak = currentResources.peakMemoryUsage.load(std::memory_order_relaxed);
