@@ -108,9 +108,8 @@ class RocksDBZkdIndexIterator final : public IndexIterator {
           if (!zkd::testInBox(byteStringKey, _min, _max, _dim)) {
             _cur = byteStringKey;
 
-            auto cmp = zkd::compareWithBox(_cur, _min, _max, _dim);
-
-            auto const next = zkd::getNextZValue(_cur, _min, _max, cmp);
+            zkd::compareWithBoxInto(_cur, _min, _max, _dim, _compareResult);
+            auto const next = zkd::getNextZValue(_cur, _min, _max, _compareResult);
             if (!next) {
               _iterState = IterState::DONE;
             } else {
@@ -166,6 +165,8 @@ class RocksDBZkdIndexIterator final : public IndexIterator {
 
   std::size_t _numSeeks = 0;
   std::size_t _numDocs = 0;
+
+  std::vector<zkd::CompareResult> _compareResult;
 };
 
 }  // namespace arangodb
