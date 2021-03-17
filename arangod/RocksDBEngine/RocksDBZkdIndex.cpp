@@ -57,6 +57,11 @@ namespace arangodb {
 template<bool isUnique = false>
 class RocksDBZkdIndexIterator final : public IndexIterator {
  public:
+
+  ~RocksDBZkdIndexIterator() {
+    LOG_DEVEL << "ZkdIndex iterator seeks = " << _numSeeks << " docs = " << _numDocs;
+  }
+
   RocksDBZkdIndexIterator(LogicalCollection* collection, RocksDBZkdIndexBase* index,
                           transaction::Methods* trx, zkd::byte_string min,
                           zkd::byte_string max, std::size_t dim)
@@ -88,6 +93,7 @@ class RocksDBZkdIndexIterator final : public IndexIterator {
           RocksDBKey rocks_key;
           rocks_key.constructZkdIndexValue(_index->objectId(), _cur);
           _iter->Seek(rocks_key.string());
+          _numSeeks += 1;
           if (!_iter->Valid()) {
             arangodb::rocksutils::checkIteratorStatus(_iter.get());
             _iterState = IterState::DONE;
@@ -119,6 +125,7 @@ class RocksDBZkdIndexIterator final : public IndexIterator {
                 return RocksDBKey::indexDocumentId(rocksKey);
               }
             });
+            _numDocs += 1;
             std::ignore = callback(documentId);
             ++i;
             _iter->Next();
@@ -156,6 +163,9 @@ class RocksDBZkdIndexIterator final : public IndexIterator {
 
   std::unique_ptr<rocksdb::Iterator> _iter;
   RocksDBZkdIndexBase* _index = nullptr;
+
+  std::size_t _numSeeks = 0;
+  std::size_t _numDocs = 0;
 };
 
 }  // namespace arangodb
@@ -165,13 +175,35 @@ namespace {
 auto convertDouble(double x) -> zkd::byte_string {
   zkd::BitWriter bw;
   bw.append(zkd::Bit::ZERO); // add zero bit for `not infinity`
+  bw.append(zkd::Bit::ZERO); // add zero bit for `not string`
   zkd::into_bit_writer_fixed_length(bw, x);
   return std::move(bw).str();
 }
 
+auto convertString(zkd::byte_string_view x) -> zkd::byte_string {
+  zkd::byte_string str{std::byte{0b0100'0000}};
+  str.assign(x.cbegin(), x.cend());
+  return str;
+}
+
+/*
 auto nodeExtractDouble(aql::AstNode const* node) -> std::optional<zkd::byte_string> {
   if (node != nullptr) {
     return convertDouble(node->getDoubleValue());
+  }
+  return std::nullopt;
+}*/
+
+auto nodeExtractValue(aql::AstNode const* node) -> std::optional<zkd::byte_string> {
+  if (node != nullptr) {
+    if (node->isNumericValue()) {
+      return convertDouble(node->getDoubleValue());
+    } else if (node->isStringValue()) {
+      auto view = node->getStringRef();
+      return convertString(
+          zkd::byte_string_view{reinterpret_cast<const std::byte*>(view.data()),
+                                view.size()});
+    }
   }
   return std::nullopt;
 }
@@ -197,14 +229,22 @@ auto readDocumentKey(VPackSlice doc,
 
   for (auto const& path : fields) {
     VPackSlice value = accessDocumentPath(doc, path);
-    if (!value.isNumber<double>()) {
+
+    if (value.isNumber<double>()) {
+      auto dv = value.getNumericValue<double>();
+      if (std::isnan(dv)) {
+        THROW_ARANGO_EXCEPTION_MESSAGE(TRI_ERROR_QUERY_INVALID_ARITHMETIC_VALUE, "NaN is not allowed");
+      }
+      v.emplace_back(convertDouble(dv));
+    } else if (value.isString()) {
+      auto view = value.stringView();
+      v.emplace_back(convertString(
+          zkd::byte_string_view{reinterpret_cast<const std::byte*>(view.data()),
+                                view.size()}));
+    } else {
+      LOG_DEVEL << "value is not of valid type " << value.toJson() << " " << value.type();
       THROW_ARANGO_EXCEPTION(TRI_ERROR_QUERY_INVALID_ARITHMETIC_VALUE);
     }
-    auto dv = value.getNumericValue<double>();
-    if (std::isnan(dv)) {
-      THROW_ARANGO_EXCEPTION_MESSAGE(TRI_ERROR_QUERY_INVALID_ARITHMETIC_VALUE, "NaN is not allowed");
-    }
-    v.emplace_back(convertDouble(dv));
   }
 
   return zkd::interleave(v);
@@ -234,8 +274,8 @@ auto boundsForIterator(arangodb::Index const* index, const arangodb::aql::AstNod
   for (auto&& [idx, field] : enumerate(index->fields())) {
     if (auto it = extractedBounds.find(idx); it != extractedBounds.end()) {
       auto const& bounds = it->second;
-      min[idx] = nodeExtractDouble(bounds.lower.bound_value).value_or(ByteStringNegInfinity);
-      max[idx] = nodeExtractDouble(bounds.upper.bound_value).value_or(ByteStringPosInfinity);
+      min[idx] = nodeExtractValue(bounds.lower.bound_value).value_or(ByteStringNegInfinity);
+      max[idx] = nodeExtractValue(bounds.upper.bound_value).value_or(ByteStringPosInfinity);
     } else {
       min[idx] = ByteStringNegInfinity;
       max[idx] = ByteStringPosInfinity;
@@ -244,6 +284,9 @@ auto boundsForIterator(arangodb::Index const* index, const arangodb::aql::AstNod
 
   TRI_ASSERT(min.size() == dim);
   TRI_ASSERT(max.size() == dim);
+
+  LOG_DEVEL << "min = " << min;
+  LOG_DEVEL << "max = " << max;
 
   return std::make_pair(zkd::interleave(min), zkd::interleave(max));
 }
@@ -426,6 +469,9 @@ arangodb::Result arangodb::RocksDBZkdIndexBase::insert(
 
   auto key_value = readDocumentKey(doc, _fields);
 
+
+  LOG_DEVEL << "insert key value = " << key_value;
+
   RocksDBKey rocks_key;
   rocks_key.constructZkdIndexValue(objectId(), key_value, documentId);
 
@@ -491,6 +537,8 @@ std::unique_ptr<IndexIterator> arangodb::RocksDBZkdIndexBase::iteratorForConditi
     const arangodb::aql::Variable* reference, const arangodb::IndexIteratorOptions& opts) {
 
   auto&& [min, max] = boundsForIterator(this, node, reference, opts);
+
+  LOG_DEVEL << "min = " << min << " max = " << max;
 
   return std::make_unique<RocksDBZkdIndexIterator<false>>(&_collection, this, trx,
                                                    std::move(min), std::move(max),
