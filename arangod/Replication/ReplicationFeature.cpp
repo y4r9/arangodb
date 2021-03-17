@@ -36,6 +36,7 @@
 #include "Replication/GlobalReplicationApplier.h"
 #include "Replication/ReplicationApplierConfiguration.h"
 #include "Rest/GeneralResponse.h"
+#include "RestServer/ServerIdFeature.h"
 #include "RestServer/DatabaseFeature.h"
 #include "RestServer/MetricsFeature.h"
 #include "RestServer/SystemDatabaseFeature.h"
@@ -66,7 +67,7 @@ ReplicationFeature::ReplicationFeature(ApplicationServer& server)
           "arangodb_replication_cluster_inventory_requests", 0, "Number of cluster replication inventory requests received")) {
   setOptional(true);
   startsAfter<BasicFeaturePhaseServer>();
-
+  startsAfter<ServerIdFeature>();
   startsAfter<DatabaseFeature>();
   startsAfter<StorageEngineFeature>();
   startsAfter<SystemDatabaseFeature>();
