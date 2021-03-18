@@ -405,7 +405,7 @@ bool test_fast(zkd::byte_string_view min, zkd::byte_string_view max, zkd::byte_s
   TRI_ASSERT(min.size() == max.size());
   TRI_ASSERT(min.size() % 8 == 0)
 
-  std::size_t const cur_full_blocks = (cur.size() + 7) / 8;
+  std::size_t const cur_full_blocks = cur.size() / 8;
   std::size_t const bound_blocks = min.size() / 8;
 
   std::size_t const block_cmps = std::min(cur_full_blocks, bound_blocks);
@@ -439,7 +439,7 @@ bool test_fast(zkd::byte_string_view min, zkd::byte_string_view max, zkd::byte_s
       }
     }
   } else {
-    TRI_ASSERT(max.size() > 8);
+    TRI_ASSERT(max.size() >= 8);
     uint64_t min_block = read_big_endian_64(min.data());
     uint64_t max_block = read_big_endian_64(max.data());
     TRI_ASSERT(cur.size() < 8);

@@ -396,6 +396,18 @@ TEST(Zkd_getNextZValue, testFigure41) {
   }
 }
 
+bool testInBoxWrapped(byte_string_view cur, byte_string_view min, byte_string_view max, std::size_t dimensions) {
+  size_t padded_size = (std::max(min.size(), max.size()) + 7) & ~size_t(0x7);
+
+  zkd::byte_string min_s{min};
+  zkd::byte_string max_s{max};
+
+  min_s.resize(padded_size);
+  max_s.resize(padded_size);
+
+  return testInBox(cur, min_s, max_s, dimensions);
+}
+
 TEST(Zkd_testInBox, regression_1) {
   auto cur = zkd::interleave({
       byte_string{0x5f_b, 0xf8_b, 0x00_b, 0x00_b, 0x00_b, 0x00_b, 0x00_b, 0x00_b, 0x00_b},
@@ -407,5 +419,56 @@ TEST(Zkd_testInBox, regression_1) {
                                  byte_string{0x80_b, 0x00_b, 0x00_b, 0x00_b, 0x00_b, 0x00_b, 0x00_b, 0x00_b, 0x00_b}
                              });
 
-  ASSERT_TRUE(testInBox(cur, min, max, 2));
+  ASSERT_TRUE(testInBoxWrapped(cur, min, max, 2));
+}
+
+
+TEST(Zkd_testInBox, d2_eq) {
+  auto min_v = interleave({"00000101"_bs, "01001101"_bs});  // 00 01 00 00 01 11 00 11
+  auto max_v = interleave({"00100011"_bs, "01111001"_bs});  // 00 01 11 01 01 00 10 11
+  auto v = interleave({"00001111"_bs, "01010110"_bs});      // 00 01 00 01 10 11 11 10
+
+  EXPECT_TRUE(testInBoxWrapped(v, min_v, max_v, 2));
+}
+
+TEST(Zkd_testInBox, d2_eq2) {
+  auto min_v = interleave({"00000010"_bs, "00000011"_bs});  // 00 00 00 00 00 00 11 01
+  auto max_v = interleave({"00000110"_bs, "00000101"_bs});  // 00 00 00 00 00 11 10 01
+  auto v = interleave({"00000011"_bs, "00000011"_bs});  // 00 00 00 00 00 00 11 11
+
+  EXPECT_TRUE(testInBoxWrapped(v, min_v, max_v, 2));
+}
+
+TEST(Zkd_testInBox, d2_less) {
+  auto min_v = interleave({"00000101"_bs, "01001101"_bs});
+  auto max_v = interleave({"00100011"_bs, "01111001"_bs});
+  auto v = interleave({"00000011"_bs, "01010110"_bs});
+
+  EXPECT_FALSE(testInBoxWrapped(v, min_v, max_v, 2));
+}
+
+TEST(Zkd_testInBox, d2_x_less_y_greater) {
+  auto min_v = interleave({"00000100"_bs, "00000010"_bs});  // 00 00 00 00 00 10 01 00
+  auto max_v = interleave({"00001000"_bs, "00000110"_bs});  // 00 00 00 00 10 01 01 00
+  auto v = interleave({"00000011"_bs, "00010000"_bs});  // 00 00 00 01 00 00 10 10
+
+  EXPECT_FALSE(testInBoxWrapped(v, min_v, max_v, 2));
+}
+
+TEST(Zkd_testInBox, d3_x_less_y_greater_z_eq) {
+  auto min_v = interleave({"00000100"_bs, "00000010"_bs, "00000000"_bs});  // 000 000 000 000 000 100 010 000
+  auto max_v = interleave({"00001000"_bs, "00000110"_bs, "00000010"_bs});  // 000 000 000 000 100 010 011 000
+  auto v = interleave({"00000011"_bs, "00010000"_bs, "00000010"_bs});  // 000 000 000 010 000 000 101 100
+
+  EXPECT_FALSE(testInBoxWrapped(v, min_v, max_v, 2));
+}
+
+TEST(Zkd_testInBox, testFigure41_3) {
+  // lower point of the box: (2, 2)
+  auto min_v = interleave({"00000010"_bs, "00000010"_bs});
+  // upper point of the box: (5, 4)
+  auto max_v = interleave({"00000101"_bs, "00000100"_bs});
+
+  auto v = interleave({"00000110"_bs, "00000010"_bs});  // (6, 2)
+  EXPECT_FALSE(testInBoxWrapped(v, min_v, max_v, 2));
 }
