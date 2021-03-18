@@ -290,7 +290,15 @@ auto boundsForIterator(arangodb::Index const* index, const arangodb::aql::AstNod
   LOG_DEVEL << "min = " << min;
   LOG_DEVEL << "max = " << max;
 
-  return std::make_pair(zkd::interleave(min), zkd::interleave(max));
+  auto min_s = zkd::interleave(min);
+  auto max_s =  zkd::interleave(max);
+
+  size_t padded_size = (std::max(min_s.size(), max_s.size()) + 7) & 0x7;
+
+  min_s.resize(padded_size);
+  max_s.resize(padded_size);
+
+  return std::make_pair(min_s, max_s);
 }
 }  // namespace
 

@@ -9,6 +9,8 @@
 #include <iostream>
 #include <optional>
 
+#include <byteswap.h>
+
 using namespace arangodb;
 using namespace arangodb::zkd;
 
@@ -68,34 +70,84 @@ zkd::byte_string zkd::operator"" _bs(const char* const str, std::size_t len) {
 namespace {
 
 uint64_t space_out_2(uint32_t v) {
-    uint64_t x = v;
-    x = (x | (x << 8)) & 0x00FF00FFul;
-    x = (x | (x << 4)) & 0x0F0F0F0Ful;
-    x = (x | (x << 2)) & 0x33333333ul;
-    x = (x | (x << 1)) & 0x55555555ul;
+  uint64_t x = v;
+  x = (x | (x << 16)) & 0x0000FFFF0000FFFFul;
+  x = (x | (x << 8)) & 0x00FF00FF00FF00FFul;
+  x = (x | (x << 4)) & 0x0F0F0F0F0F0F0F0Ful;
+  x = (x | (x << 2)) & 0x3333333333333333ul;
+  x = (x | (x << 1)) & 0x5555555555555555ul;
 
-    return x;
+  return x;
 }
 
 uint64_t space_out_3(uint16_t v) {
-    uint64_t x = v;
-    x = (x | (x << 16)) & 0x00FF0000FF0000FFul;
-    x = (x | (x << 8)) & 0x000000F00F00F00Ful;
-    x = (x | (x << 4)) & 0x30C30C30C30C30C3ul;
-    x = (x | (x << 2)) & 0x0249249249249249ul;
+  uint64_t x = v;
+  x = (x | (x << 16)) & 0x00FF0000FF0000FFul;
+  x = (x | (x << 8)) & 0x000000F00F00F00Ful;
+  x = (x | (x << 4)) & 0x30C30C30C30C30C3ul;
+  x = (x | (x << 2)) & 0x0249249249249249ul;
 
-    return x;
+  return x;
 }
 
 uint64_t space_out_4(uint16_t v) {
-    uint64_t x = v;
-    x = (x | (x << 24)) & 0x000000FF000000FFul;
-    x = (x | (x << 12)) & 0x000F000F000F000Ful;
-    x = (x | (x << 6)) & 0x0303030303030303ul;
-    x = (x | (x << 3)) & 0x1111111111111111ul;
+  uint64_t x = v;
+  x = (x | (x << 24)) & 0x000000FF000000FFul;
+  x = (x | (x << 12)) & 0x000F000F000F000Ful;
+  x = (x | (x << 6)) & 0x0303030303030303ul;
+  x = (x | (x << 3)) & 0x1111111111111111ul;
 
-    return x;
+  return x;
 }
+
+uint64_t pack_2(uint32_t a, uint32_t b) {
+  return (space_out_2(a) << 1) | space_out_2(b);
+}
+
+uint64_t pack_3(uint16_t a, uint16_t b, uint16_t c) {
+  return (space_out_3(a) << 2) | (space_out_3(b) << 1) | space_out_3(c);
+}
+
+uint64_t pack_4(uint32_t a, uint32_t b, uint32_t c, uint32_t d) {
+  return (space_out_4(a) << 3) | (space_out_4(b) << 2) | (space_out_4(c) << 1) | (space_out_4(d));
+}
+
+uint32_t collaps_2(uint64_t v) {
+  v &= 0x5555555555555555ul;
+  v |= v >> 1;
+  v &= 0x3333333333333333ul;
+  v |= v >> 2;
+  v &= 0x0F0F0F0F0F0F0F0Ful;
+  v |= v >> 4;
+  v &= 0x00FF00FF00FF00FFul;
+  v |= v >> 8;
+  v &= 0x0000FFFF0000FFFFul;
+  v |= v >> 16;
+  return v;
+}
+
+
+uint16_t collaps_3(uint64_t v) {
+  v &= 0x0249249249249249ul;
+  v |= v >> 2;
+  v &= 0x30C30C30C30C30C3ul;
+  v |= v >> 4;
+  v &= 0x000000F00F00F00Ful;
+  v |= v >> 5;
+  v &= 0x00FF0000FF0000FFul;
+  v |= v >> 16;
+  return v;
+}
+
+auto unpack_2(uint64_t v) -> std::tuple<uint32_t, uint32_t> {
+  return std::make_tuple(collaps_2(v >> 1), collaps_2(v));
+}
+
+auto unpack_3(uint64_t v) -> std::tuple<uint16_t, uint16_t, uint16_t> {
+  return std::make_tuple(collaps_3(v >> 2), collaps_3(v >> 1), collaps_3(v));
+}
+
+
 }
 
 
@@ -336,8 +388,88 @@ void zkd::compareWithBoxInto(byte_string_view cur, byte_string_view min, byte_st
 
 }
 
+namespace {
+
+uint64_t rol3(uint64_t v) { return (v << 3) | (v >> 61); }
+
+uint64_t rol1(uint64_t v) { return (v << 1) | (v >> 63); }
+
+uint64_t read_big_endian_64(zkd::byte_string_view in) {
+  return bswap_64(*reinterpret_cast<const uint64_t*>(in.data()));
+}
+
+}  // namespace
+
+template<uint64_t initMask, unsigned checksPerBlock>
+bool test_fast(zkd::byte_string_view min, zkd::byte_string_view max, zkd::byte_string_view cur) {
+  TRI_ASSERT(min.size() == max.size());
+  TRI_ASSERT(min.size() % 8 == 0)
+
+  std::size_t const cur_full_blocks = (cur.size() + 7) / 8;
+  std::size_t const bound_blocks = min.size() / 8;
+
+  std::size_t const block_cmps = std::min(cur_full_blocks, bound_blocks);
+
+  uint64_t mask = initMask;
+
+  for (size_t i = 0; i < block_cmps; i++) {
+    uint64_t min_block = read_big_endian_64(min.data());
+    min.remove_prefix(8);
+    uint64_t max_block = read_big_endian_64(max.data());
+    max.remove_prefix(8);
+    uint64_t cur_block = read_big_endian_64(cur.data());
+    cur.remove_prefix(8);
+
+    for (size_t j = 0; j < checksPerBlock; j++) {
+      uint64_t min_dim = min_block & mask;
+      uint64_t max_dim = max_block & mask;
+      uint64_t cur_dim = cur_block & mask;
+      mask = rol1(mask);
+      if (min_dim > cur_dim || max_dim < cur_dim) {
+        return false;
+      }
+    }
+  }
+
+  if (cur.size() > max.size()) {
+    TRI_ASSERT(max.empty());
+    for (auto&& x : cur) {
+      if (x != std::byte{0}) {
+        return false;
+      }
+    }
+  } else {
+    TRI_ASSERT(max.size() > 8);
+    uint64_t min_block = read_big_endian_64(min.data());
+    uint64_t max_block = read_big_endian_64(max.data());
+    TRI_ASSERT(cur.size() < 8);
+    uint64_t cur_block = 0;
+    for (size_t i = 0; i < cur.size(); i++) {
+      cur_block |= uint64_t(cur[i]) << (56 - i * 8);
+    }
+
+    for (size_t j = 0; j < checksPerBlock; j++) {
+      uint64_t min_dim = min_block & mask;
+      uint64_t max_dim = max_block & mask;
+      uint64_t cur_dim = cur_block & mask;
+      mask = rol1(mask);
+      if (min_dim > cur_dim || max_dim < cur_dim) {
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+
 auto zkd::testInBox(byte_string_view cur, byte_string_view min, byte_string_view max, std::size_t dimensions)
 -> bool {
+
+  if (dimensions == 2) {
+    return test_fast<0xAAAAAAAAAAAAAAAA, 2>(min, max, cur);
+  } else if (dimensions == 3) {
+    return test_fast<0x9249249249249249, 3>(min, max, cur);
+  }
 
   if (dimensions == 0 && dimensions <= max_dimensions) {
     auto msg = std::string{"dimensions argument to "};
