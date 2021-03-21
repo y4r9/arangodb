@@ -732,7 +732,8 @@ function runThere (options, instanceInfo, file) {
 
     httpOptions.timeout = options.oneTestTimeout;
     if (options.isAsan) {
-      httpOptions.timeout *= 2;
+      httpOptions.timeout *= 3;
+      options.oneTestTimeout *= 3;
     }
     if (options.valgrind) {
       httpOptions.timeout *= 2;
