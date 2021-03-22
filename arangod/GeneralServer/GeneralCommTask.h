@@ -58,7 +58,7 @@ class GeneralCommTask : public CommTask {
   virtual bool readCallback(asio_ns::error_code ec) = 0;
   
   /// set / reset connection timeout
-  virtual void setIOTimeout() = 0;
+  virtual void setIOTimeout(bool force = false) = 0;
   
   /// default max chunksize is 30kb in arangodb (each read fits)
   static constexpr size_t ReadBlockSize = 1024 * 32;

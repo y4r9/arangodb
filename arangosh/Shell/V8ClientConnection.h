@@ -80,6 +80,9 @@ class V8ClientConnection {
   
   std::string protocol() const;
 
+  uint64_t connects() const { return _connects; }
+  uint64_t requests() const { return _requests; }
+
   std::string const& databaseName() const { return _databaseName; }
   void setDatabaseName(std::string const& value) { _databaseName = value; }
   void setForceJson(bool value) { _forceJson = value; };
@@ -185,6 +188,9 @@ class V8ClientConnection {
   // and ephemeral ports for patterns such as "connect-to-leader" -> "connect-to-follower"
   // -> "connect-to-leader" etc. 
   std::unordered_map<std::string, std::shared_ptr<fuerte::Connection>> _connectionCache;
+
+  uint64_t _connects;
+  uint64_t _requests;
 };
 }  // namespace arangodb
 

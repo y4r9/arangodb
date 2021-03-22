@@ -82,12 +82,16 @@ function startParameterTest(options, testpath, suiteName) {
       if (paramsSecondRun.hasOwnProperty('server.jwt-secret')) {
         clonedOpts['server.jwt-secret'] = paramsSecondRun['server.jwt-secret'];
       }
+      if (paramsSecondRun.hasOwnProperty('protocol')) {
+        clonedOpts.protocol = paramsSecondRun.protocol;
+        delete paramsSecondRun.protocol;
+      }
       if (runSetup) {
         delete paramsSecondRun.runSetup;
         if (options.extremeVerbosity) {
           print(paramsFirstRun);
         }
-        instanceInfo = pu.startInstance(options.protocol, options, paramsFirstRun, suiteName, rootDir); // first start
+        instanceInfo = pu.startInstance(clonedOpts.protocol, clonedOpts, paramsFirstRun, suiteName, rootDir); // first start
         pu.cleanupDBDirectoriesAppend(instanceInfo.rootDir);      
         try {
           print(BLUE + '================================================================================' + RESET);
@@ -125,10 +129,10 @@ function startParameterTest(options, testpath, suiteName) {
           };
         }
       } else {
-        instanceInfo = pu.startInstance(options.protocol, options, paramsSecondRun, suiteName, rootDir); // one start
+        instanceInfo = pu.startInstance(clonedOpts.protocol, clonedOpts, paramsSecondRun, suiteName, rootDir); // one start
       }
 
-      results[testFile] = tu.runInLocalArangosh(options, instanceInfo, testFile, {});
+      results[testFile] = tu.runInLocalArangosh(clonedOpts, instanceInfo, testFile, {});
       shutdownStatus = pu.shutdownInstance(instanceInfo, clonedOpts, false);
 
       results['shutdown'] = results['shutdown'] && shutdownStatus;
