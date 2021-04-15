@@ -228,6 +228,8 @@ std::unique_ptr<graph::BaseOptions> createTraversalOptions(Ast* ast,
             // query and if the query is not a modification query.
             options->setParallelism(Ast::validatedParallelism(value));
           }
+        } else if (name == "useExternals") {
+          options->_useExternals = value->getBoolValue();
         }
       }
     }

@@ -68,6 +68,29 @@ void TraverserCache::clear() {
   _mmdr.clear();
 }
 
+uint8_t const* TraverserCache::lookupTokenExternal(EdgeDocumentToken const& idToken) {
+  auto it = _externalEdgeCache.find(idToken);
+  if (it == _externalEdgeCache.end()) {
+    VPackSlice res = lookupToken(idToken);
+    VPackBuilder tmp;
+    tmp.add(res);
+    it = _externalEdgeCache.emplace(idToken, std::move(tmp)).first;
+  }
+  return it->second.start();
+}
+
+uint8_t const* TraverserCache::lookupVertexExternal(arangodb::velocypack::StringRef id) {
+  auto it = _externalVertexCache.find(id);
+  if (it == _externalVertexCache.end()) {
+    VPackSlice res = lookupVertexInCollection(id);
+    VPackBuilder tmp;
+    tmp.add(res);
+    it = _externalVertexCache.emplace(id, std::move(tmp)).first;
+  }
+  return it->second.start();
+
+}
+
 VPackSlice TraverserCache::lookupToken(EdgeDocumentToken const& idToken) {
   TRI_ASSERT(!ServerState::instance()->isCoordinator());
   auto col = _trx->vocbase().lookupCollection(idToken.cid());
@@ -159,11 +182,19 @@ VPackSlice TraverserCache::lookupVertexInCollection(arangodb::velocypack::String
 void TraverserCache::insertEdgeIntoResult(EdgeDocumentToken const& idToken,
                                           VPackBuilder& builder) {
   TRI_ASSERT(!ServerState::instance()->isCoordinator());
-  builder.add(lookupToken(idToken));
+  if (_baseOptions->_useExternals) {
+    builder.addExternal(lookupTokenExternal(idToken));
+  } else {
+    builder.add(lookupToken(idToken));
+  }
 }
 
 void TraverserCache::insertVertexIntoResult(arangodb::velocypack::StringRef idString, VPackBuilder& builder) {
-  builder.add(lookupVertexInCollection(idString));
+  if (_baseOptions->_useExternals) {
+    builder.addExternal(lookupVertexExternal(idString));
+  } else {
+    builder.add(lookupVertexInCollection(idString));
+  }
 }
 
 aql::AqlValue TraverserCache::fetchEdgeAqlResult(EdgeDocumentToken const& idToken) {

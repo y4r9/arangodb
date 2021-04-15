@@ -223,6 +223,9 @@ struct BaseOptions {
 
   /// @brief whether or not we are running on a coordinator
   bool const _isCoordinator;
+
+ public:
+  bool _useExternals{false};
 };
 
 }  // namespace graph

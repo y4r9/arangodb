@@ -190,7 +190,8 @@ BaseOptions::BaseOptions(BaseOptions const& other, bool allowAlreadyBuiltCopy)
       _collectionToShard(other._collectionToShard),
       _parallelism(other._parallelism),
       _produceVertices(other._produceVertices),
-      _isCoordinator(arangodb::ServerState::instance()->isCoordinator()) {
+      _isCoordinator(arangodb::ServerState::instance()->isCoordinator()),
+      _useExternals(other._useExternals) {
   if (!allowAlreadyBuiltCopy) {
     TRI_ASSERT(other._baseLookupInfos.empty());
     TRI_ASSERT(other._tmpVar == nullptr);
@@ -230,6 +231,11 @@ BaseOptions::BaseOptions(arangodb::aql::QueryContext& query,
   read = info.get("parallelism");
   if (read.isInteger()) {
     _parallelism = read.getNumber<size_t>();
+  }
+
+  read = info.get("useExternals");
+  if (read.isBool()) {
+    _useExternals = read.getBool();
   }
   
   TRI_ASSERT(_produceVertices);

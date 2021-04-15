@@ -26,6 +26,7 @@
 #include "Basics/Common.h"
 #include "Basics/StringHeap.h"
 #include "VocBase/ManagedDocumentResult.h"
+#include "Graph/EdgeDocumentToken.h"
 
 #include <velocypack/StringRef.h>
 
@@ -116,6 +117,8 @@ class TraverserCache {
 
   /// Only valid until the next call to this class
   virtual velocypack::Slice lookupToken(EdgeDocumentToken const& token);
+  virtual const uint8_t* lookupTokenExternal(EdgeDocumentToken const& token);
+  virtual const uint8_t* lookupVertexExternal(arangodb::velocypack::StringRef id);
 
  protected:
   //////////////////////////////////////////////////////////////////////////////
@@ -165,6 +168,9 @@ class TraverserCache {
   std::unordered_set<arangodb::velocypack::StringRef> _persistedStrings;
 
   BaseOptions const* _baseOptions;
+
+  std::unordered_map<EdgeDocumentToken, arangodb::velocypack::Builder> _externalEdgeCache;
+  std::unordered_map<arangodb::velocypack::StringRef, arangodb::velocypack::Builder> _externalVertexCache;
 };
 
 }  // namespace graph
