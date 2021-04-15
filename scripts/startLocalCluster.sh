@@ -1,8 +1,15 @@
 #!/usr/bin/env bash
 params=("$@")
 
-ulimit -H -n 131072 || true
-ulimit -S -n 131072 || true
+min_desired_limit=131072
+
+if [ "$(ulimit -Hn)" -lt "$min_desired_limit" ]; then
+    ulimit -H -n "$min_desired_limit" || true
+fi
+if [ "$(ulimit -Sn)" -lt "$min_desired_limit" ]; then
+    ulimit -S -n "$min_desired_limit" || true
+fi
+
 
 rm -rf cluster
 if [ -d cluster-init ];then
