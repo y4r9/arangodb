@@ -246,6 +246,14 @@ function performTests (options, testList, testname, runFn, serverOptions, startS
           results[te] = reply;
           results[te]['processStats'] = pu.getDeltaProcessStats(instanceInfo);
 
+          if (options.zeroTimeWaitWait) {
+            let stat = pu.getDeltaProcessStats(instanceInfo);
+            while (stat.sum_servers.sockstat_TCP_tw > 100) {
+              sleep(5);
+              print(new Date().toISOString() + ' Sockets in TIME_WAIT state remained after the test: ' + stat.sum_servers.sockstat_TCP_tw);
+              stat = pu.getDeltaProcessStats(instanceInfo);
+            }
+          }
           if (results[te].status === false) {
             options.cleanup = false;
           }
