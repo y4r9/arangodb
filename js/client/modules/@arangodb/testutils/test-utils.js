@@ -249,9 +249,6 @@ function performTests (options, testList, testname, runFn, serverOptions, startS
           if (options.zeroTimeWaitWait) {
             let stat = pu.getDeltaProcessStats(instanceInfo);
             while (stat.sum_servers.sockstat_TCP_tw > 100) {
-              if (stat.sum_servers.sockstat_TCP_tw > 1000) {
-                print(stat)
-              }
               sleep(5);
               print(new Date().toISOString() + ' Sockets in TIME_WAIT state remained after the test: ' + stat.sum_servers.sockstat_TCP_tw);
               stat = pu.getDeltaProcessStats(instanceInfo);
