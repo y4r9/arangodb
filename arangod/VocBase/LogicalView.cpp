@@ -63,7 +63,9 @@ LogicalView::LogicalView(TRI_vocbase_t& vocbase, VPackSlice const& definition)
         "got an invalid view definition while constructing LogicalView");
   }
 
-  if (!TRI_vocbase_t::IsAllowedName(definition)) {
+  bool allowUnicode = vocbase.server().getFeature<DatabaseFeature>().allowUnicodeNames();
+
+  if (!TRI_vocbase_t::isAllowedName(/*allowSystem*/ false, allowUnicode, arangodb::velocypack::StringRef(name()))) {
     THROW_ARANGO_EXCEPTION(TRI_ERROR_ARANGO_ILLEGAL_NAME);
   }
 

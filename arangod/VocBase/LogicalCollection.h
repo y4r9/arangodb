@@ -105,9 +105,12 @@ class LogicalCollection : public LogicalDataSource {
     RemoteSmartEdge = 4,
   };
 
-  //////////////////////////////////////////////////////////////////////////////
+  /// @brief checks if a collection name is valid
+  /// returns true if the name is allowed and false otherwise
+  static bool isAllowedName(bool allowSystem, bool allowUnicode,
+                            arangodb::velocypack::StringRef const& name) noexcept;
+
   /// @brief the category representing a logical collection
-  //////////////////////////////////////////////////////////////////////////////
   static Category const& category() noexcept;
 
   /// @brief hard-coded minimum version number for collections
