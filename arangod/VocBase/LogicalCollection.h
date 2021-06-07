@@ -83,7 +83,7 @@ class LogicalCollection : public LogicalDataSource {
   LogicalCollection& operator=(LogicalCollection const&) = delete;
   ~LogicalCollection() override;
 
-  /// @brief maximal collection name length
+  /// @brief maximal collection name length, in bytes
   static constexpr size_t maxNameLength = 256;
 
   enum class Version { v30 = 5, v31 = 6, v33 = 7, v34 = 8, v37 = 9 };

@@ -275,7 +275,7 @@ DatabaseFeature::DatabaseFeature(application_features::ApplicationServer& server
       _defaultWaitForSync(false),
       _forceSyncProperties(true),
       _ignoreDatafileErrors(false),
-      _allowUnicodeNames(false),
+      _allowUnicodeNames(true),
       _databasesLists(new DatabasesLists()),
       _isInitiallyEmpty(false),
       _checkVersion(false),

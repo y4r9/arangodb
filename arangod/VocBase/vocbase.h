@@ -113,8 +113,12 @@ struct TRI_vocbase_t {
   TRI_vocbase_t(TRI_vocbase_type_e type, arangodb::CreateDatabaseInfo&&);
   TEST_VIRTUAL ~TRI_vocbase_t();
   
-  /// @brief maximal database name length
+  /// @brief maximal database name length, in bytes (old convention, used when
+  /// `--database.allow-unicode-names=false`)
   static constexpr size_t maxNameLength = 64;
+  /// @brief maximal database name length, in bytes (new convention, used when
+  /// `--database.allow-unicode-names=true`)
+  static constexpr size_t maxNameLengthUnicode = 256;
 
  private:
   // explicitly document implicit behavior (due to presence of locks)

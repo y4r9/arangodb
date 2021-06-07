@@ -309,6 +309,10 @@ bool LogicalCollection::isAllowedName(bool allowSystem, bool allowUnicode,
         
         // a collection name must not start with an underscore unless it is a system collection
         ok &= (*ptr != '_' || allowSystem);
+        
+        // finally, a collection name must not start with a dot, because this is used for hidden
+        // agency entries
+        ok &= (*ptr != '.');
       }
     } else {
       if (length == 0) {
