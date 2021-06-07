@@ -70,7 +70,7 @@ function createSchemaValidator (schema) {
     return {value, error: new Error(
       ajv.errorsText(validator.errors, {dataVar: `"value"`})
     )};
-  }
+  };
 }
 
 function runValidation (methodName, paramName, type, value) {
@@ -341,14 +341,14 @@ exports.validateModel = function (value) {
     let baseModel = model;
     model = {schema: baseModel.schema};
     if (baseModel.fromClient) {
-      model.fromClient = ((value) => Array.isArray(value)
+      model.fromClient = (value) => Array.isArray(value)
         ? value.map(item => baseModel.fromClient(item))
-        : value);
+        : value;
     }
     if (baseModel.forClient) {
-      model.forClient = ((value) => Array.isArray(value)
+      model.forClient = (value) => Array.isArray(value)
         ? value.map(item => baseModel.forClient(item))
-        : value);
+        : value;
     }
     if (baseModel.schema.isJoi) {
       model.schema = joi.array().items(baseModel.schema).required();
