@@ -374,6 +374,10 @@ arangodb::Result RocksDBTransactionState::internalCommit() {
                     _rocksTransaction->GetNumDeletes() +
                     _rocksTransaction->GetNumMerges();
 
+  auto& selector = vocbase().server().getFeature<EngineSelectorFeature>();
+  auto& engine = selector.engine<RocksDBEngine>();
+  LOG_DEVEL << "DB SEQ BEFORE COMMIT: " << engine.db()->GetLatestSequenceNumber(); 
+
   rocksdb::Status s = _rocksTransaction->Commit();
   if (!s.ok()) { // cleanup performed by scope-guard
     return rocksutils::convertStatus(s);
@@ -383,6 +387,7 @@ arangodb::Result RocksDBTransactionState::internalCommit() {
   // the transaction id that is returned here is the seqno of the transaction's
   // first write operation in the WAL
   rocksdb::SequenceNumber postCommitSeq = _rocksTransaction->GetId();
+  LOG_DEVEL << "TRX SEQ: " << postCommitSeq;
   TRI_ASSERT(postCommitSeq != 0);
   if (ADB_LIKELY(numOps > 0)) {
     // we now need to add 1 for each write operation carried out in the trx
@@ -391,10 +396,9 @@ arangodb::Result RocksDBTransactionState::internalCommit() {
   }
   // now use the transaction's last seqno for persisting revision trees
   _lastWrittenOperationTick = postCommitSeq;
+  LOG_DEVEL << "LAST WRITTEN TICK: " << postCommitSeq;
 
 
-  auto& selector = vocbase().server().getFeature<EngineSelectorFeature>();
-  auto& engine = selector.engine<RocksDBEngine>();
   TRI_ASSERT(postCommitSeq <= engine.db()->GetLatestSequenceNumber());
 
   commitCounts();
@@ -627,6 +631,7 @@ Result RocksDBTransactionState::triggerIntermediateCommit(bool& hasPerformedInte
   TRI_ASSERT(!hasHint(transaction::Hints::Hint::SINGLE_OPERATION));
 #ifdef ARANGODB_ENABLE_MAINTAINER_MODE
   LOG_TOPIC("0fe63", DEBUG, Logger::ENGINES) << "INTERMEDIATE COMMIT!";
+  LOG_DEVEL << "INTERMEDIATE COMMIT";
 #endif
 
   Result res = internalCommit();
