@@ -382,10 +382,11 @@ std::unique_ptr<containers::RevisionTree> RocksDBMetaCollection::revisionTree(
 }
 
 std::unique_ptr<containers::RevisionTree> RocksDBMetaCollection::revisionTree(transaction::Methods& trx) {
-  return revisionTree(std::numeric_limits<rocksdb::SequenceNumber>::max(), [this, &trx](std::unique_ptr<containers::RevisionTree> tree) -> std::unique_ptr<containers::RevisionTree> {
+  rocksdb::SequenceNumber trxSeq = RocksDBTransactionState::toState(&trx)->beginSeq();
+  TRI_ASSERT(trxSeq != 0);
+
+  return revisionTree(trxSeq, [this, &trx, trxSeq](std::unique_ptr<containers::RevisionTree> tree) -> std::unique_ptr<containers::RevisionTree> {
     // apply any which are buffered and older than our ongoing transaction start
-    rocksdb::SequenceNumber trxSeq = RocksDBTransactionState::toState(&trx)->beginSeq();
-    TRI_ASSERT(trxSeq != 0);
     Result res = applyUpdatesForTransaction(*tree, trxSeq);
     if (res.fail()) {
       return nullptr;
