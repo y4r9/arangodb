@@ -957,8 +957,8 @@ void RocksDBMetaCollection::applyUpdates(rocksdb::SequenceNumber commitSeq) {
           removeIt = _revisionRemovalBuffers.erase(removeIt);
         }
       
-        TRI_ASSERT(insertIt == _revisionInsertBuffers.begin());
-        TRI_ASSERT(removeIt == _revisionRemovalBuffers.begin()); 
+        TRI_ASSERT(insertIt == _revisionInsertBuffers.begin() || (insertIt == _revisionInsertBuffers.end() && (_revisionInsertBuffers.empty() || _revisionInsertBuffers.begin()->first > commitSeq)));
+        TRI_ASSERT(removeIt == _revisionRemovalBuffers.begin() || (removeIt == _revisionRemovalBuffers.end() && (_revisionRemovalBuffers.empty() || _revisionRemovalBuffers.begin()->first > commitSeq)));
 
         // we can clear the revision tree without holding the mutex here
         guard.unlock();
@@ -966,6 +966,9 @@ void RocksDBMetaCollection::applyUpdates(rocksdb::SequenceNumber commitSeq) {
         _revisionTree->clear();
 
         guard.lock();
+      
+        TRI_ASSERT(insertIt == _revisionInsertBuffers.begin() || (insertIt == _revisionInsertBuffers.end() && (_revisionInsertBuffers.empty() || _revisionInsertBuffers.begin()->first > commitSeq)));
+        TRI_ASSERT(removeIt == _revisionRemovalBuffers.begin() || (removeIt == _revisionRemovalBuffers.end() && (_revisionRemovalBuffers.empty() || _revisionRemovalBuffers.begin()->first > commitSeq)));
 
         // we have applied all changes up to here
         bumpSequence(ignoreSeq);
@@ -976,8 +979,8 @@ void RocksDBMetaCollection::applyUpdates(rocksdb::SequenceNumber commitSeq) {
 
     while (true) {
       // find out if we still have buffers to apply
-      TRI_ASSERT(insertIt == _revisionInsertBuffers.begin() || insertIt == _revisionInsertBuffers.end());
-      TRI_ASSERT(removeIt == _revisionRemovalBuffers.begin() || removeIt == _revisionRemovalBuffers.end());
+      TRI_ASSERT(insertIt == _revisionInsertBuffers.begin() || (insertIt == _revisionInsertBuffers.end() && (_revisionInsertBuffers.empty() || _revisionInsertBuffers.begin()->first > commitSeq)));
+      TRI_ASSERT(removeIt == _revisionRemovalBuffers.begin() || (removeIt == _revisionRemovalBuffers.end() && (_revisionRemovalBuffers.empty() || _revisionRemovalBuffers.begin()->first > commitSeq)));
 
       bool haveInserts = insertIt != _revisionInsertBuffers.end() &&
                          insertIt->first <= commitSeq;

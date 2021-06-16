@@ -379,7 +379,7 @@ MerkleTree<Hasher, BranchingBits>::MerkleTree(std::uint64_t depth,
                                               std::uint64_t rangeMin,
                                               std::uint64_t rangeMax,
                                               std::uint64_t initialRangeMin) {
-  LOG_DEVEL << (void*) this << ": CREATING NEW TREE FROM MINMAX";
+  // LOG_DEVEL << (void*) this << ": CREATING NEW TREE FROM MINMAX";
   if (depth < 2) {
     throw std::invalid_argument("Must specify a depth >= 2");
   }
@@ -432,7 +432,7 @@ MerkleTree<Hasher, BranchingBits>::MerkleTree(std::uint64_t depth,
 
 template <typename Hasher, std::uint64_t const BranchingBits>
 MerkleTree<Hasher, BranchingBits>::~MerkleTree() {
-  LOG_DEVEL << (void*) this << ": DESTROYING TREE";
+  // LOG_DEVEL << (void*) this << ": DESTROYING TREE";
   if (!_buffer) {
     return;
   }
@@ -934,7 +934,7 @@ MerkleTree<Hasher, BranchingBits>::partitionKeys(std::uint64_t count) const {
 template <typename Hasher, std::uint64_t const BranchingBits>
 MerkleTree<Hasher, BranchingBits>::MerkleTree(std::string_view buffer)
     : _buffer(new uint8_t[buffer.size()]) {
-  LOG_DEVEL << (void*) this << ": CREATING NEW TREE FROM BUFFER";
+  // LOG_DEVEL << (void*) this << ": CREATING NEW TREE FROM BUFFER";
   if (buffer.size() < allocationSize(/*minDepth*/ 2)) {
     throw std::invalid_argument("Invalid (too small) buffer size for tree");
   }
@@ -950,7 +950,7 @@ MerkleTree<Hasher, BranchingBits>::MerkleTree(std::string_view buffer)
   template <typename Hasher, std::uint64_t const BranchingBits>
 MerkleTree<Hasher, BranchingBits>::MerkleTree(std::unique_ptr<uint8_t[]> buffer)
     : _buffer(std::move(buffer)) {
-  LOG_DEVEL << (void*) this << ": CREATING NEW TREE FROM BUFFER";
+  // LOG_DEVEL << (void*) this << ": CREATING NEW TREE FROM BUFFER";
 }
 
 template <typename Hasher, std::uint64_t const BranchingBits>
@@ -958,7 +958,7 @@ MerkleTree<Hasher, BranchingBits>::MerkleTree(MerkleTree<Hasher, BranchingBits> 
     : _buffer(new uint8_t[allocationSize(other.meta().depth)]) {
   // this is a protected constructor, and we get here only via clone().
   // in this case `other` is already properly locked
-  LOG_DEVEL << (void*) this << ": CREATING NEW TREE FROM OTHER TREE " << (void*) &other;
+  // LOG_DEVEL << (void*) this << ": CREATING NEW TREE FROM OTHER TREE " << (void*) &other;
   
   // zero fill the first few bytes so we have comparable trees
   memset(_buffer.get(), 0, MetaSize);  
@@ -974,7 +974,7 @@ MerkleTree<Hasher, BranchingBits>::MerkleTree(MerkleTree<Hasher, BranchingBits> 
   // copy revisions over
 #ifdef PARANOID_TREE_CHECKS
   _revisions = other._revisions;
-  LOG_DEVEL << (void*) this << ": COPYING REVISIONS FROM OTHER TREE " << (void*) &other;
+  // LOG_DEVEL << (void*) this << ": COPYING REVISIONS FROM OTHER TREE " << (void*) &other;
 #endif
 
 #ifdef ARANGODB_ENABLE_MAINTAINER_MODE
@@ -1058,11 +1058,11 @@ void MerkleTree<Hasher, BranchingBits>::modify(std::uint64_t key, bool isInsert)
 #ifdef PARANOID_TREE_CHECKS
   if (isInsert) {
     bool ok =_revisions.emplace(key).second;
-    LOG_DEVEL << (void*) this << ": SINGLE KEY INSERT FOR KEY: " << key << ", OK: " << ok;
+    // LOG_DEVEL << (void*) this << ": SINGLE KEY INSERT FOR KEY: " << key << ", OK: " << ok;
     TRI_ASSERT(ok);
   } else {
     bool ok =_revisions.erase(key) > 0;
-    LOG_DEVEL << (void*) this << ": SINGLE KEY REMOVE FOR KEY: " << key << ", OK: " << ok;
+    // LOG_DEVEL << (void*) this << ": SINGLE KEY REMOVE FOR KEY: " << key << ", OK: " << ok;
     TRI_ASSERT(ok);
   }
 #endif
@@ -1078,6 +1078,7 @@ void MerkleTree<Hasher, BranchingBits>::modify(std::vector<std::uint64_t> const&
   Hasher h;
   std::uint64_t totalCount = 0;
   std::uint64_t totalHash = 0;
+  bool allOk = true;
   for (std::uint64_t key : keys) {
     std::uint64_t value = h.hash(key);
     bool success = modifyLocal(key, value, isInsert);
@@ -1107,15 +1108,19 @@ void MerkleTree<Hasher, BranchingBits>::modify(std::vector<std::uint64_t> const&
 #ifdef PARANOID_TREE_CHECKS
     if (isInsert) {
       bool ok =_revisions.emplace(key).second;
-      LOG_DEVEL << (void*) this << ": MULTI KEY INSERT FOR KEY: " << key << ", OK: " << ok;
-      TRI_ASSERT(ok);
+      // LOG_DEVEL << (void*) this << ": MULTI KEY INSERT FOR KEY: " << key << ", OK: " << ok;
+      allOk &= ok;
+      //TRI_ASSERT(ok);
     } else {
       bool ok =_revisions.erase(key) > 0;
-      LOG_DEVEL << (void*) this << ": MULTI KEY REMOVE FOR KEY: " << key << ", OK: " << ok;
-      TRI_ASSERT(ok);
+      // LOG_DEVEL << (void*) this << ": MULTI KEY REMOVE FOR KEY: " << key << ", OK: " << ok;
+      allOk &= ok;
+      //TRI_ASSERT(ok);
     }
 #endif
   }
+      
+  TRI_ASSERT(allOk);
   
   // adjust summary node
   bool success = modifyLocal(meta().summary, totalCount, totalHash, isInsert);
