@@ -78,7 +78,8 @@ void RocksDBMetadata::DocCount::toVelocyPack(VPackBuilder& b) const {
 }
 
 RocksDBMetadata::RocksDBMetadata()
-    : _count(0, 0, 0, RevisionId::none()),
+    : _maxBlockersSequenceNumber(0),
+      _count(0, 0, 0, RevisionId::none()),
       _numberDocuments(0),
       _revisionId(RevisionId::none()) {}
 
@@ -94,10 +95,12 @@ RocksDBMetadata::RocksDBMetadata()
  * @param  seq   The sequence number immediately prior to call
  * @return       May return error if we fail to allocate and place blocker
  */
-Result RocksDBMetadata::placeBlocker(TransactionId trxId, rocksdb::SequenceNumber seq) {
+Result RocksDBMetadata::placeBlocker(TransactionId trxId, rocksdb::SequenceNumber& seq) {
   return basics::catchToResult([&]() -> Result {
     Result res;
     WRITE_LOCKER(locker, _blockerLock);
+
+    seq = std::max(seq, _maxBlockersSequenceNumber);
 
     TRI_ASSERT(_blockers.end() == _blockers.find(trxId));
     TRI_ASSERT(_blockersBySeq.end() == _blockersBySeq.find(std::make_pair(seq, trxId)));
@@ -118,6 +121,8 @@ Result RocksDBMetadata::placeBlocker(TransactionId trxId, rocksdb::SequenceNumbe
       _blockers.erase(trxId);
       throw;
     }
+
+    _maxBlockersSequenceNumber = seq;
   });
 }
 

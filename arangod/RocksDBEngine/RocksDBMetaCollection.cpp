@@ -206,7 +206,8 @@ uint64_t RocksDBMetaCollection::recalculateCounts() {
     trxId = TransactionId(transaction::Context::makeTransactionId());
 
     // place a blocker. will be removed by blockerGuard automatically
-    _meta.placeBlocker(trxId, engine.db()->GetLatestSequenceNumber());
+    rocksdb::SequenceNumber seqNo = engine.db()->GetLatestSequenceNumber();
+    _meta.placeBlocker(trxId, seqNo);
 
     snapshot = engine.db()->GetSnapshot();
     snapNumberOfDocuments = _meta.numberDocuments();
@@ -843,6 +844,7 @@ void RocksDBMetaCollection::bufferUpdates(rocksdb::SequenceNumber seq,
   std::unique_lock<std::mutex> guard(_revisionBufferLock);
   if (!inserts.empty()) {
     // will default-construct an empty entry if it does not yet exist
+    TRI_ASSERT(_revisionInsertBuffers.find(seq) == _revisionInsertBuffers.end());
     auto& elem = _revisionInsertBuffers[seq];
     if (elem.empty()) {
       elem = std::move(inserts);
@@ -858,6 +860,7 @@ void RocksDBMetaCollection::bufferUpdates(rocksdb::SequenceNumber seq,
   }
   if (!removals.empty()) {
     // will default-construct an empty entry if it does not yet exist
+    TRI_ASSERT(_revisionRemovalBuffers.find(seq) == _revisionRemovalBuffers.end());
     auto& elem = _revisionRemovalBuffers[seq];
     if (elem.empty()) {
       elem = std::move(removals);
@@ -939,6 +942,7 @@ void RocksDBMetaCollection::applyUpdates(rocksdb::SequenceNumber commitSeq) {
 
       while (it != _revisionTruncateBuffer.end() && *it <= commitSeq) {
         ignoreSeq = *it;
+        TRI_ASSERT(ignoreSeq > _revisionTreeApplied.load());
         TRI_ASSERT(ignoreSeq != 0);
         foundTruncate = true;
         it = _revisionTruncateBuffer.erase(it);
@@ -953,8 +957,8 @@ void RocksDBMetaCollection::applyUpdates(rocksdb::SequenceNumber commitSeq) {
           removeIt = _revisionRemovalBuffers.erase(removeIt);
         }
       
-        TRI_ASSERT(insertIt == _revisionInsertBuffers.begin() || insertIt == _revisionInsertBuffers.end());
-        TRI_ASSERT(removeIt == _revisionRemovalBuffers.begin() || removeIt == _revisionRemovalBuffers.end());
+        TRI_ASSERT(insertIt == _revisionInsertBuffers.begin());
+        TRI_ASSERT(removeIt == _revisionRemovalBuffers.begin()); 
 
         // we can clear the revision tree without holding the mutex here
         guard.unlock();
@@ -1009,6 +1013,8 @@ void RocksDBMetaCollection::applyUpdates(rocksdb::SequenceNumber commitSeq) {
         TRI_IF_FAILURE("RevisionTree::applyInserts") {
           THROW_ARANGO_EXCEPTION(TRI_ERROR_DEBUG);
         }
+        
+        TRI_ASSERT(insertIt->first > _revisionTreeApplied.load());
 
         // apply inserts, without holding the lock
         // if this throws we will not have modified _revisionInsertBuffers
@@ -1043,6 +1049,8 @@ void RocksDBMetaCollection::applyUpdates(rocksdb::SequenceNumber commitSeq) {
         
         // release the mutex while we modify the tree. this is safe (see above)
         guard.unlock();
+        
+        TRI_ASSERT(removeIt->first > _revisionTreeApplied.load());
         
         TRI_IF_FAILURE("RevisionTree::applyRemoves") {
           THROW_ARANGO_EXCEPTION(TRI_ERROR_DEBUG);
