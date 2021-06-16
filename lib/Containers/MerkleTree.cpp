@@ -1088,10 +1088,10 @@ void MerkleTree<Hasher, BranchingBits>::modify(std::vector<std::uint64_t> const&
         }
 #ifdef PARANOID_TREE_CHECKS
         if (isInsert) {
-          bool ok =_revisions.erase(key) > 0;
+          bool ok =_revisions.erase(k) > 0;
           TRI_ASSERT(ok);
         } else {
-          bool ok =_revisions.emplace(key).second;
+          bool ok =_revisions.emplace(k).second;
           TRI_ASSERT(ok);
         }
 #endif
