@@ -51,19 +51,21 @@
 #include "Basics/StringUtils.h"
 #include "Basics/debugging.h"
 #include "Basics/hashes.h"
+#include "Logger/LogMacros.h"
 
 #ifdef ARANGODB_ENABLE_FAILURE_TESTS
 #include "Random/RandomGenerator.h"
 #endif
 
 // can turn this on for more aggressive and expensive consistency checks
-// #define PARANOID_TREE_CHECKS
+#define PARANOID_TREE_CHECKS
 
 namespace {
 static constexpr std::uint8_t CurrentVersion = 0x01;
 static constexpr char CompressedSnappyCurrent = '1';
 static constexpr char UncompressedCurrent = '2';
 static constexpr char CompressedBottomMostCurrent = '3';
+static constexpr char UncompressedCurrentWithDebug = '4';
 
 template<typename T> T readUInt(char const*& p) noexcept {
   T value;
@@ -125,7 +127,10 @@ MerkleTree<Hasher, BranchingBits>::fromBuffer(std::string_view buffer) {
   } else if (buffer[buffer.size() - 2] == ::UncompressedCurrent) {
     // uncompressed data
     return fromUncompressed(std::string_view(buffer.data(), buffer.size() - 2));
-  } 
+  } else if (buffer[buffer.size() - 2] == ::UncompressedCurrentWithDebug) {
+    // uncompressed data with debug information
+    return fromUncompressedWithDebug(std::string_view(buffer.data(), buffer.size() - 2));
+  }
   
   throw std::invalid_argument("unknown tree serialization type");
 }
@@ -220,6 +225,49 @@ MerkleTree<Hasher, BranchingBits>::fromBottomMostCompressed(std::string_view buf
   // write summary node
   Node& summary = tree->meta().summary;
   summary = { totalCount, totalHash };
+  
+  return tree;
+}
+
+template <typename Hasher, std::uint64_t const BranchingBits>
+std::unique_ptr<MerkleTree<Hasher, BranchingBits>>
+MerkleTree<Hasher, BranchingBits>::fromUncompressedWithDebug(std::string_view buffer) {
+  if (buffer.size() < sizeof(Meta)) {
+    // not enough space to even store the meta info, can't proceed
+    return nullptr;
+  }
+
+  Meta const& meta = *reinterpret_cast<Meta const*>(buffer.data());
+  if (buffer.size() <= MetaSize + (NodeSize * nodeCountAtDepth(meta.depth))) {
+    // allocation size doesn't match meta data, can't proceed
+    return nullptr;
+  }
+  
+  char const* p = buffer.data();
+  char const* e = p + buffer.size();
+  
+  p += MetaSize + (NodeSize * nodeCountAtDepth(meta.depth));
+
+  // create tree from prefix of the buffer
+  auto tree = std::unique_ptr<MerkleTree<Hasher, BranchingBits>>(
+      new MerkleTree<Hasher, BranchingBits>(std::string_view(buffer.data(), p - buffer.data())));
+
+  // now fill in all revisions
+  TRI_ASSERT(p < e);
+    
+  std::uint64_t count = readUInt<uint64_t>(p);
+  while (count > 0) {
+    TRI_ASSERT(p + sizeof(uint64_t) <= e);
+    
+    std::uint64_t revision = readUInt<uint64_t>(p);
+    tree->_revisions.emplace(revision);
+  }
+  if (p != e) {
+    throw std::invalid_argument("invalid compressed tree data with overflow values");
+  }
+
+  TRI_ASSERT(tree->_revisions.size() == count);
+  TRI_ASSERT(tree->_revisions.size() == meta.summary.count); 
   
   return tree;
 }
@@ -331,6 +379,7 @@ MerkleTree<Hasher, BranchingBits>::MerkleTree(std::uint64_t depth,
                                               std::uint64_t rangeMin,
                                               std::uint64_t rangeMax,
                                               std::uint64_t initialRangeMin) {
+  LOG_DEVEL << (void*) this << ": CREATING NEW TREE FROM MINMAX";
   if (depth < 2) {
     throw std::invalid_argument("Must specify a depth >= 2");
   }
@@ -383,6 +432,7 @@ MerkleTree<Hasher, BranchingBits>::MerkleTree(std::uint64_t depth,
 
 template <typename Hasher, std::uint64_t const BranchingBits>
 MerkleTree<Hasher, BranchingBits>::~MerkleTree() {
+  LOG_DEVEL << (void*) this << ": DESTROYING TREE";
   if (!_buffer) {
     return;
   }
@@ -548,6 +598,9 @@ void MerkleTree<Hasher, BranchingBits>::clear() {
   }
 
   meta().summary = { 0, 0 };
+#ifdef PARANOID_TREE_CHECKS
+  _revisions.clear();
+#endif
 }
 
 template <typename Hasher, std::uint64_t const BranchingBits>
@@ -784,6 +837,10 @@ void MerkleTree<Hasher, BranchingBits>::serializeBinary(std::string& output,
   TRI_IF_FAILURE("MerkleTree::serializeSnappy") {
     format = ::CompressedSnappyCurrent;
   }
+
+#ifdef PARANOID_TREE_CHECKS
+  format = ::UncompressedCurrentWithDebug;
+#endif
    
   switch (format) {
     case ::CompressedBottomMostCurrent: {
@@ -802,9 +859,28 @@ void MerkleTree<Hasher, BranchingBits>::serializeBinary(std::string& output,
       output.push_back(::UncompressedCurrent);
       break;
     }
+#ifdef PARANOID_TREE_CHECKS
+    case ::UncompressedCurrentWithDebug: {
+      output.append(reinterpret_cast<char*>(_buffer.get()), allocationSize(meta().depth));
+      serializeRevisions(output);
+      output.push_back(::UncompressedCurrentWithDebug);
+      break;
+    }
+#endif                                        
   }
 
   output.push_back(static_cast<char>(::CurrentVersion));
+}
+
+template <typename Hasher, std::uint64_t const BranchingBits>
+void MerkleTree<Hasher, BranchingBits>::serializeRevisions(std::string& output) const {
+  std::uint64_t count = basics::hostToLittle(_revisions.size());
+  output.append(reinterpret_cast<const char*>(&count), sizeof(uint64_t));
+
+  for (auto const& revision : _revisions) {
+    std::uint64_t value = basics::hostToLittle(revision);
+    output.append(reinterpret_cast<const char*>(&value), sizeof(uint64_t));
+  }
 }
 
 template <typename Hasher, std::uint64_t const BranchingBits>
@@ -858,6 +934,7 @@ MerkleTree<Hasher, BranchingBits>::partitionKeys(std::uint64_t count) const {
 template <typename Hasher, std::uint64_t const BranchingBits>
 MerkleTree<Hasher, BranchingBits>::MerkleTree(std::string_view buffer)
     : _buffer(new uint8_t[buffer.size()]) {
+  LOG_DEVEL << (void*) this << ": CREATING NEW TREE FROM BUFFER";
   if (buffer.size() < allocationSize(/*minDepth*/ 2)) {
     throw std::invalid_argument("Invalid (too small) buffer size for tree");
   }
@@ -872,13 +949,16 @@ MerkleTree<Hasher, BranchingBits>::MerkleTree(std::string_view buffer)
 
   template <typename Hasher, std::uint64_t const BranchingBits>
 MerkleTree<Hasher, BranchingBits>::MerkleTree(std::unique_ptr<uint8_t[]> buffer)
-    : _buffer(std::move(buffer)) {}
+    : _buffer(std::move(buffer)) {
+  LOG_DEVEL << (void*) this << ": CREATING NEW TREE FROM BUFFER";
+}
 
 template <typename Hasher, std::uint64_t const BranchingBits>
 MerkleTree<Hasher, BranchingBits>::MerkleTree(MerkleTree<Hasher, BranchingBits> const& other)
     : _buffer(new uint8_t[allocationSize(other.meta().depth)]) {
   // this is a protected constructor, and we get here only via clone().
   // in this case `other` is already properly locked
+  LOG_DEVEL << (void*) this << ": CREATING NEW TREE FROM OTHER TREE " << (void*) &other;
   
   // zero fill the first few bytes so we have comparable trees
   memset(_buffer.get(), 0, MetaSize);  
@@ -891,6 +971,12 @@ MerkleTree<Hasher, BranchingBits>::MerkleTree(MerkleTree<Hasher, BranchingBits> 
     new (&this->node(i)) Node{other.node(i).count, other.node(i).hash};
   }
 
+  // copy revisions over
+#ifdef PARANOID_TREE_CHECKS
+  _revisions = other._revisions;
+  LOG_DEVEL << (void*) this << ": COPYING REVISIONS FROM OTHER TREE " << (void*) &other;
+#endif
+
 #ifdef ARANGODB_ENABLE_MAINTAINER_MODE
   TRI_ASSERT(meta().depth == other.meta().depth);
   TRI_ASSERT(meta().rangeMin == other.meta().rangeMin);
@@ -902,6 +988,8 @@ MerkleTree<Hasher, BranchingBits>::MerkleTree(MerkleTree<Hasher, BranchingBits> 
   for (std::uint64_t i = 0; i < last; ++i) {
     TRI_ASSERT(this->node(i) == other.node(i));
   }
+
+  TRI_ASSERT(meta().summary.count == _revisions.size());
 #endif
 #endif
 }
@@ -966,6 +1054,17 @@ void MerkleTree<Hasher, BranchingBits>::modify(std::uint64_t key, bool isInsert)
   if (ADB_UNLIKELY(!success)) {
     throw std::invalid_argument("Tried to remove key that is not present.");
   }
+#ifdef PARANOID_TREE_CHECKS
+  if (isInsert) {
+    bool ok =_revisions.emplace(key).second;
+    LOG_DEVEL << (void*) this << ": SINGLE KEY INSERT FOR KEY: " << key << ", OK: " << ok;
+    TRI_ASSERT(ok);
+  } else {
+    bool ok =_revisions.erase(key) > 0;
+    LOG_DEVEL << (void*) this << ": SINGLE KEY REMOVE FOR KEY: " << key << ", OK: " << ok;
+    TRI_ASSERT(ok);
+  }
+#endif
     
   // adjust summary node
   modifyLocal(meta().summary, 1, value, isInsert);
@@ -987,12 +1086,33 @@ void MerkleTree<Hasher, BranchingBits>::modify(std::vector<std::uint64_t> const&
         if (k == key) {
           break;
         }
+#ifdef PARANOID_TREE_CHECKS
+        if (isInsert) {
+          bool ok =_revisions.erase(key) > 0;
+          TRI_ASSERT(ok);
+        } else {
+          bool ok =_revisions.emplace(key).second;
+          TRI_ASSERT(ok);
+        }
+#endif
         [[maybe_unused]] bool rolledBack = modifyLocal(k, h.hash(k), !isInsert);
       }
       throw std::invalid_argument("Tried to remove key that is not present.");
     }
     ++totalCount;
     totalHash ^= value;
+
+#ifdef PARANOID_TREE_CHECKS
+    if (isInsert) {
+      bool ok =_revisions.emplace(key).second;
+      LOG_DEVEL << (void*) this << ": MULTI KEY INSERT FOR KEY: " << key << ", OK: " << ok;
+      TRI_ASSERT(ok);
+    } else {
+      bool ok =_revisions.erase(key) > 0;
+      LOG_DEVEL << (void*) this << ": MULTI KEY REMOVE FOR KEY: " << key << ", OK: " << ok;
+      TRI_ASSERT(ok);
+    }
+#endif
   }
   
   // adjust summary node

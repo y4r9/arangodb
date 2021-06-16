@@ -32,6 +32,7 @@
 #include <shared_mutex>
 #include <string>
 #include <string_view>
+#include <unordered_set>
 #include <vector>
 
 #include <velocypack/Builder.h>
@@ -181,6 +182,14 @@ class MerkleTree {
    * @return A newly allocated tree constructed from the input
    */
   static std::unique_ptr<MerkleTree<Hasher, BranchingBits>> fromBottomMostCompressed(std::string_view buffer);
+  
+  /**
+   * @brief Construct a tree from a buffer containing an uncompressed tree with debug info
+   *
+   * @param buffer      A buffer containing an uncompressed tree with debug info
+   * @return A newly allocated tree constructed from the input
+   */
+  static std::unique_ptr<MerkleTree<Hasher, BranchingBits>> fromUncompressedWithDebug(std::string_view buffer);
 
   /**
    * @brief Construct a tree from a portable serialized tree
@@ -347,7 +356,7 @@ class MerkleTree {
    * @param compress  Whether or not to compress the output
    */
   void serializeBinary(std::string& output, bool compress) const;
-
+  
   /**
    * @brief Checks the consistency of the tree
    *
@@ -400,6 +409,9 @@ class MerkleTree {
   void prepareInsertMinMax(std::unique_lock<std::shared_mutex>& guard,
                            std::uint64_t minKey,
                            std::uint64_t maxKey);
+  
+  /// @brief write the set of revisions into the output
+  void serializeRevisions(std::string& output) const;
 
   /**
    * @brief Checks the consistency of the tree
@@ -411,6 +423,10 @@ class MerkleTree {
  private:
   std::unique_ptr<std::uint8_t[]> _buffer;
   mutable std::shared_mutex _bufferLock;
+  
+  /// @brief this set is maintained for debugging _only_ if the define
+  /// PARANOID_TREE_CHECKS is set
+  std::unordered_set<std::uint64_t> _revisions;
 };
 
 template <typename Hasher, std::uint64_t const BranchingBits>
