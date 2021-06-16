@@ -347,6 +347,7 @@ void RocksDBMetaCollection::setRevisionTree(std::unique_ptr<containers::Revision
 }
 
 std::unique_ptr<containers::RevisionTree> RocksDBMetaCollection::revisionTree(
+    rocksdb::SequenceNumber notAfter,
     std::function<std::unique_ptr<containers::RevisionTree>(std::unique_ptr<containers::RevisionTree>)> const& callback) {
   if (!_logicalCollection.useSyncByRevision()) {
     return nullptr;
@@ -378,7 +379,7 @@ std::unique_ptr<containers::RevisionTree> RocksDBMetaCollection::revisionTree(
 }
 
 std::unique_ptr<containers::RevisionTree> RocksDBMetaCollection::revisionTree(transaction::Methods& trx) {
-  return revisionTree([this, &trx](std::unique_ptr<containers::RevisionTree> tree) -> std::unique_ptr<containers::RevisionTree> {
+  return revisionTree(std::numeric_limits<rocksdb::SequenceNumber>::max(), [this, &trx](std::unique_ptr<containers::RevisionTree> tree) -> std::unique_ptr<containers::RevisionTree> {
     // apply any which are buffered and older than our ongoing transaction start
     rocksdb::SequenceNumber trxSeq = RocksDBTransactionState::toState(&trx)->beginSeq();
     TRI_ASSERT(trxSeq != 0);
@@ -399,19 +400,19 @@ std::unique_ptr<containers::RevisionTree> RocksDBMetaCollection::revisionTree(tr
 }
 
 std::unique_ptr<containers::RevisionTree> RocksDBMetaCollection::revisionTree(uint64_t batchId) {
-  return revisionTree([this, batchId](std::unique_ptr<containers::RevisionTree> tree) -> std::unique_ptr<containers::RevisionTree> {
-    RocksDBEngine& engine =
-        _logicalCollection.vocbase().server().getFeature<EngineSelectorFeature>().engine<RocksDBEngine>();
+  RocksDBEngine& engine =
+      _logicalCollection.vocbase().server().getFeature<EngineSelectorFeature>().engine<RocksDBEngine>();
+  RocksDBReplicationManager* manager = engine.replicationManager();
+  RocksDBReplicationContext* ctx = batchId == 0 ? nullptr : manager->find(batchId);
+  if (!ctx) {
+    return nullptr;
+  }
+  auto guard = scopeGuard([manager, ctx]() -> void { manager->release(ctx); });
+  rocksdb::SequenceNumber trxSeq = ctx->snapshotTick();
+  TRI_ASSERT(trxSeq != 0);
 
+  return revisionTree(trxSeq, [this, trxSeq](std::unique_ptr<containers::RevisionTree> tree) -> std::unique_ptr<containers::RevisionTree> {
     // apply any which are buffered and older than our ongoing transaction start
-    RocksDBReplicationManager* manager = engine.replicationManager();
-    RocksDBReplicationContext* ctx = batchId == 0 ? nullptr : manager->find(batchId);
-    if (!ctx) {
-      return nullptr;
-    }
-    auto guard = scopeGuard([manager, ctx]() -> void { manager->release(ctx); });
-    rocksdb::SequenceNumber trxSeq = ctx->snapshotTick();
-    TRI_ASSERT(trxSeq != 0);
     Result res = applyUpdatesForTransaction(*tree, trxSeq);
     if (res.fail()) {
       return nullptr;
@@ -914,6 +915,7 @@ void RocksDBMetaCollection::applyUpdates(rocksdb::SequenceNumber commitSeq) {
       rocksdb::SequenceNumber applied = _revisionTreeApplied.load();
       while (seq > applied) {
         if (_revisionTreeApplied.compare_exchange_weak(applied, seq)) {
+          LOG_DEVEL << "applyUpdates: Have bumpedSequence to " << seq;
           break;
         }
       }
@@ -1008,6 +1010,7 @@ void RocksDBMetaCollection::applyUpdates(rocksdb::SequenceNumber commitSeq) {
         // if this throws we will not have modified _revisionInsertBuffers
         try {
           _revisionTree->insert(insertIt->second);
+          LOG_DEVEL << "applyUpdates: inserting into tree for seq " << insertIt->first;
         } catch (std::exception const& ex) {
           LOG_TOPIC("27811", ERR, Logger::ENGINES)
               << "unable to apply revision tree inserts for " 
@@ -1045,6 +1048,7 @@ void RocksDBMetaCollection::applyUpdates(rocksdb::SequenceNumber commitSeq) {
         // if this throws we will not have modified _revisionRemovalBuffers
         try {
           _revisionTree->remove(removeIt->second);
+          LOG_DEVEL << "applyUpdates: deleting from tree for seq " << removeIt->first;
         } catch (std::exception const& ex) {
           // this should never fail, anyway log...
           LOG_TOPIC("a5ba8", ERR, Logger::ENGINES)
