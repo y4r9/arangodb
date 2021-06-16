@@ -964,6 +964,7 @@ void RocksDBReplicationContext::lazyCreateSnapshot() {
     _snapshot = _engine.db()->GetSnapshot();
     TRI_ASSERT(_snapshot);
     _snapshotTick = _snapshot->GetSequenceNumber();
+    LOG_DEVEL << "CREATING SNAPSHOT WITH SEQNO: " << _snapshotTick;
   }
 }
 
