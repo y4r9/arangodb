@@ -1035,6 +1035,8 @@ Future<OperationResult> transaction::Methods::insertLocal(std::string const& cna
 
   std::shared_ptr<std::vector<ServerID> const> followers;
 
+  std::string guck;
+
   ReplicationType replicationType = ReplicationType::NONE;
   if (_state->isDBServer()) {
     TRI_ASSERT(followers == nullptr);
@@ -1053,6 +1055,7 @@ Future<OperationResult> transaction::Methods::insertLocal(std::string const& cna
     // Block operation early if we are not supposed to perform it:
     auto const& followerInfo = collection->followers();
     std::string theLeader = followerInfo->getLeader();
+    guck = theLeader;
     if (theLeader.empty()) {
       // This indicates that we believe to be the leader.
       if (!options.isSynchronousReplicationFrom.empty()) {
@@ -1131,6 +1134,7 @@ Future<OperationResult> transaction::Methods::insertLocal(std::string const& cna
     if (!isPrimaryKeyConstraintViolation) {
       // regular insert without overwrite option. the insert itself will check if the
       // primary key already exists
+      LOG_DEVEL << "Inserting doc: " << value.toJson() << " theLeader: " << guck;
       res = collection->insert(this, value, docResult, options);
     } else {
       // RepSert Case - unique_constraint violated ->  try update, replace or ignore!

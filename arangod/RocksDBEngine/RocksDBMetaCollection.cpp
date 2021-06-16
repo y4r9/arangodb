@@ -1137,6 +1137,8 @@ Result RocksDBMetaCollection::applyUpdatesForTransaction(containers::RevisionTre
     while (true) {
       std::vector<std::uint64_t> const* inserts = nullptr;
       std::vector<std::uint64_t> const* removals = nullptr;
+      rocksdb::SequenceNumber seq;
+
       // find out if we have buffers to apply
       {
         bool haveInserts = insertIt != _revisionInsertBuffers.end() &&
@@ -1151,11 +1153,13 @@ Result RocksDBMetaCollection::applyUpdatesForTransaction(containers::RevisionTre
         // check for inserts
         if (applyInserts) {
           inserts = &insertIt->second;
+          seq = insertIt->first;
           ++insertIt;
         }
         // check for removals
         if (applyRemovals) {
           removals = &removeIt->second;
+          seq = removeIt->first;
           ++removeIt;
         }
       }
@@ -1165,13 +1169,19 @@ Result RocksDBMetaCollection::applyUpdatesForTransaction(containers::RevisionTre
         break;
       }
 
+      TRI_ASSERT(inserts == nullptr || removals == nullptr);
+
       // apply inserts
       if (inserts) {
+        LOG_DEVEL << "applyUpdatesForTransaction: " << std::hex
+          << (uint64_t) &tree << " inserting for seq " << std::dec << seq;
         tree.insert(*inserts);
       }
 
       // apply removals
       if (removals) {
+        LOG_DEVEL << "applyUpdatesForTransaction: " << std::hex
+          << (uint64_t) &tree << " removing for seq " << std::dec << seq;
         tree.remove(*removals);
       }
     } 
