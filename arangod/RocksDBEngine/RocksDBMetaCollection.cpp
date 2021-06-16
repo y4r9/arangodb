@@ -361,6 +361,9 @@ std::unique_ptr<containers::RevisionTree> RocksDBMetaCollection::revisionTree(
   
   // first apply any updates that can be safely applied
   rocksdb::SequenceNumber safeSeq = meta().committableSeq(db->GetLatestSequenceNumber());
+  if (notAfter < safeSeq) {
+    safeSeq = notAfter;
+  }
 
   if (!_revisionTree && !haveBufferedOperations()) {
     // we only need to return an empty tree here.
@@ -1009,8 +1012,8 @@ void RocksDBMetaCollection::applyUpdates(rocksdb::SequenceNumber commitSeq) {
         // apply inserts, without holding the lock
         // if this throws we will not have modified _revisionInsertBuffers
         try {
-          _revisionTree->insert(insertIt->second);
           LOG_DEVEL << "applyUpdates: inserting into tree for seq " << insertIt->first;
+          _revisionTree->insert(insertIt->second);
         } catch (std::exception const& ex) {
           LOG_TOPIC("27811", ERR, Logger::ENGINES)
               << "unable to apply revision tree inserts for " 
@@ -1046,9 +1049,9 @@ void RocksDBMetaCollection::applyUpdates(rocksdb::SequenceNumber commitSeq) {
 
         // apply removals, without holding the lock
         // if this throws we will not have modified _revisionRemovalBuffers
+          LOG_DEVEL << "applyUpdates: deleting from tree for seq " << removeIt->first;
         try {
           _revisionTree->remove(removeIt->second);
-          LOG_DEVEL << "applyUpdates: deleting from tree for seq " << removeIt->first;
         } catch (std::exception const& ex) {
           // this should never fail, anyway log...
           LOG_TOPIC("a5ba8", ERR, Logger::ENGINES)
