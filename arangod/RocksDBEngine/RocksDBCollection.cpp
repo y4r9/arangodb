@@ -1537,9 +1537,16 @@ Result RocksDBCollection::insertDocument(arangodb::transaction::Methods* trx,
   IndexingDisabler disabler(mthds, state->isSingleOperation());
  
 #ifdef ARANGODB_ENABLE_MAINTAINER_MODE
-  {
+  if (performPreflightChecks) {
     rocksdb::PinnableSlice val;
     rocksdb::Status s = mthds->Get(RocksDBColumnFamilyManager::get(RocksDBColumnFamilyManager::Family::Documents), key->string(), &val);
+    if (!s.IsNotFound()) {
+      LocalDocumentId lookupDocumentId;
+      RevisionId lookupRevisionId;
+      bool exists = primaryIndex()->lookupRevision(trx, doc.get(StaticStrings::KeyString).stringRef(), lookupDocumentId, lookupRevisionId);
+      LOG_DEVEL << "INVALID ROCKSDB ERROR CODE: " << rocksutils::convertStatus(s, rocksutils::document).errorMessage() << ", performPreflightChecks: " << performPreflightChecks << ", isSingle: " << state->isSingleOperation() << ", overwriteMode : " << OperationOptions::stringifyOverwriteMode(options.overwriteMode) << ", exists in primary index: " << exists << ", rev in primary index: " << lookupRevisionId.id() << ", doc id in primary index: " << lookupDocumentId.id() << ", document id: " << documentId.id() << ", revision id: " << revisionId.id();
+
+    }
     TRI_ASSERT(s.IsNotFound());
   }
 #endif
@@ -1616,6 +1623,9 @@ Result RocksDBCollection::removeDocument(arangodb::transaction::Methods* trx,
   {
     rocksdb::PinnableSlice val;
     rocksdb::Status s = mthds->Get(RocksDBColumnFamilyManager::get(RocksDBColumnFamilyManager::Family::Documents), key->string(), &val);
+    if (!s.ok()) {
+      LOG_DEVEL << "INVALID ROCKSDB ERROR CODE: " << rocksutils::convertStatus(s, rocksutils::document).errorMessage();
+    }
     TRI_ASSERT(s.ok());
   }
 #endif
