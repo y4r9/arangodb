@@ -256,7 +256,7 @@ MerkleTree<Hasher, BranchingBits>::fromUncompressedWithDebug(std::string_view bu
   TRI_ASSERT(p < e);
     
   std::uint64_t count = readUInt<uint64_t>(p);
-  while (count > 0) {
+  while (count-- > 0) {
     TRI_ASSERT(p + sizeof(uint64_t) <= e);
     
     std::uint64_t revision = readUInt<uint64_t>(p);
@@ -266,7 +266,6 @@ MerkleTree<Hasher, BranchingBits>::fromUncompressedWithDebug(std::string_view bu
     throw std::invalid_argument("invalid compressed tree data with overflow values");
   }
 
-  TRI_ASSERT(tree->_revisions.size() == count);
   TRI_ASSERT(tree->_revisions.size() == meta.summary.count); 
   
   return tree;
