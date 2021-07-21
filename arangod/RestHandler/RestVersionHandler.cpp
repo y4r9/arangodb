@@ -22,8 +22,10 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include "ApplicationFeatures/ApplicationServer.h"
+#include "Logger/LogMacros.h"
 #include "Cluster/ServerState.h"
 #include "GeneralServer/ServerSecurityFeature.h"
+#include "RestServer/DatabaseFeature.h"
 #include "Rest/Version.h"
 #include "RestServer/ServerFeature.h"
 #include "RestVersionHandler.h"
@@ -45,6 +47,9 @@ RestVersionHandler::RestVersionHandler(application_features::ApplicationServer& 
 
 RestStatus RestVersionHandler::execute() {
   VPackBuilder result;
+
+  DatabaseFeature& dbfeature = server().getFeature<DatabaseFeature>();
+  LOG_DEVEL << "dropDatabase hass: " << dbfeature.dropDatabase("hass", true);
 
   ServerSecurityFeature& security = server().getFeature<ServerSecurityFeature>();
 

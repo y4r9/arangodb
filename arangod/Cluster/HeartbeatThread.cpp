@@ -1275,12 +1275,14 @@ bool HeartbeatThread::handlePlanChangeCoordinator(uint64_t currentPlanVersion) {
 
     // get the list of databases that we know about locally
     std::vector<TRI_voc_tick_t> localIds = databaseFeature.getDatabaseIds(false);
+    LOG_DEVEL << "HeartbeatThread droppung: " << localIds;
 
     for (auto id : localIds) {
       auto r = std::find(ids.begin(), ids.end(), id);
 
       if (r == ids.end()) {
         // local database not found in the plan...
+        LOG_DEVEL << "HeartbeatThread dropping: " << id;
         databaseFeature.dropDatabase(id, true);
       }
     }
