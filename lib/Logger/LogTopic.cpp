@@ -116,7 +116,7 @@ LogTopic Logger::AUTHENTICATION("authentication");
 LogTopic Logger::AUTHORIZATION("authorization");
 LogTopic Logger::BACKUP("backup");
 LogTopic Logger::CACHE("cache", LogLevel::INFO);
-LogTopic Logger::CLUSTER("cluster", LogLevel::INFO);
+LogTopic Logger::CLUSTER("cluster", LogLevel::TRACE);
 LogTopic Logger::CLUSTERCOMM("clustercomm", LogLevel::INFO);
 LogTopic Logger::COLLECTOR("collector");
 LogTopic Logger::COMMUNICATION("communication", LogLevel::INFO);

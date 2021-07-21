@@ -729,6 +729,7 @@ void ClusterInfo::loadPlan() {
 
   bool changed = false;
   auto changeSet = agencyCache.changedSince(prefixPlan, planIndex); // also delivers plan/version
+  LOG_DEVEL << "loadPlan changeSet: " << changeSet.dbs << " with index: " << changeSet.ind << " and version: " << changeSet.version << " planIndex:" << planIndex << " planVersion: " << planVersion;
   decltype(_plan) newPlan;
   {
     READ_LOCKER(readLocker, _planProt.lock);
@@ -837,6 +838,7 @@ void ClusterInfo::loadPlan() {
     // it is used to create LogicalCollection instances further
     // down in this function.
     if (isCoordinator && !isBuilding) {
+      LOG_DEVEL << "loadPlan isCoordinator && !isBuilding:" << name;
       TRI_vocbase_t* vocbase = databaseFeature.lookupDatabase(name);
       if (vocbase == nullptr) {
         // database does not yet exist, create it now
@@ -855,6 +857,8 @@ void ClusterInfo::loadPlan() {
             LOG_TOPIC("91870", ERR, arangodb::Logger::AGENCY)
               << "creating local database '" << name
               << "' failed: " << res.errorMessage();
+          } else {
+            LOG_DEVEL << "loadPlan successfully created db " << name << " in DatabaseFeature.";
           }
         }
       }

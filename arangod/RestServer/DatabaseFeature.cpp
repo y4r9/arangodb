@@ -749,6 +749,8 @@ Result DatabaseFeature::createDatabase(CreateDatabaseInfo&& info, TRI_vocbase_t*
 /// @brief drop database
 int DatabaseFeature::dropDatabase(std::string const& name,
                                   bool removeAppsDirectory) {
+  LOG_DEVEL << "DatabaseFeature::dropDatabase: " << name << " flag:"
+    << removeAppsDirectory;
   if (name == StaticStrings::SystemDatabase) {
     // prevent deletion of system database
     events::DropDatabase(name, TRI_ERROR_FORBIDDEN);
@@ -862,6 +864,9 @@ int DatabaseFeature::dropDatabase(std::string const& name,
       DatabaseFeature::DATABASE->versionTracker() != nullptr) {
     DatabaseFeature::DATABASE->versionTracker()->track("drop database");
   }
+
+  LOG_DEVEL << "DatabaseFeature::dropDatabase: done " << name << " flag:"
+    << removeAppsDirectory;
 
   return res;
 }
