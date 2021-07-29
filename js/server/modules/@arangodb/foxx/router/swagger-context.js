@@ -25,7 +25,7 @@
 const _ = require('lodash');
 const statuses = require('statuses');
 const mimeTypes = require('mime-types');
-const mediaTyper = require('media-typer');
+const ct = require('content-type');
 const check = require('@arangodb/foxx/check-args');
 const joiToJsonSchema = require('joi-to-json-schema');
 const tokenize = require('@arangodb/foxx/router/tokenize');
@@ -47,12 +47,8 @@ const DEFAULT_ERROR_MODEL = check.validateSchema({
 
 const PARSED_JSON_MIME = (function (mime) {
   const contentType = mimeTypes.contentType(mime) || mime;
-  const parsed = mediaTyper.parse(contentType);
-  return mediaTyper.format(_.pick(parsed, [
-    'type',
-    'subtype',
-    'suffix'
-  ]));
+  const parsed = ct.parse(contentType);
+  return parsed.type;
 }(MIME_JSON));
 
 const repeat = (times, value) => {
