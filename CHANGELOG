@@ -6,6 +6,15 @@ devel
   This feature allows the PRUNE condition to be stored in a variable, and 
   this variable can be used as a condition for some other statement, such 
   as FILTER.
+  For example, in the query below,
+
+  FOR v, e, p IN 10 OUTBOUND @start GRAPH "myGraph"
+    PRUNE pruneCondition = v.isRelevant == true
+    FILTER pruneCondition
+    RETURN p
+  
+  The condition `v.isRelevant == true` is stored in the variable     
+  `pruneCondition`, and later used as a condition for FILTER. 
 
 * Added ArangoSearch condition optimization: STARTS_WITH is merged 
   with LEVENSHTEIN_MATCH if used in the same AND node and field name and prefix
