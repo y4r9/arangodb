@@ -98,6 +98,7 @@ function recoverySuite () {
 
 
       var expectedResult = db._query("FOR doc IN UnitTestsRecoveryDummy FILTER doc.c >= 0 COLLECT WITH COUNT INTO length RETURN length").toArray();
+	  print("Collection count:" + expectedResult[0]);
 
       let result = db._query("FOR doc IN UnitTestsRecoveryView SEARCH doc.c >= 0 AND STARTS_WITH(doc._id, 'UnitTestsRecoveryDummy') "
                               + "OPTIONS {waitForSync: true} COLLECT WITH COUNT INTO length RETURN length").toArray();
