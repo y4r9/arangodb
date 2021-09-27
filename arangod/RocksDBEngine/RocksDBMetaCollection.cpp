@@ -906,7 +906,7 @@ Result RocksDBMetaCollection::rebuildRevisionTree() {
     _revisionTreeCanBeSerialized = true;
 
     // finally remove all pending updates up to including our own sequence number
-    removeBufferedUpdatesUpTo(beginSeq - 1);
+    removeBufferedUpdatesUpTo(beginSeq);
 
     return {};
   });
