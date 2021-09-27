@@ -714,7 +714,7 @@ rocksdb::SequenceNumber RocksDBMetaCollection::serializeRevisionTree(
     return commitSeq;
   }
   if (!_revisionTreeCanBeSerialized) {
-    return commitSeq;
+    return _revisionTreeSerializedSeq;
   }
 
   applyUpdates(commitSeq, lock);  // always apply updates...
@@ -901,12 +901,12 @@ Result RocksDBMetaCollection::rebuildRevisionTree() {
     _revisionTree = std::make_unique<RevisionTreeAccessor>(std::move(newTree), _logicalCollection);
     _revisionTreeApplied = beginSeq;
     _revisionTreeCreationSeq = beginSeq;
-    _revisionTreeSerializedSeq = 0;
+    _revisionTreeSerializedSeq = beginSeq;
     _revisionTreeSerializedTime = std::chrono::steady_clock::time_point();
     _revisionTreeCanBeSerialized = true;
 
     // finally remove all pending updates up to including our own sequence number
-    removeBufferedUpdatesUpTo(beginSeq);
+    removeBufferedUpdatesUpTo(beginSeq - 1);
 
     return {};
   });
