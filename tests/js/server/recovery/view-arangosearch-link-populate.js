@@ -98,7 +98,7 @@ function recoverySuite () {
 
 
       var expectedResult = db._query("FOR doc IN UnitTestsRecoveryDummy FILTER doc.c >= 0 COLLECT WITH COUNT INTO length RETURN length").toArray();
-	  print("Collection count:" + expectedResult[0]);
+      print("Collection count:" + expectedResult[0]);
 
       let result = db._query("FOR doc IN UnitTestsRecoveryView SEARCH doc.c >= 0 AND STARTS_WITH(doc._id, 'UnitTestsRecoveryDummy') "
                               + "OPTIONS {waitForSync: true} COLLECT WITH COUNT INTO length RETURN length").toArray();
@@ -109,7 +109,11 @@ function recoverySuite () {
                               + "OPTIONS {waitForSync: true} COLLECT WITH COUNT INTO length RETURN length").toArray();
       let result5 = db._query("FOR doc IN UnitTestsRecoveryView5 SEARCH doc.c >= 0 AND STARTS_WITH(doc._id, 'UnitTestsRecoveryDummy') "
                               + "OPTIONS {waitForSync: true} COLLECT WITH COUNT INTO length RETURN length").toArray();
-
+      print("UnitTestsRecoveryView: " + result[0]);
+      print("UnitTestsRecoveryView2: " + result2[0]);
+      print("UnitTestsRecoveryView3: " + result3[0]);
+      print("UnitTestsRecoveryView4: " + result4[0]);
+      print("UnitTestsRecoveryView5: " + result5[0]);
       assertEqual(result[0], expectedResult[0]);
       assertEqual(result2[0], expectedResult[0]);
       assertEqual(result3[0], expectedResult[0]);
