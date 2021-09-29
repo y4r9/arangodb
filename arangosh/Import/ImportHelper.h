@@ -40,11 +40,13 @@
 #include "Basics/win-utils.h"
 #endif
 
+#include <velocypack/Builder.h>
+#include <velocypack/Parser.h>
+
 namespace arangodb {
 class ClientFeature;
 namespace httpclient {
 class SimpleHttpClient;
-class SimpleHttpResult;
 struct SimpleHttpClientParams;
 }  // namespace httpclient
 }  // namespace arangodb
@@ -53,8 +55,7 @@ struct SimpleHttpClientParams;
 /// @brief class for http requests
 ////////////////////////////////////////////////////////////////////////////////
 
-namespace arangodb {
-namespace import {
+namespace arangodb::import {
 class SenderThread;
 
 struct ImportStatistics {
@@ -309,7 +310,6 @@ class ImportHelper {
   std::unique_ptr<httpclient::SimpleHttpClient> _httpClient;
   std::atomic<uint64_t> _maxUploadSize;
   std::atomic<uint64_t> _periodByteCount;
-  bool const _autoUploadSize;
   std::unique_ptr<AutoTuneThread> _autoTuneThread;
   std::vector<std::unique_ptr<SenderThread>> _senderThreads;
   uint32_t const _threadCount;
@@ -319,6 +319,7 @@ class ImportHelper {
   std::string _separator;
   std::string _quote;
   std::string _createCollectionType;
+  bool const _autoUploadSize;
   bool _useBackslash;
   bool _convert;
   bool _createCollection;
@@ -336,16 +337,28 @@ class ImportHelper {
   size_t _rowsToSkip;
 
   int64_t _keyColumn;
-
+  
   std::string _onDuplicateAction;
   std::string _collectionName;
   std::string _fromCollectionPrefix;
   std::string _toCollectionPrefix;
-  arangodb::basics::StringBuffer _lineBuffer;
-  arangodb::basics::StringBuffer _outputBuffer;
-  std::string _firstLine;
-  std::vector<std::string> _columnNames;
 
+  arangodb::basics::StringBuffer _outputBuffer;
+  
+  // shared velocypack options
+  arangodb::velocypack::Options _options;
+ 
+  std::vector<std::string> _columnNames;
+  // the headers, as a VelocyPack array
+  arangodb::velocypack::Builder _firstLine;
+  
+  // current line values, will be recycled for each line
+  arangodb::velocypack::Builder _lineBuilder;
+  // temporary scratch builder to parse a single value
+  arangodb::velocypack::Builder _singleValueBuilder;
+      
+  arangodb::velocypack::Parser _parser;
+  
   std::unordered_map<std::string, std::string> _translations;
   std::unordered_map<std::string, std::string> _datatypes;
   std::unordered_set<std::string> _removeAttributes;
@@ -356,5 +369,4 @@ class ImportHelper {
 
   static double const ProgressStep;
 };
-}  // namespace import
-}  // namespace arangodb
+}  // namespace 

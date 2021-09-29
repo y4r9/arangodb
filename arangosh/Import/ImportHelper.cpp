@@ -27,6 +27,7 @@
 #include "Basics/MutexLocker.h"
 #include "Basics/ScopeGuard.h"
 #include "Basics/StringUtils.h"
+#include "Basics/VPackStringBufferAdapter.h"
 #include "Basics/files.h"
 #include "Basics/system-functions.h"
 #include "Basics/tri-strings.h"
@@ -39,6 +40,7 @@
 #include "Utils/ManagedDirectory.h"
 
 #include <velocypack/Builder.h>
+#include <velocypack/Dumper.h>
 #include <velocypack/Iterator.h>
 #include <velocypack/velocypack-aliases.h>
 
@@ -55,85 +57,7 @@ using namespace arangodb::basics;
 using namespace arangodb::httpclient;
 using namespace std::literals::string_literals;
 
-/// @brief helper function to determine if a field value is an integer
-/// this function is here to avoid usage of regexes, which are too slow
-namespace {
-bool isInteger(char const* field, size_t fieldLength) {
-  char const* end = field + fieldLength;
-
-  if (*field == '+' || *field == '-') {
-    ++field;
-  }
-
-  while (field < end) {
-    if (*field < '0' || *field > '9') {
-      return false;
-    }
-    ++field;
-  }
-
-  return true;
-}
-
-/// @brief helper function to determine if a field value maybe is a decimal
-/// value. this function peeks into the first few bytes of the value only
-/// this function is here to avoid usage of regexes, which are too slow
-bool isDecimal(char const* field, size_t fieldLength) {
-  char const* ptr = field;
-  char const* end = ptr + fieldLength;
-
-  if (*ptr == '+' || *ptr == '-') {
-    ++ptr;
-  }
-
-  bool nextMustBeNumber = false;
-
-  while (ptr < end) {
-    if (*ptr == '.') {
-      if (nextMustBeNumber) {
-        return false;
-      }
-      // expect a number after the .
-      nextMustBeNumber = true;
-    } else if (*ptr == 'e' || *ptr == 'E') {
-      if (nextMustBeNumber) {
-        return false;
-      }
-      // expect a number after the exponent
-      nextMustBeNumber = true;
-
-      ++ptr;
-      if (ptr >= end) {
-        return false;
-      }
-      // skip over optional + or -
-      if (*ptr == '+' || *ptr == '-') {
-        ++ptr;
-      }
-      // do not advance ptr anymore
-      continue;
-    } else if (*ptr >= '0' && *ptr <= '9') {
-      // found a number
-      nextMustBeNumber = false;
-    } else {
-      // something else
-      return false;
-    }
-
-    ++ptr;
-  }
-
-  if (nextMustBeNumber) {
-    return false;
-  }
-
-  return true;
-}
-
-} // namespace
-
-namespace arangodb {
-namespace import {
+namespace arangodb::import {
 
 ImportStatistics::ImportStatistics(application_features::ApplicationServer& server)
     : _histogram(server) {}
@@ -162,12 +86,12 @@ ImportHelper::ImportHelper(ClientFeature const& client, std::string const& endpo
       _httpClient(client.createHttpClient(endpoint, params)),
       _maxUploadSize(maxUploadSize),
       _periodByteCount(0),
-      _autoUploadSize(autoUploadSize),
       _threadCount(threadCount),
       _tempBuffer(false),
       _separator(","),
       _quote("\""),
       _createCollectionType("document"),
+      _autoUploadSize(autoUploadSize),
       _useBackslash(false),
       _convert(true),
       _createCollection(false),
@@ -183,17 +107,16 @@ ImportHelper::ImportHelper(ClientFeature const& client, std::string const& endpo
       _rowsToSkip(0),
       _keyColumn(-1),
       _onDuplicateAction("error"),
-      _collectionName(),
-      _lineBuffer(false),
       _outputBuffer(false),
-      _firstLine(""),
-      _columnNames(),
+      _firstLine(&_options),
+      _lineBuilder(&_options),
+      _parser(_singleValueBuilder),
       _hasError(false),
       _headersSeen(false) {
   for (uint32_t i = 0; i < threadCount; i++) {
     auto http = client.createHttpClient(endpoint, params);
     _senderThreads.emplace_back(
-        new SenderThread(client.server(), std::move(http), &_stats, [this]() {
+        std::make_unique<SenderThread>(client.server(), std::move(http), &_stats, [this]() {
           CONDITION_LOCKER(guard, _threadsCondition);
           guard.signal();
         }));
@@ -218,6 +141,12 @@ ImportHelper::ImportHelper(ClientFeature const& client, std::string const& endpo
       break;
     }
   }
+ 
+  _options.paddingBehavior = arangodb::velocypack::Options::PaddingBehavior::UsePadding;
+  _options.buildUnindexedArrays = true;
+  _options.escapeUnicode = false;
+  _options.escapeForwardSlashes = false;
+  
 }
 
 ImportHelper::~ImportHelper() {
@@ -291,25 +220,20 @@ bool ImportHelper::readHeadersFile(std::string const& headersFile,
     TRI_ParseCsvString(&parser, buffer, n);
   }
 
-  if (_outputBuffer.size() > 0 &&
-      *(_outputBuffer.begin() + _outputBuffer.size() - 1) != '\n') {
-    // add a newline to finish the headers line
-    _outputBuffer.appendChar('\n');
-  }
-
   if (_rowsRead > 2) {
     _errorMessages.push_back("headers file '" + headersFile + "' contained more than a single line of headers");
     return false;
   }
 
   // reset our state properly
-  _lineBuffer.clear();
   _headersSeen = true;
   _rowOffset = 0;
   _rowsRead = 0;
   _numberLines = 0;
   // restore copy of _rowsToSkip 
   _rowsToSkip = rowsToSkip;
+
+  _lineBuilder.clear();
 
   return true;
 }
@@ -331,10 +255,6 @@ bool ImportHelper::importDelimited(std::string const& collectionName,
 
   std::string fileName(TRI_Basename(pathName.c_str()));
   _collectionName = collectionName;
-  _firstLine = "";
-  _outputBuffer.clear();
-  _lineBuffer.clear();
-  _errorMessages.clear();
   _hasError = false;
   _headersSeen = false;
   _rowOffset = 0;
@@ -404,6 +324,10 @@ bool ImportHelper::importDelimited(std::string const& collectionName,
     TRI_SetQuoteCsvParser(&parser, '\0', false);
   }
   parser._dataAdd = this;
+  
+  auto guard = scopeGuard([&parser]() noexcept {
+    TRI_DestroyCsvParser(&parser);
+  });
 
   constexpr int BUFFER_SIZE = 262144;
   char buffer[BUFFER_SIZE];
@@ -412,7 +336,6 @@ bool ImportHelper::importDelimited(std::string const& collectionName,
     ssize_t n = fd->read(buffer, sizeof(buffer));
 
     if (n < 0) {
-      TRI_DestroyCsvParser(&parser);
       _errorMessages.push_back(TRI_LAST_ERROR_STR);
       return false;
     } else if (n == 0) {
@@ -433,12 +356,9 @@ bool ImportHelper::importDelimited(std::string const& collectionName,
     sendCsvBuffer();
   }
 
-  TRI_DestroyCsvParser(&parser);
-
   waitForSenders();
   reportProgress(totalLength, fd->offset(), nextProgress);
 
-  _outputBuffer.clear();
   return !_hasError;
 }
 
@@ -448,9 +368,6 @@ bool ImportHelper::importJson(std::string const& collectionName,
                              false, false, true);
   std::string fileName(TRI_Basename(pathName.c_str()));
   _collectionName = collectionName;
-  _firstLine = "";
-  _outputBuffer.clear();
-  _errorMessages.clear();
   _hasError = false;
 
   if (!checkCreateCollection()) {
@@ -629,19 +546,8 @@ void ImportHelper::ProcessCsvBegin(TRI_csv_parser_t* parser, size_t row) {
 }
 
 void ImportHelper::beginLine(size_t row) {
-  if (_lineBuffer.length() > 0) {
-    // error
-    MUTEX_LOCKER(guard, _stats._mutex);
-    ++_stats._numberErrors;
-    _lineBuffer.clear();
-  }
-
   ++_numberLines;
-
-  if (row > 0 + _rowsToSkip) {
-    _lineBuffer.appendChar('\n');
-  }
-  _lineBuffer.appendChar('[');
+  _lineBuilder.clear();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -681,8 +587,9 @@ void ImportHelper::addField(char const* field, size_t fieldLength, size_t row,
 
   // we will write out this attribute!
 
-  if (column > 0) {
-    _lineBuffer.appendChar(',');
+  // prepare Builder
+  if (_lineBuilder.isEmpty()) {
+    _lineBuilder.openArray(true);
   }
 
   if (_keyColumn == -1 && row == _rowsToSkip && !_headersSeen && fieldLength == 4 &&
@@ -700,106 +607,68 @@ void ImportHelper::addField(char const* field, size_t fieldLength, size_t row,
       (escaped && itTypes == _datatypes.end()) ||
       _keyColumn == static_cast<decltype(_keyColumn)>(column)) {
     // headline or escaped value
-    _lineBuffer.appendJsonEncoded(field, fieldLength);
+    _lineBuilder.add(VPackValuePair(reinterpret_cast<uint8_t const*>(field), fieldLength, VPackValueType::String));
     return;
   }
-
+  
   // check if a datatype was forced for this attribute
   if (itTypes != _datatypes.end()) {
     std::string const& datatype = (*itTypes).second;
     if (datatype == "number") {
-      if (::isInteger(field, fieldLength) || ::isDecimal(field, fieldLength)) {
-        _lineBuffer.appendText(field, fieldLength);
-      } else {
-        _lineBuffer.appendText(TRI_CHAR_LENGTH_PAIR("0"));
+      // try to parse value
+      if (fieldLength > 0 &&
+          (*field != ' ' && *field != '\t' && *field != '\n' && *field != '\r')) {
+        try {
+          _parser.parse(field, fieldLength);
+          if (_singleValueBuilder.slice().isNumber()) {
+            // use result only if it was a number
+            _lineBuilder.add(_singleValueBuilder.slice());
+            return;
+          }
+        } catch (...) {
+        }
       }
+      // couldn't interpret input value as number, so add 0.
+      _lineBuilder.add(VPackValue(0));
     } else if (datatype == "boolean") {
       if ((fieldLength == 5 && memcmp(field, "false", 5) == 0) ||
           (fieldLength == 4 && memcmp(field, "null", 4) == 0) ||
           (fieldLength == 1 && *field == '0')) {
-        _lineBuffer.appendText(TRI_CHAR_LENGTH_PAIR("false"));
+        _lineBuilder.add(VPackValue(false));
       } else {
-        _lineBuffer.appendText(TRI_CHAR_LENGTH_PAIR("true"));
+        _lineBuilder.add(VPackValue(true));
       }
     } else if (datatype == "null") {
-      _lineBuffer.appendText(TRI_CHAR_LENGTH_PAIR("null"));
+      _lineBuilder.add(VPackValue(VPackValueType::Null));
     } else {
       // string
       TRI_ASSERT(datatype == "string");
-      _lineBuffer.appendJsonEncoded(field, fieldLength);
+      _lineBuilder.add(VPackValuePair(reinterpret_cast<uint8_t const*>(field), fieldLength, VPackValueType::String));
     }
     return;
   }
 
   if (*field == '\0' || fieldLength == 0) {
     // do nothing
-    _lineBuffer.appendText(TRI_CHAR_LENGTH_PAIR("null"));
+    _lineBuilder.add(VPackValue(VPackValueType::Null));
     return;
   }
 
   // automatic detection of datatype based on value (--convert)
-  if (_convert) {
-    // check for literals null, false and true
-    if ((fieldLength == 4 && (memcmp(field, "true", 4) == 0 || memcmp(field, "null", 4) == 0)) ||
-        (fieldLength == 5 && memcmp(field, "false", 5) == 0)) {
-      _lineBuffer.appendText(field, fieldLength);
-    } else if (::isInteger(field, fieldLength)) {
-      // integer value
-      // conversion might fail with out-of-range error
-      try {
-        if (fieldLength > 8) {
-          // long integer numbers might be problematic. check if we get out of
-          // range
-          (void)std::stoll(std::string(field,
-                                       fieldLength));  // this will fail if the
-                                                       // number cannot be
-                                                       // converted
-        }
-
-        int64_t num = StringUtils::int64(field, fieldLength);
-        _lineBuffer.appendInteger(num);
-      } catch (...) {
-        // conversion failed
-        _lineBuffer.appendJsonEncoded(field, fieldLength);
-      }
-    } else if (::isDecimal(field, fieldLength)) {
-      // double value
-      // conversion might fail with out-of-range error
-      try {
-        std::string tmp(field, fieldLength);
-        size_t pos = 0;
-        double num = std::stod(tmp, &pos);
-        if (pos == fieldLength) {
-          bool failed = (num != num || num == HUGE_VAL || num == -HUGE_VAL);
-          if (!failed) {
-            _lineBuffer.appendDecimal(num);
-            return;
-          }
-        }
-        // NaN, +inf, -inf
-        // fall-through to appending the number as a string
-      } catch (...) {
-        // conversion failed
-        // fall-through to appending the number as a string
-      }
-
-      _lineBuffer.appendChar('"');
-      _lineBuffer.appendText(field, fieldLength);
-      _lineBuffer.appendChar('"');
-    } else {
-      _lineBuffer.appendJsonEncoded(field, fieldLength);
-    }
-  } else {
-    if (::isInteger(field, fieldLength) || ::isDecimal(field, fieldLength)) {
-      // numeric value. don't convert
-      _lineBuffer.appendChar('"');
-      _lineBuffer.appendText(field, fieldLength);
-      _lineBuffer.appendChar('"');
-    } else {
-      // non-numeric value
-      _lineBuffer.appendJsonEncoded(field, fieldLength);
+  if (_convert &&
+      /* true, false, null, number */
+      (*field == 't' || *field == 'f' || *field == 'n' || *field == '-' || *field == '+' || (*field >= '0' && *field <= '9'))) {
+    // check for literals null, false, true and numbers
+    try {
+      _singleValueBuilder.clear();
+      _parser.parse(field, fieldLength);
+      _lineBuilder.add(_singleValueBuilder.slice());
+      return;
+    } catch (...) {
     }
   }
+
+  _lineBuilder.add(VPackValuePair(reinterpret_cast<uint8_t const*>(field), fieldLength, VPackValueType::String));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -810,12 +679,9 @@ void ImportHelper::ProcessCsvEnd(TRI_csv_parser_t* parser, char const* field, si
                                  size_t row, size_t column, bool escaped) {
   auto importHelper = static_cast<ImportHelper*>(parser->_dataAdd);
 
-  if (importHelper->getRowsRead() < importHelper->getRowsToSkip()) {
-    importHelper->incRowsRead();
-    return;
+  if (importHelper->getRowsRead() >= importHelper->getRowsToSkip()) {
+    importHelper->addLastField(field, fieldLength, row, column, escaped);
   }
-
-  importHelper->addLastField(field, fieldLength, row, column, escaped);
   importHelper->incRowsRead();
 }
 
@@ -823,38 +689,55 @@ void ImportHelper::addLastField(char const* field, size_t fieldLength,
                                 size_t row, size_t column, bool escaped) {
   if (column == 0 && *field == '\0') {
     // ignore empty line
-    _lineBuffer.reset();
     return;
   }
 
   addField(field, fieldLength, row, column, escaped);
+  
+  // we have now processed a complete line
 
-  _lineBuffer.appendChar(']');
-
-  if (row == _rowsToSkip) {
-    // save the first line
-    _firstLine = std::string(_lineBuffer.c_str(), _lineBuffer.length());
-  } else if (row > _rowsToSkip && _firstLine.empty()) {
+  if (row > _rowsToSkip && _firstLine.isEmpty()) {
     // error
     MUTEX_LOCKER(guard, _stats._mutex);
     ++_stats._numberErrors;
-    _lineBuffer.reset();
+    return;
+  }
+  
+  if (_lineBuilder.isEmpty()) {
+    if (row >= _rowsToSkip) {
+      MUTEX_LOCKER(guard, _stats._mutex);
+      ++_stats._numberErrors;
+    }
     return;
   }
 
-  // read a complete line
-
-  if (_lineBuffer.length() > 0) {
-    _outputBuffer.appendText(_lineBuffer);
-    _lineBuffer.reset();
-  } else {
-    MUTEX_LOCKER(guard, _stats._mutex);
-    ++_stats._numberErrors;
+  if (_lineBuilder.isOpenArray()) {
+    _lineBuilder.close();
   }
+
+  if (row == _rowsToSkip && _firstLine.isEmpty()) {
+    // save the first line values (headers)
+    _firstLine = _lineBuilder;
+    return;
+  }
+  
+  arangodb::basics::VPackStringBufferAdapter adapter(_outputBuffer.stringBuffer());
+  arangodb::velocypack::Dumper dumper(&adapter, &_options);
+
+  if (_outputBuffer.empty()) {
+    // append headers
+    TRI_ASSERT(_firstLine.slice().isArray());
+    dumper.dump(_firstLine.slice());
+    _outputBuffer.appendChar('\n');
+  }
+    
+  // append the actual line data
+  TRI_ASSERT(_lineBuilder.slice().isArray());
+  dumper.dump(_lineBuilder.slice());
+  _outputBuffer.appendChar('\n');
 
   if (_outputBuffer.length() > getMaxUploadSize()) {
     sendCsvBuffer();
-    _outputBuffer.appendText(_firstLine);
   }
 }
 
@@ -954,9 +837,8 @@ bool ImportHelper::truncateCollection() {
   }
 
   std::string const url = "/_api/collection/" + _collectionName + "/truncate";
-  std::string data = "";  // never send an completly empty string
   std::unique_ptr<SimpleHttpResult> result(
-      _httpClient->request(rest::RequestType::PUT, url, data.c_str(), data.size()));
+      _httpClient->request(rest::RequestType::PUT, url, "", 0));
 
   if (result == nullptr) {
     return false;
@@ -997,18 +879,17 @@ void ImportHelper::sendCsvBuffer() {
     url += "&"s + StaticStrings::SkipDocumentValidation + "=true";
   }
   if (_firstChunk && _overwrite) {
-    // url += "&overwrite=true";
     truncateCollection();
   }
   _firstChunk = false;
-
+ 
   SenderThread* t = findIdleSender();
   if (t != nullptr) {
-    uint64_t tmp_length = _outputBuffer.length();
+    uint64_t tmpLength = _outputBuffer.length();
     t->sendData(url, &_outputBuffer, _rowOffset + 1, _rowsRead);
-    addPeriodByteCount(tmp_length + url.length());
+    addPeriodByteCount(tmpLength + url.length());
   }
-
+  
   _outputBuffer.reset();
   _rowOffset = _rowsRead;
 }
@@ -1095,5 +976,5 @@ void ImportHelper::waitForSenders() {
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
 }
-}  // namespace import
-}  // namespace arangodb
+
+}  // namespace 

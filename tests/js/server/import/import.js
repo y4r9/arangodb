@@ -93,7 +93,7 @@ function importTestSuite () {
       var expected = [ 
         { "a": "1", "b": 1, "c": "1.3", "e": -5, "id": 1 }, 
         { "b": "", "c": 3.1, "d": -2.5, "e": "ddd \" ' ffd", "id": 2 }, 
-        { "a": "9999999999999999999999999999999999", "b": "test", "c" : -99999999, "d": true, "e": -888.4434, "id": 5 },
+        { "a": 1e34, "b": "test", "c" : -99999999, "d": true, "e": -888.4434, "id": 5 },
         { "a": 10e4, "b": 20.5, "c": -42, "d": " null ", "e": false, "id": 6 },
         { "a": -1.05e2, "b": 1.05e-2, "c": true, "d": false, "id": 7 }
       ];
@@ -232,7 +232,7 @@ function importTestSuite () {
       var expected = [ 
         { "a": "1", "b": 1, "c": "1.3", "e": -5, "id": 1 }, 
         { "b": "", "c": 3.1, "d": -2.5, "e": "ddd \" ' ffd", "id": 2 }, 
-        { "a": "9999999999999999999999999999999999", "b": "test", "c" : -99999999, "d": true, "e": -888.4434, "id": 5 },
+        { "a": 1e34, "b": "test", "c" : -99999999, "d": true, "e": -888.4434, "id": 5 },
         { "a": 10e4, "b": 20.5, "c": -42, "d": " null ", "e": false, "id": 6 },
         { "a": -1.05e2, "b": 1.05e-2, "c": true, "d": false, "id": 7 }
       ];
@@ -245,7 +245,7 @@ function importTestSuite () {
       var expected = [
         { "a": "1", "b": 1, "c": "1.3", "e": -5, "id": 1 },
         { "b": "", "c": 3.1, "d": -2.5, "e": "ddd \" ' ffd", "id": 2 },
-        { "a": "9999999999999999999999999999999999", "b": "test", "c" : -99999999, "d": true, "e": -888.4434, "id": 5 },
+        { "a": 1e34, "b": "test", "c" : -99999999, "d": true, "e": -888.4434, "id": 5 },
         { "a": 10e4, "b": 20.5, "c": -42, "d": " null ", "e": false, "id": 6 },
         { "a": -1.05e2, "b": 1.05e-2, "c": true, "d": false, "id": 7 }
       ];
@@ -332,7 +332,7 @@ function importTestSuite () {
      let expected = [ 
         { "a": "1", "b": 1, "c": "1.3", "e": -5, "id": 1 }, 
         { "b": "", "c": 3.1, "d": -2.5, "e": "ddd \" ' ffd", "id": 2 }, 
-        { "a": "9999999999999999999999999999999999", "b": "test", "c" : -99999999, "d": true, "e": -888.4434, "id": 5 },
+        { "a": 1e34, "b": "test", "c" : -99999999, "d": true, "e": -888.4434, "id": 5 },
         { "a": 10e4, "b": 20.5, "c": -42, "d": " null ", "e": false, "id": 6 },
         { "a": -1.05e2, "b": 1.05e-2, "c": true, "d": false, "id": 7 }
       ];
@@ -367,9 +367,9 @@ function importTestSuite () {
         { value1: 14, value2: " b" },
         { value1: 15, value2: -1 },
         { value1: 16, value2: "-2" },
-        { value1: 17, value2: -0.5 },
+        { value1: 17, value2: -.5 },
         { value1: 18, value2: "-.7" },
-        { value1: 19, value2: 0.8 },
+        { value1: 19, value2: .8 },
         { value1: 20, value2: ".9" },
         { value1: 21, value2: 3.566 },
         { value1: 22, value2: "7.899" },
@@ -416,9 +416,9 @@ function importTestSuite () {
         { value1: "14", value2: " b" },
         { value1: "15", value2: "-1" },
         { value1: "16", value2: "-2" },
-        { value1: "17", value2: "-.5" },
+        { value1: "17", value2: "-0.5" },
         { value1: "18", value2: "-.7" },
-        { value1: "19", value2: ".8" },
+        { value1: "19", value2: "0.8" },
         { value1: "20", value2: ".9" },
         { value1: "21", value2: "3.566" },
         { value1: "22", value2: "7.899" },
@@ -623,6 +623,10 @@ function importTestSuite () {
         }, 
         { 
           "id" : "18", 
+          "value" : 0 
+        }, 
+        { 
+          "id" : "19", 
           "value" : 0 
         }, 
         { 
