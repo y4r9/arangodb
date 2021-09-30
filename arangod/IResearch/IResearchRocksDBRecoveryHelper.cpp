@@ -257,6 +257,7 @@ void IResearchRocksDBRecoveryHelper::PutCF(
     return;
   }
 
+ 
   auto docId = RocksDBKey::documentId(key);
   auto doc = RocksDBValue::data(value);
 
@@ -274,6 +275,7 @@ void IResearchRocksDBRecoveryHelper::PutCF(
     THROW_ARANGO_EXCEPTION(res);
   }
 
+  size_t inserts{0};
   for (std::shared_ptr<arangodb::Index> const& link : links) {
     IndexId indexId(coll->vocbase().id(), coll->id(), link->id());
 
@@ -289,7 +291,23 @@ void IResearchRocksDBRecoveryHelper::PutCF(
     IResearchLink& impl = static_cast<IResearchRocksDBLink&>(*link);
 #endif
 
-    impl.insert(trx, docId, doc);
+    try {
+      auto inseres = impl.insert(trx, docId, doc);
+      if (inseres.ok()) {
+        ++inserts;
+      } else {
+        LOG_TOPIC("65f66", ERR, arangodb::iresearch::TOPIC)
+            << "Failed to do an insert to " << indexId;
+      }
+    } catch (...) {
+      LOG_TOPIC("75f77", ERR, arangodb::iresearch::TOPIC)
+            << "Exception on insert to " << indexId;
+      throw;
+    }
+  }
+  if (inserts != links.size()) {
+    LOG_TOPIC("!!!!!", ERR, arangodb::iresearch::TOPIC)
+            << "Only " << inserts  << " out of " << links.size();
   }
 
   res = trx.commit();
