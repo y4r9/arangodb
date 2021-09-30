@@ -297,11 +297,11 @@ void IResearchRocksDBRecoveryHelper::PutCF(
         ++inserts;
       } else {
         LOG_TOPIC("65f66", ERR, arangodb::iresearch::TOPIC)
-            << "Failed to do an insert to " << indexId;
+            << "Failed to do an insert to " << indexId.iid.id();
       }
     } catch (...) {
       LOG_TOPIC("75f77", ERR, arangodb::iresearch::TOPIC)
-            << "Exception on insert to " << indexId;
+            << "Exception on insert to " << indexId.iid.id();
       throw;
     }
   }
