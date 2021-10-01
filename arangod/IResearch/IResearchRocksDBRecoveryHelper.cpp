@@ -226,6 +226,11 @@ void ensureLink(arangodb::DatabaseFeature& db,
 namespace arangodb {
 namespace iresearch {
 
+IResearchRocksDBRecoveryHelper::~IResearchRocksDBRecoveryHelper() {
+  LOG_TOPIC("!!!!!", ERR, arangodb::iresearch::TOPIC)
+            << "Total recovered: " << _totalRecovered;
+}
+
 IResearchRocksDBRecoveryHelper::IResearchRocksDBRecoveryHelper(application_features::ApplicationServer& server)
     : _server(server) {}
 
@@ -295,6 +300,7 @@ void IResearchRocksDBRecoveryHelper::PutCF(
       auto inseres = impl.insert(trx, docId, doc);
       if (inseres.ok()) {
         ++inserts;
+        ++_totalRecovered;
       } else {
         LOG_TOPIC("65f66", ERR, arangodb::iresearch::TOPIC)
             << "Failed to do an insert to " << indexId.iid.id();
@@ -405,6 +411,8 @@ void IResearchRocksDBRecoveryHelper::LogData(
       break;  // shut up the compiler
   }
 }
+
+std::atomic<uint64_t> IResearchRocksDBRecoveryHelper::_totalRecovered;
 
 }  // namespace iresearch
 }  // namespace arangodb

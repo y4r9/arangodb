@@ -99,6 +99,8 @@ class IResearchRocksDBRecoveryHelper final : public RocksDBRecoveryHelper {
   DatabaseFeature* _dbFeature{};
   RocksDBEngine* _engine{};
   uint32_t _documentCF{};
+
+  static std::atomic<uint64_t> _totalRecovered;
 };
 
 }  // end namespace iresearch
