@@ -65,7 +65,7 @@ class IResearchRocksDBRecoveryHelper final : public RocksDBRecoveryHelper {
 
   explicit IResearchRocksDBRecoveryHelper(application_features::ApplicationServer&);
 
-  virtual ~IResearchRocksDBRecoveryHelper() override = default;
+  virtual ~IResearchRocksDBRecoveryHelper() override;
 
   virtual void prepare() override;
 
