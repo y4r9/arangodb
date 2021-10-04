@@ -227,8 +227,7 @@ namespace arangodb {
 namespace iresearch {
 
 IResearchRocksDBRecoveryHelper::~IResearchRocksDBRecoveryHelper() {
-  LOG_TOPIC("!!!!!", ERR, arangodb::iresearch::TOPIC)
-            << "Total recovered: " << _totalRecovered;
+  std::cerr << "Total recovered: " << _totalRecovered << std::endl;
 }
 
 IResearchRocksDBRecoveryHelper::IResearchRocksDBRecoveryHelper(application_features::ApplicationServer& server)
@@ -287,6 +286,8 @@ void IResearchRocksDBRecoveryHelper::PutCF(
     // optimization: avoid insertion of recovered documents twice,
     //               first insertion done during index creation
     if (!link || _recoveredIndexes.find(indexId) != _recoveredIndexes.end()) {
+      LOG_TOPIC("!!!!!", ERR, arangodb::iresearch::TOPIC)
+            << "Recovery skipped for " <<  indexId.iid.id();
       continue;  // index was already populated when it was created
     }
 
