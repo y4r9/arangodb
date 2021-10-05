@@ -226,8 +226,8 @@ void ensureLink(arangodb::DatabaseFeature& db,
 namespace arangodb {
 namespace iresearch {
 
-IResearchRocksDBRecoveryHelper::~IResearchRocksDBRecoveryHelper() {
-  std::cerr << "Total recovered: " << _totalRecovered << std::endl;
+void IResearchRocksDBRecoveryHelper::printRecoveryReport() {
+   LOG_TOPIC("!!!!!", ERR, arangodb::iresearch::TOPIC) << "Total recovered: " << _totalRecovered;
 }
 
 IResearchRocksDBRecoveryHelper::IResearchRocksDBRecoveryHelper(application_features::ApplicationServer& server)

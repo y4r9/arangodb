@@ -65,7 +65,7 @@ class IResearchRocksDBRecoveryHelper final : public RocksDBRecoveryHelper {
 
   explicit IResearchRocksDBRecoveryHelper(application_features::ApplicationServer&);
 
-  virtual ~IResearchRocksDBRecoveryHelper() override;
+  virtual ~IResearchRocksDBRecoveryHelper() override = default;
 
   virtual void prepare() override;
 
@@ -88,6 +88,8 @@ class IResearchRocksDBRecoveryHelper final : public RocksDBRecoveryHelper {
 
   virtual void LogData(const rocksdb::Slice& blob,
                        rocksdb::SequenceNumber tick) override;
+
+  void printRecoveryReport() override;
 
  private:
   void handleDeleteCF(uint32_t column_family_id,

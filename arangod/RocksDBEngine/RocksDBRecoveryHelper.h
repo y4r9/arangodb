@@ -48,6 +48,8 @@ class RocksDBRecoveryHelper {
                         rocksdb::SequenceNumber tick) {
   }
 
+  virtual void printRecoveryReport() {};
+
   virtual void SingleDeleteCF(uint32_t column_family_id,
                               const rocksdb::Slice& key,
                               rocksdb::SequenceNumber tick) {

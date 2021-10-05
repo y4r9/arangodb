@@ -167,6 +167,11 @@ class WBReader final : public rocksdb::WriteBatch::Handler {
       TRI_UpdateTickServer(_maxTick);
       TRI_HybridLogicalClock(_maxHLC);
     });
+    RocksDBEngine& engine =
+        _server.getFeature<EngineSelectorFeature>().engine<RocksDBEngine>();
+    for (auto helper : engine.recoveryHelpers()) {
+      helper->printRecoveryReport();
+    }
     return rv;
   }
 
