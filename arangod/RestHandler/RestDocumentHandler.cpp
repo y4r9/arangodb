@@ -120,6 +120,8 @@ RestStatus RestDocumentHandler::insertDocument() {
     return RestStatus::DONE;
   }
 
+  double start = TRI_microtime();
+
   bool found;
   std::string cname;
   if (suffixes.size() == 1) {
@@ -233,6 +235,8 @@ RestStatus RestDocumentHandler::insertDocument() {
                             TRI_col_type_e(_activeTrx->getCollectionType(cname)),
                             _activeTrx->transactionContextPtr()->getVPackOptions(),
                             isMultiple);
+
+              LOG_TOPIC("12345", INFO, Logger::FIXME) << "insert request for " << cname << " took " << (TRI_microtime() - start) << " s";
             });
           }));
 }

@@ -41,9 +41,13 @@
 #include <velocypack/Slice.h>
 #include <velocypack/velocypack-aliases.h>
 
+#include <atomic>
+
 using namespace arangodb;
 using namespace arangodb::basics;
 using namespace arangodb::rest;
+
+std::atomic<uint64_t> operationId{0};
 
 RestImportHandler::RestImportHandler(application_features::ApplicationServer& server,
                                      GeneralRequest* request, GeneralResponse* response)
@@ -54,6 +58,11 @@ RestImportHandler::RestImportHandler(application_features::ApplicationServer& se
 RestStatus RestImportHandler::execute() {
   // set default value for onDuplicate
   _onDuplicateAction = DUPLICATE_ERROR;
+
+  uint64_t operationId = ::operationId.fetch_add(1, std::memory_order_relaxed);
+
+  LOG_TOPIC("12345", INFO, Logger::FIXME) << "starting import request with id " << operationId << ", payload size " << _request->rawPayload().size();
+  double start = TRI_microtime();
 
   bool found;
   std::string const& duplicateType = _request->value("onDuplicate", found);
@@ -122,6 +131,8 @@ RestStatus RestImportHandler::execute() {
       generateNotImplemented("ILLEGAL " + IMPORT_PATH);
       break;
   }
+
+  LOG_TOPIC("12345", INFO, Logger::FIXME) << "finished import request with id " << operationId << ", payload size " << _request->rawPayload().size() << ", took " << (TRI_microtime() - start) << " s to execute";
 
   // this handler is done
   return RestStatus::DONE;

@@ -485,7 +485,7 @@ void HttpCommTask<T>::processRequest() {
                             1, TRI_ERROR_BAD_PARAMETER, "decoding error");
     return;
   }
-
+    
   // create a handler and execute
   auto resp = std::make_unique<HttpResponse>(rest::ResponseCode::SERVER_ERROR, 1, nullptr);
   resp->setContentType(_request->contentTypeResponse());
@@ -630,6 +630,12 @@ void HttpCommTask<T>::sendResponse(std::unique_ptr<GeneralResponse> baseRes,
       << this->_connectionInfo.clientAddress << "\",\""
       << GeneralRequest::translateMethod(::llhttpToRequestType(&_parser)) << "\",\""
       << url() << "\",\"" << static_cast<int>(response.responseCode()) << "\","
+      << Logger::FIXED(stat.ELAPSED_SINCE_READ_START(), 6) << "," << Logger::FIXED(stat.ELAPSED_WHILE_QUEUED(), 6) ;
+  
+  LOG_TOPIC("12345", INFO, Logger::FIXME) 
+      << "\"http-request-end\",\"" << (void*)this << "\",\""
+      << GeneralRequest::translateMethod(::llhttpToRequestType(&_parser)) << "\",\""
+      << _url << "\",\"" << static_cast<int>(response.responseCode()) << "\","
       << Logger::FIXED(stat.ELAPSED_SINCE_READ_START(), 6) << "," << Logger::FIXED(stat.ELAPSED_WHILE_QUEUED(), 6) ;
 
   // sendResponse is always called from a scheduler thread

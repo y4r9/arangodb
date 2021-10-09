@@ -89,6 +89,7 @@
 #include <boost/uuid/uuid_io.hpp>
 
 #include <algorithm>
+#include <atomic>
 #include <numeric>
 #include <vector>
 #include <random>
@@ -103,6 +104,8 @@ using Helper = arangodb::basics::VelocyPackHelper;
 namespace {
 std::string const edgeUrl = "/_internal/traverser/edge/";
 std::string const vertexUrl = "/_internal/traverser/vertex/";
+
+std::atomic<uint64_t> operationId{0};
 }
 
 // Timeout for write operations, note that these are used for communication
@@ -1421,22 +1424,28 @@ Result selectivityEstimatesOnCoordinator(ClusterFeature& feature, std::string co
 futures::Future<OperationResult> createDocumentOnCoordinator(
     transaction::Methods const& trx, LogicalCollection& coll, VPackSlice const slice,
     OperationOptions const& options, transaction::MethodsApi api) {
-  const std::string collid = std::to_string(coll.id().id());
+  uint64_t operationId = ::operationId.fetch_add(1, std::memory_order_relaxed);
 
   // create vars used in this function
+  LOG_TOPIC("12345", INFO, Logger::FIXME) << "starting coordinator document insert operation " << operationId;
+  std::shared_ptr<ShardMap> shardIds = coll.shardIds();
+  double start = TRI_microtime();
   bool const useMultiple = slice.isArray();  // insert more than one document
   CreateOperationCtx opCtx;
   opCtx.options = options;
 
   // create shard map
+  size_t numDocs = 0;
   if (useMultiple) {
     for (VPackSlice value : VPackArrayIterator(slice)) {
       auto res = distributeBabyOnShards(opCtx, coll, value, options.isRestore);
       if (res != TRI_ERROR_NO_ERROR) {
         return makeFuture(OperationResult(res, options));
       }
+      ++numDocs;
     }
   } else {
+    numDocs = 1;
     auto res = distributeBabyOnShards(opCtx, coll, slice, options.isRestore);
     if (res != TRI_ERROR_NO_ERROR) {
       return makeFuture(OperationResult(res, options));
@@ -1508,7 +1517,7 @@ futures::Future<OperationResult> createDocumentOnCoordinator(
         reqBuilder.close();
       }
 
-      std::shared_ptr<ShardMap> shardIds = coll.shardIds();
+      LOG_TOPIC("12345", INFO, Logger::FIXME) << "- sending document insert request to shard " << it.first << ", buffer size: " << reqBuffer.size() << ", number of docs: " << it.second.size() << ", operation: " << operationId;
       network::Headers headers;
       addTransactionHeaderForShard(trx, *shardIds, /*shard*/ it.first, headers);
       auto future =
@@ -1522,7 +1531,8 @@ futures::Future<OperationResult> createDocumentOnCoordinator(
     if (!useMultiple) {  // single-shard fast track
       TRI_ASSERT(futures.size() == 1);
 
-      auto cb = [options](network::Response&& res) -> OperationResult {
+      auto cb = [options, start, numDocs, operationId](network::Response&& res) -> OperationResult {
+        LOG_TOPIC("12345", INFO, Logger::FIXME) << "finished coordinator document insert operation " << operationId << " with " << numDocs << " documents, took: " << (TRI_microtime() - start) << " s";
         if (res.error != fuerte::Error::NoError) {
           return OperationResult(network::fuerteToArangoErrorCode(res), options);
         }
@@ -1534,7 +1544,8 @@ futures::Future<OperationResult> createDocumentOnCoordinator(
     }
 
     return futures::collectAll(std::move(futures))
-        .thenValue([opCtx(std::move(opCtx))](std::vector<Try<network::Response>>&& results) -> OperationResult {
+        .thenValue([opCtx(std::move(opCtx)), operationId, start, numDocs](std::vector<Try<network::Response>>&& results) -> OperationResult {
+          LOG_TOPIC("12345", INFO, Logger::FIXME) << "finished coordinator document insert operation " << operationId << " with " << numDocs << " documents, took: " << (TRI_microtime() - start) << " s";
           return handleCRUDShardResponsesFast(network::clusterResultInsert, opCtx, results);
         });
   });
@@ -1777,8 +1788,6 @@ Future<OperationResult> getDocumentOnCoordinator(transaction::Methods& trx,
                                                  OperationOptions const& options,
                                                  transaction::MethodsApi api) {
   // Set a few variables needed for our work:
-
-  const std::string collid = std::to_string(coll.id().id());
   std::shared_ptr<ShardMap> shardIds = coll.shardIds();
 
   // If _key is the one and only sharding attribute, we can do this quickly,

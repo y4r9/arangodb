@@ -561,6 +561,8 @@ void SupervisedScheduler::runSupervisor() {
       _metricsNumWorkingThreads.operator=(numWorking);
       _metricsNumWorkerThreads.operator=(numWorkers);
       roundCount = 0;
+  
+      LOG_TOPIC("12345", INFO, Logger::FIXME) << "scheduler queue size: " << queueLength << ", last dequeue time: " << _metricsLastLowPriorityDequeueTime.load() << " ms, num workers: " << _numWorkers;
     }
 
     try {
@@ -722,6 +724,9 @@ std::unique_ptr<SupervisedScheduler::WorkItemBase> SupervisedScheduler::getWork(
         // if we can't pull from medium prio, then we will not be able to
         // pull from low prio.
         // so we can as well abort the search here and exit.
+        if (i == LowPriorityQueue) {
+          LOG_TOPIC("12345", INFO, Logger::FIXME) << "cannot pull from low priority queue";
+        }
         break;
       }
       maxCheckedQueue = i;
