@@ -128,7 +128,7 @@ void RestAqlHandler::setupClusterQuery() {
   }
   
   bool success = false;
-  VPackSlice querySlice = this->parseVPackBody(success);
+  VPackSlice querySlice = this->parseVPackBody(success, /*strictValidation*/ false);
   if (!success) {
     // if no success here, generateError will have been called already
     LOG_TOPIC("ef4ca", ERR, arangodb::Logger::AQL)
@@ -364,7 +364,7 @@ bool RestAqlHandler::killQuery(std::string const& idString) {
 // see comment in header for details
 RestStatus RestAqlHandler::useQuery(std::string const& operation, std::string const& idString) {
   bool success = false;
-  VPackSlice querySlice = this->parseVPackBody(success);
+  VPackSlice querySlice = this->parseVPackBody(success, /*strictValidation*/ false);
   if (!success) {
     return RestStatus::DONE;
   }
@@ -835,7 +835,7 @@ RestStatus RestAqlHandler::handleUseQuery(std::string const& operation,
 RestStatus RestAqlHandler::handleFinishQuery(std::string const& idString) {
   auto qid = arangodb::basics::StringUtils::uint64(idString);
   bool success = false;
-  VPackSlice querySlice = this->parseVPackBody(success);
+  VPackSlice querySlice = this->parseVPackBody(success, /*strictValidation*/ false);
   if (!success) {
     return RestStatus::DONE;
   }

@@ -355,7 +355,7 @@ class RocksDBEngine final : public StorageEngine {
   // returns whether sha files are created or not
   bool getCreateShaFiles() const { return _createShaFiles; }
 
-  // enabled or disable sha file creation. Requires feature not be started.
+  // enable or disable sha file creation. Requires feature not be started.
   void setCreateShaFiles(bool create) { _createShaFiles = create; }
 
   rocksdb::EncryptionProvider* encryptionProvider() const noexcept {

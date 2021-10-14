@@ -74,7 +74,7 @@ class RestBaseHandler : public rest::RestHandler {
  protected:
   
   /// @brief parses the body as VelocyPack, generates body
-  arangodb::velocypack::Slice parseVPackBody(bool& success);
+  arangodb::velocypack::Slice parseVPackBody(bool& success, bool strictValidation = true);
 
   template <typename Payload>
   void writeResult(Payload&&, arangodb::velocypack::Options const& options);

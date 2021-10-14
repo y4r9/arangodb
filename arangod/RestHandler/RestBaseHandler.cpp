@@ -46,10 +46,11 @@ RestBaseHandler::RestBaseHandler(application_features::ApplicationServer& server
 /// @brief parses the body as VelocyPack
 ////////////////////////////////////////////////////////////////////////////////
 
-arangodb::velocypack::Slice RestBaseHandler::parseVPackBody(bool& success) {
+arangodb::velocypack::Slice RestBaseHandler::parseVPackBody(bool& success,
+                                                            bool strictValidation) {
   try {
     success = true;
-    return _request->payload(true);
+    return _request->payload(strictValidation);
   } catch (VPackException const& e) {
     // simon: do not mess with the error message format, tests break
     std::string errmsg("VPackError error: ");

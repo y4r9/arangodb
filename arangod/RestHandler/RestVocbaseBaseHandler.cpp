@@ -298,9 +298,8 @@ std::string RestVocbaseBaseHandler::assembleDocumentId(std::string const& collec
 
 void RestVocbaseBaseHandler::generateSaved(arangodb::OperationResult const& result,
                                            std::string const& collectionName,
-                                           TRI_col_type_e type,
                                            VPackOptions const* options, bool isMultiple) {
-  generate20x(result, collectionName, type, options, isMultiple, rest::ResponseCode::CREATED);
+  generate20x(result, collectionName, options, isMultiple, rest::ResponseCode::CREATED);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -309,9 +308,8 @@ void RestVocbaseBaseHandler::generateSaved(arangodb::OperationResult const& resu
 
 void RestVocbaseBaseHandler::generateDeleted(arangodb::OperationResult const& result,
                                              std::string const& collectionName,
-                                             TRI_col_type_e type,
                                              VPackOptions const* options, bool isMultiple) {
-  generate20x(result, collectionName, type, options, isMultiple, rest::ResponseCode::OK);
+  generate20x(result, collectionName, options, isMultiple, rest::ResponseCode::OK);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -319,7 +317,7 @@ void RestVocbaseBaseHandler::generateDeleted(arangodb::OperationResult const& re
 ////////////////////////////////////////////////////////////////////////////////
 
 void RestVocbaseBaseHandler::generate20x(arangodb::OperationResult const& result,
-                                         std::string const& collectionName, TRI_col_type_e type,
+                                         std::string const& collectionName, 
                                          VPackOptions const* options, bool isMultiple,
                                          rest::ResponseCode waitForSyncResponseCode) {
   if (result.options.waitForSync) {
@@ -339,7 +337,7 @@ void RestVocbaseBaseHandler::generate20x(arangodb::OperationResult const& result
   }
 
   VPackSlice slice = result.slice();
-  if (slice.isNone()) {
+  if (result.options.silent && result.countErrorCodes.empty()) {
     // will happen if silent == true
     slice = arangodb::velocypack::Slice::emptyObjectSlice();
   } else {

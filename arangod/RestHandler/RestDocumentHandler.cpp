@@ -136,8 +136,9 @@ RestStatus RestDocumentHandler::insertDocument() {
     return RestStatus::DONE;
   }
 
+  bool strictValidation = !ServerState::instance()->isDBServer();
   bool parseSuccess = false;
-  VPackSlice body = this->parseVPackBody(parseSuccess);
+  VPackSlice body = this->parseVPackBody(parseSuccess, strictValidation);
   if (!parseSuccess) {  // error message generated in parseVPackBody
     return RestStatus::DONE;
   }
@@ -213,24 +214,22 @@ RestStatus RestDocumentHandler::insertDocument() {
   
   return waitForFuture(
       _activeTrx->insertAsync(cname, body, opOptions)
-          .thenValue([=](OperationResult&& opres) {
+          .thenValue([=](OperationResult&& opRes) {
             // Will commit if no error occured.
             // or abort if an error occured.
             // result stays valid!
-            return _activeTrx->finishAsync(opres.result).thenValue([=, opres(std::move(opres))](Result&& res) {
-              if (opres.fail()) {
-                generateTransactionError(cname, opres);
+            return _activeTrx->finishAsync(opRes.result).thenValue([=, opRes(std::move(opRes))](Result&& res) {
+              if (opRes.fail()) {
+                generateTransactionError(cname, opRes);
                 return;
               }
 
               if (res.fail()) {
-                generateTransactionError(cname, OperationResult(res, opOptions),
-                                         "");
+                generateTransactionError(cname, OperationResult(res, opOptions));
                 return;
               }
 
-              generateSaved(opres, cname,
-                            TRI_col_type_e(_activeTrx->getCollectionType(cname)),
+              generateSaved(opRes, cname,
                             _activeTrx->transactionContextPtr()->getVPackOptions(),
                             isMultiple);
             });
@@ -427,8 +426,9 @@ RestStatus RestDocumentHandler::modifyDocument(bool isPatch) {
     key = suffixes[1];
   }
 
+  bool strictValidation = !ServerState::instance()->isDBServer();
   bool parseSuccess = false;
-  VPackSlice body = this->parseVPackBody(parseSuccess);
+  VPackSlice body = this->parseVPackBody(parseSuccess, strictValidation);
   if (!parseSuccess) {  // error message generated in parseVPackBody
     return RestStatus::DONE;
   }
@@ -540,7 +540,7 @@ RestStatus RestDocumentHandler::modifyDocument(bool isPatch) {
     f = _activeTrx->replaceAsync(cname, body, opOptions);
   }
 
-  return waitForFuture(std::move(f).thenValue([=, buffer(std::move(buffer))](OperationResult opRes) {
+  return waitForFuture(std::move(f).thenValue([=](OperationResult opRes) {
     return _activeTrx->finishAsync(opRes.result).thenValue([=, opRes(std::move(opRes))](Result&& res) {
       // ...........................................................................
       // outside write transaction
@@ -556,7 +556,7 @@ RestStatus RestDocumentHandler::modifyDocument(bool isPatch) {
         return;
       }
 
-      generateSaved(opRes, cname, TRI_col_type_e(_activeTrx->getCollectionType(cname)),
+      generateSaved(opRes, cname,
                     _activeTrx->transactionContextPtr()->getVPackOptions(), isArrayCase);
     });
   }));
@@ -626,8 +626,9 @@ RestStatus RestDocumentHandler::removeDocument() {
 
     search = builder.slice();
   } else {
+    bool strictValidation = !ServerState::instance()->isDBServer();
     bool parseSuccess = false;
-    search = this->parseVPackBody(parseSuccess);
+    search = this->parseVPackBody(parseSuccess, strictValidation);
     if (!parseSuccess) {  // error message generated in parseVPackBody
       return RestStatus::DONE;
     }
@@ -687,7 +688,6 @@ RestStatus RestDocumentHandler::removeDocument() {
           }
 
           generateDeleted(opRes, cname,
-                          TRI_col_type_e(_activeTrx->getCollectionType(cname)),
                           _activeTrx->transactionContextPtr()->getVPackOptions(), isMultiple);
         });
       }));
@@ -725,8 +725,9 @@ RestStatus RestDocumentHandler::readManyDocuments() {
     return RestStatus::DONE;
   }
 
+  bool strictValidation = !ServerState::instance()->isDBServer();
   bool success;
-  VPackSlice const search = this->parseVPackBody(success);
+  VPackSlice const search = this->parseVPackBody(success, strictValidation);
   if (!success) {  // error message generated in parseVPackBody
     return RestStatus::DONE;
   }

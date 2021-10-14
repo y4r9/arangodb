@@ -195,6 +195,62 @@ void addTransactionHeaderForShard(transaction::Methods const& trx, ShardMap cons
   }
 }
 
+void addWaitForSyncParameter(network::RequestOptions& reqOpts,
+                             OperationOptions const& options) {
+  // default value for "waitForSync" is false!
+  if (options.waitForSync) {
+    reqOpts.parameters.insert_or_assign(StaticStrings::WaitForSyncString, "true");
+  }
+}
+
+void addReturnNewParameter(network::RequestOptions& reqOpts,
+                           OperationOptions const& options) {
+  // default value for "returnNew" is false!
+  if (options.returnNew) {
+    reqOpts.parameters.insert_or_assign(StaticStrings::ReturnNewString, "true");
+  }
+}
+
+void addReturnOldParameter(network::RequestOptions& reqOpts,
+                           OperationOptions const& options) {
+  // default value for "returnOld" is false!
+  if (options.returnOld) {
+    reqOpts.parameters.insert_or_assign(StaticStrings::ReturnOldString, "true");
+  }
+}
+
+void addIsRestoreParameter(network::RequestOptions& reqOpts,
+                           OperationOptions const& options) {
+  // default value for "isRestore" is false!
+  if (options.isRestore) {
+    reqOpts.parameters.insert_or_assign(StaticStrings::IsRestoreString, "true");
+  }
+}
+
+void addIgnoreRevsParameter(network::RequestOptions& reqOpts,
+                            OperationOptions const& options) {
+  // default value for "ignoreRevs" is true!
+  if (!options.ignoreRevs) {
+    reqOpts.parameters.insert_or_assign(StaticStrings::IgnoreRevsString, "false");
+  }
+}
+
+void addSilentParameter(network::RequestOptions& reqOpts,
+                        OperationOptions const& options) {
+  // default value for "silent" is false!
+  if (options.silent) {
+    reqOpts.parameters.insert_or_assign(StaticStrings::SilentString, "true");
+  }
+}
+
+void addValidationParameter(network::RequestOptions& reqOpts,
+                            OperationOptions const& options) {
+  // default value for "validate" is false!
+  if (!options.validate) {
+    reqOpts.parameters.insert_or_assign(StaticStrings::SkipDocumentValidation, "true");
+  }
+}
+
 /// @brief iterate over shard responses and compile a result
 /// This will take care of checking the fuerte responses. If the response has
 /// a body, then the callback will be called on the body, with access to the
@@ -303,7 +359,7 @@ void mergeResultsAllShards(std::vector<VPackSlice> const& results, VPackBuilder&
   }
 }
 
-/// @brief handle CRUD api shard responses, slow path
+/// @brief handle CRUD API shard responses, fast path
 template <typename F, typename CT>
 OperationResult handleCRUDShardResponsesFast(F&& func, CT const& opCtx,
                                              std::vector<Try<network::Response>> const& results) {
@@ -320,9 +376,9 @@ OperationResult handleCRUDShardResponsesFast(F&& func, CT const& opCtx,
 
     auto commError = network::fuerteToArangoErrorCode(res);
     if (commError != TRI_ERROR_NO_ERROR) {
-      shardError.try_emplace(sId, commError);
+      shardError.try_emplace(std::move(sId), commError);
     } else {
-      resultMap.try_emplace(sId, res.slice());
+      resultMap.try_emplace(std::move(sId), res.slice());
       network::errorCodesFromHeaders(res.response().header.meta(), errorCounter, true);
       code = res.statusCode();
     }
@@ -351,16 +407,16 @@ OperationResult handleCRUDShardResponsesFast(F&& func, CT const& opCtx,
       VPackSlice arr = it->second;
       // we expect an array of baby-documents, but the response might
       // also be an error, if the DBServer threw a hissy fit
-      if (arr.isObject() && arr.hasKey(StaticStrings::Error) &&
-          arr.get(StaticStrings::Error).isBoolean() &&
-          arr.get(StaticStrings::Error).getBoolean()) {
-        // an error occurred, now rethrow the error
-        auto res = ::ErrorCode{arr.get(StaticStrings::ErrorNum).getNumericValue<int>()};
-        VPackSlice msg = arr.get(StaticStrings::ErrorMessage);
-        if (msg.isString()) {
-          THROW_ARANGO_EXCEPTION_MESSAGE(res, msg.copyString());
-        } else {
-          THROW_ARANGO_EXCEPTION(res);
+      if (arr.isObject()) {
+        if (VPackSlice s = arr.get(StaticStrings::Error); s.isBoolean() && s.getBoolean()) {
+          // an error occurred, now rethrow the error
+          auto res = ::ErrorCode{arr.get(StaticStrings::ErrorNum).getNumericValue<int>()};
+          VPackSlice msg = arr.get(StaticStrings::ErrorMessage);
+          if (msg.isString()) {
+            THROW_ARANGO_EXCEPTION_MESSAGE(res, msg.copyString());
+          } else {
+            THROW_ARANGO_EXCEPTION(res);
+          }
         }
       }
       resultBody.add(arr.at(pair.second));
@@ -1462,16 +1518,19 @@ futures::Future<OperationResult> createDocumentOnCoordinator(
     reqOpts.timeout = network::Timeout(CL_DEFAULT_LONG_TIMEOUT);
     reqOpts.retryNotFound = true;
     reqOpts.skipScheduler = api == transaction::MethodsApi::Synchronous;
-    reqOpts.param(StaticStrings::WaitForSyncString, (options.waitForSync ? "true" : "false"))
-           .param(StaticStrings::ReturnNewString, (options.returnNew ? "true" : "false"))
-           .param(StaticStrings::ReturnOldString, (options.returnOld ? "true" : "false"))
-           .param(StaticStrings::IsRestoreString, (options.isRestore ? "true" : "false"))
-           .param(StaticStrings::KeepNullString, (options.keepNull ? "true" : "false"))
-           .param(StaticStrings::MergeObjectsString, (options.mergeObjects ? "true" : "false"))
-           .param(StaticStrings::SkipDocumentValidation, (options.validate ? "false" : "true"));
+    addWaitForSyncParameter(reqOpts, options);
+    addIsRestoreParameter(reqOpts, options);
+    addReturnNewParameter(reqOpts, options);
+    addValidationParameter(reqOpts, options);
     if (options.isOverwriteModeSet()) {
+      // the following options only need to be set if an overwriteMode is used
       reqOpts.parameters.insert_or_assign(StaticStrings::OverwriteMode,
                                           OperationOptions::stringifyOverwriteMode(options.overwriteMode));
+      reqOpts.parameters.insert_or_assign(StaticStrings::KeepNullString, 
+                                          (options.keepNull ? "true" : "false"));
+      reqOpts.parameters.insert_or_assign(StaticStrings::MergeObjectsString, 
+                                          (options.mergeObjects ? "true" : "false"));
+      addReturnOldParameter(reqOpts, options);
     }
 
     // Now prepare the requests:
@@ -1578,11 +1637,11 @@ futures::Future<OperationResult> removeDocumentOnCoordinator(
   reqOpts.timeout = network::Timeout(CL_DEFAULT_LONG_TIMEOUT);
   reqOpts.retryNotFound = true;
   reqOpts.skipScheduler = api == transaction::MethodsApi::Synchronous;
-  reqOpts.param(StaticStrings::WaitForSyncString, (options.waitForSync ? "true" : "false"))
-         .param(StaticStrings::ReturnOldString, (options.returnOld ? "true" : "false"))
-         .param(StaticStrings::IgnoreRevsString, (options.ignoreRevs ? "true" : "false"));
+  addWaitForSyncParameter(reqOpts, options);
+  addReturnOldParameter(reqOpts, options);
+  addIgnoreRevsParameter(reqOpts, options);
 
-  const bool isManaged = trx.state()->hasHint(transaction::Hints::Hint::GLOBAL_MANAGED);
+  bool const isManaged = trx.state()->hasHint(transaction::Hints::Hint::GLOBAL_MANAGED);
 
   if (canUseFastPath) {
     // All shard keys are known in all documents.
@@ -1808,7 +1867,7 @@ Future<OperationResult> getDocumentOnCoordinator(transaction::Methods& trx,
   }
 
   // lazily begin transactions on leaders
-  const bool isManaged = trx.state()->hasHint(transaction::Hints::Hint::GLOBAL_MANAGED);
+  bool const isManaged = trx.state()->hasHint(transaction::Hints::Hint::GLOBAL_MANAGED);
 
   // Some stuff to prepare cluster-internal requests:
 
@@ -1816,16 +1875,14 @@ Future<OperationResult> getDocumentOnCoordinator(transaction::Methods& trx,
   reqOpts.database = trx.vocbase().name();
   reqOpts.retryNotFound = true;
   reqOpts.skipScheduler = api == transaction::MethodsApi::Synchronous;
-  reqOpts.param(StaticStrings::IgnoreRevsString, (options.ignoreRevs ? "true" : "false"));
+  addIgnoreRevsParameter(reqOpts, options);
 
   fuerte::RestVerb restVerb;
   if (!useMultiple) {
     restVerb = options.silent ? fuerte::RestVerb::Head : fuerte::RestVerb::Get;
   } else {
     restVerb = fuerte::RestVerb::Put;
-    if (options.silent) {
-      reqOpts.param(StaticStrings::SilentString, "true");
-    }
+    addSilentParameter(reqOpts, options);
     reqOpts.param("onlyget", "true");
   }
 
@@ -2339,10 +2396,10 @@ futures::Future<OperationResult> modifyDocumentOnCoordinator(
   reqOpts.timeout = network::Timeout(CL_DEFAULT_LONG_TIMEOUT);
   reqOpts.retryNotFound = true;
   reqOpts.skipScheduler = api == transaction::MethodsApi::Synchronous;
-  reqOpts.param(StaticStrings::WaitForSyncString, (options.waitForSync ? "true" : "false"))
-         .param(StaticStrings::IgnoreRevsString, (options.ignoreRevs ? "true" : "false"))
-         .param(StaticStrings::SkipDocumentValidation, (options.validate ? "false" : "true"))
-         .param(StaticStrings::IsRestoreString, (options.isRestore ? "true" : "false"));
+  addWaitForSyncParameter(reqOpts, options);
+  addIgnoreRevsParameter(reqOpts, options);
+  addIsRestoreParameter(reqOpts, options);
+  addValidationParameter(reqOpts, options);
 
   fuerte::RestVerb restVerb;
   if (isPatch) {
@@ -2354,14 +2411,10 @@ futures::Future<OperationResult> modifyDocumentOnCoordinator(
   } else {
     restVerb = fuerte::RestVerb::Put;
   }
-  if (options.returnNew) {
-    reqOpts.param(StaticStrings::ReturnNewString, "true");
-  }
-  if (options.returnOld) {
-    reqOpts.param(StaticStrings::ReturnOldString, "true");
-  }
+  addReturnNewParameter(reqOpts, options);
+  addReturnOldParameter(reqOpts, options);
 
-  const bool isManaged = trx.state()->hasHint(transaction::Hints::Hint::GLOBAL_MANAGED);
+  bool const isManaged = trx.state()->hasHint(transaction::Hints::Hint::GLOBAL_MANAGED);
 
   if (canUseFastPath) {
     // All shard keys are known in all documents.
@@ -2383,7 +2436,7 @@ futures::Future<OperationResult> modifyDocumentOnCoordinator(
       futures.reserve(opCtx.shardMap.size());
 
       for (auto const& it : opCtx.shardMap) {
-        std::string url;
+        std::string url = "/_api/document/" + StringUtils::urlEncode(it.first);
         VPackBuffer<uint8_t> buffer;
 
         if (!useMultiple) {
@@ -2391,14 +2444,10 @@ futures::Future<OperationResult> modifyDocumentOnCoordinator(
           TRI_ASSERT(slice.isObject());
           VPackStringRef const ref(slice.get(StaticStrings::KeyString));
           // We send to single endpoint
-          url = "/_api/document/" + StringUtils::urlEncode(it.first) + "/" +
-                StringUtils::urlEncode(ref.data(), ref.length());
+          url += "/" + StringUtils::urlEncode(ref.data(), ref.length());
           buffer.append(slice.begin(), slice.byteSize());
-
         } else {
           // We send to Babies endpoint
-          url = "/_api/document/" + StringUtils::urlEncode(it.first);
-
           VPackBuilder builder(buffer);
           builder.clear();
           builder.openArray(/*unindexed*/true);
@@ -2458,13 +2507,11 @@ futures::Future<OperationResult> modifyDocumentOnCoordinator(
       network::Headers headers;
       addTransactionHeaderForShard(trx, *shardIds, shard, headers);
 
-      std::string url;
-      if (!useMultiple) { // send to single API
+      std::string url = "/_api/document/" + StringUtils::urlEncode(shard);
+      if (!useMultiple) { 
+        // send to single API
         VPackStringRef const key(slice.get(StaticStrings::KeyString));
-        url = "/_api/document/" + StringUtils::urlEncode(shard) + "/" +
-              StringUtils::urlEncode(key.data(), key.size());
-      } else {
-        url = "/_api/document/" + StringUtils::urlEncode(shard);
+        url += "/" + StringUtils::urlEncode(key.data(), key.size());
       }
       futures.emplace_back(
           network::sendRequestRetry(pool, "shard:" + shard, restVerb,
