@@ -42,16 +42,16 @@ function runSetup () {
   db._dropView('UnitTestsRecoveryView');
   db._dropView('UnitTestsRecoveryView2');
   try { analyzers.remove('calcAnalyzer', true); } catch(e) {}
-  db._createView('UnitTestsRecoveryView', 'arangosearch', {});
-  db._createView('UnitTestsRecoveryView2', 'arangosearch', {});
-  db._createView('UnitTestsRecoveryView3', 'arangosearch', {});
-  db._createView('UnitTestsRecoveryView4', 'arangosearch', {});
-  db._createView('UnitTestsRecoveryView5', 'arangosearch', {});
+  db._createView('UnitTestsRecoveryView', 'arangosearch', {cleanupIntervalStep:0});
+  db._createView('UnitTestsRecoveryView2', 'arangosearch', {cleanupIntervalStep:0});
+  db._createView('UnitTestsRecoveryView3', 'arangosearch', {cleanupIntervalStep:0});
+  db._createView('UnitTestsRecoveryView4', 'arangosearch', {cleanupIntervalStep:0});
+  db._createView('UnitTestsRecoveryView5', 'arangosearch', {cleanupIntervalStep:0});
   analyzers.save('calcAnalyzer',"aql",{queryString:"RETURN SOUNDEX(@param)"});
 
-  var meta = { links: { 'UnitTestsRecoveryDummy': { includeAllFields: true } } };
+  var meta = {cleanupIntervalStep:0, links: { 'UnitTestsRecoveryDummy': { includeAllFields: true } } };
   db._view('UnitTestsRecoveryView').properties(meta);
-  var meta2 = { links: { 'UnitTestsRecoveryDummy': { includeAllFields: true, analyzers:['calcAnalyzer'] } } };
+  var meta2 = {cleanupIntervalStep:0, links: { 'UnitTestsRecoveryDummy': { includeAllFields: true, analyzers:['calcAnalyzer'] } } };
   db._view('UnitTestsRecoveryView2').properties(meta2);
   db._view('UnitTestsRecoveryView3').properties(meta);
   db._view('UnitTestsRecoveryView4').properties(meta);
