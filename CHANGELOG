@@ -8,8 +8,12 @@ v3.8.3 (XXXX-XX-XX)
   the execution of a query with this option (after version 3.8, this option 
   cannot be switched off). 
 
+* arangorestore: Fix the order (regarding distributeShardsLike) in which
+  collections are being created during restore, which could result in an error
+  and make manual intervention necessary.
 
-v3.8.2 (XXXX-XX-XX)
+
+v3.8.2 (2021-10-26)
 -------------------
 
 * Updated ArangoDB Starter to 0.15.3.
