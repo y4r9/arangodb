@@ -43,6 +43,7 @@ namespace iresearch {
     if (!acceptor(filename)) {
       tmp_ref = refs.add(std::string(filename));
     } else if (!count && dir.remove(filename)) {
+      IR_FRMT_ERROR("Remove path: '%s'", filename.c_str());
       ++remove_count;
     }
 
