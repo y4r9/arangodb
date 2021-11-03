@@ -403,8 +403,8 @@ auto replicated_log::CommitFailReason::withQuorumSizeNotReached() noexcept -> Co
   return CommitFailReason(std::in_place, QuorumSizeNotReached{});
 }
 
-auto replicated_log::CommitFailReason::withForcedParticipantNotInQuorum() noexcept -> CommitFailReason {
-  return CommitFailReason(std::in_place, ForcedParticipantNotInQuorum{});
+auto replicated_log::CommitFailReason::withForcedParticipantNotInQuorum(ParticipantId const& which) noexcept -> CommitFailReason {
+  return CommitFailReason(std::in_place, ForcedParticipantNotInQuorum{which});
 }
 
 namespace {
@@ -414,6 +414,8 @@ inline constexpr std::string_view QuorumSizeNotReachedEnum =
     "QuorumSizeNotReached";
 inline constexpr std::string_view ForcedParticipantNotInQuorumEnum =
     "ForcedParticipantNotInQuorum";
+
+inline constexpr std::string_view ParticipantFieldName = "participant";
 }  // namespace
 
 auto replicated_log::CommitFailReason::NothingToCommit::fromVelocyPack(velocypack::Slice s)
@@ -452,15 +454,16 @@ auto replicated_log::CommitFailReason::ForcedParticipantNotInQuorum::fromVelocyP
   TRI_ASSERT(s.get(ReasonFieldName).isEqualString(VPackStringRef(ForcedParticipantNotInQuorumEnum)))
       << "Expected string `" << ForcedParticipantNotInQuorumEnum
       << "`, found: " << s.stringView();
-  return {};
+  TRI_ASSERT(s.get(ParticipantFieldName).isString())
+    << "Expected string, found: " << s.toJson();
+  return {s.get(ParticipantFieldName).copyString()};
 }
 
 void replicated_log::CommitFailReason::ForcedParticipantNotInQuorum::toVelocyPack(velocypack::Builder& builder) const {
   VPackObjectBuilder obj(&builder);
   builder.add(VPackStringRef(ReasonFieldName), VPackValue(ForcedParticipantNotInQuorumEnum));
+  builder.add(VPackStringRef(ParticipantFieldName), VPackValue(which));
 }
-
-
 
 auto replicated_log::CommitFailReason::fromVelocyPack(velocypack::Slice s) -> CommitFailReason {
   auto reason = s.get(ReasonFieldName).stringView();

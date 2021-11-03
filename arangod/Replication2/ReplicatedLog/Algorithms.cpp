@@ -484,7 +484,7 @@ auto algorithms::calculateCommitIndex(std::vector<ParticipantStateTuple> const& 
     if (spearhead == commitIndex) {
       return {commitIndex, CommitFailReason::withNothingToCommit(), quorum};
     } else if (minForcedCommitIndex < minNonExcludedCommitIndex) {
-      return {commitIndex, CommitFailReason::withForcedParticipantNotInQuorum(), {}};
+      return {commitIndex, CommitFailReason::withForcedParticipantNotInQuorum({}), {}};
     } else {
       return {commitIndex, CommitFailReason::withQuorumSizeNotReached(), quorum};
     }
