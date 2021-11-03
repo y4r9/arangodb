@@ -496,6 +496,13 @@ void flush_index_segment(directory& dir, index_meta::index_segment_t& segment) {
 
     if (!dir.length(size, filename)) {
       IR_FRMT_WARN("Failed to get length of the file '%s'", filename.c_str());
+
+      auto& refs = dir.attributes().refs().refs();
+      auto visitor = [](const std::string& filename, size_t count) -> bool {
+        IR_FRMT_WARN("Reference '%s' Count: %ul", filename.c_str(), count);
+        return true;
+      };
+      refs.visit(visitor, true);
       continue;
     }
 

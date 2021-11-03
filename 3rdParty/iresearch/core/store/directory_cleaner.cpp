@@ -37,13 +37,15 @@ namespace iresearch {
 
   size_t remove_count = 0;
   index_file_refs::ref_t tmp_ref;
-  auto visitor = [&dir, &refs, &acceptor, &remove_count, &tmp_ref](
+  std::unordered_set<std::string> removed;
+  auto visitor = [&dir, &refs, &acceptor, &remove_count, &tmp_ref, &removed](
       const std::string& filename, size_t count )->bool {
     // for retained files add a temporary reference to avoid removal
+
     if (!acceptor(filename)) {
       tmp_ref = refs.add(std::string(filename));
     } else if (!count && dir.remove(filename)) {
-      IR_FRMT_ERROR("Remove path: '%s'", filename.c_str());
+      removed.insert(std::string(filename));
       ++remove_count;
     }
 
@@ -51,7 +53,13 @@ namespace iresearch {
   };
 
   refs.visit(visitor, true);
-
+  if (remove_count > 0) {
+    std::string total_removed;
+    for (auto const& s : removed) {
+      total_removed.append(",").append(s);
+    }
+    IR_FRMT_ERROR("Remove path: '%s'", total_removed.c_str());
+  }
   return remove_count;
 }
 
