@@ -290,8 +290,8 @@ struct CommitTask : Task<CommitTask> {
   void finalize(IResearchLink* link, IResearchLink::CommitResult code);
 
   size_t cleanupIntervalCount{};
-  std::chrono::milliseconds commitIntervalMsec{};
-  std::chrono::milliseconds consolidationIntervalMsec{};
+  std::chrono::milliseconds commitIntervalMs{};
+  std::chrono::milliseconds consolidationIntervalMs{};
   size_t cleanupIntervalStep{};
 };  // CommitTask
 
@@ -301,7 +301,7 @@ void CommitTask::finalize(IResearchLink* link, IResearchLink::CommitResult code)
 
   if (code != IResearchLink::CommitResult::NO_CHANGES) {
     ++state->pendingCommits;
-    schedule(commitIntervalMsec);
+    schedule(commitIntervalMs);
 
     if (code == IResearchLink::CommitResult::DONE) {
       state->noopCommitCount = 0;
@@ -309,7 +309,7 @@ void CommitTask::finalize(IResearchLink* link, IResearchLink::CommitResult code)
 
       if (state->pendingConsolidations < MAX_PENDING_CONSOLIDATIONS &&
           ++state->nonEmptyCommits > MAX_NON_EMPTY_COMMITS) {
-        link->scheduleConsolidation(consolidationIntervalMsec);
+        link->scheduleConsolidation(consolidationIntervalMs);
         state->nonEmptyCommits = 0;
       }
     }
@@ -319,7 +319,7 @@ void CommitTask::finalize(IResearchLink* link, IResearchLink::CommitResult code)
 
     for (auto count = state->pendingCommits.load(); count < 1;) {
       if (state->pendingCommits.compare_exchange_weak(count, 1)) {
-        schedule(commitIntervalMsec);
+        schedule(commitIntervalMs);
         break;
       }
     }
@@ -346,7 +346,7 @@ void CommitTask::operator()() {
 
     // blindly reschedule commit task
     ++state->pendingCommits;
-    schedule(commitIntervalMsec);
+    schedule(commitIntervalMs);
     return;
   }
 
@@ -377,12 +377,12 @@ void CommitTask::operator()() {
     READ_LOCKER(lock, linkPtr->_dataStore._mutex);  // '_meta' can be asynchronously modified
     auto& meta = linkPtr->_dataStore._meta;
 
-    commitIntervalMsec = std::chrono::milliseconds(meta._commitIntervalMsec);
-    consolidationIntervalMsec = std::chrono::milliseconds(meta._consolidationIntervalMsec);
+    commitIntervalMs = std::chrono::milliseconds(meta._commitIntervalMs);
+    consolidationIntervalMs = std::chrono::milliseconds(meta._consolidationIntervalMs);
     cleanupIntervalStep = meta._cleanupIntervalStep;
   }
 
-  if (std::chrono::milliseconds::zero() == commitIntervalMsec) {
+  if (std::chrono::milliseconds::zero() == commitIntervalMs) {
     reschedule.cancel();
 
     LOG_TOPIC("eba4a", DEBUG, iresearch::TOPIC)
@@ -466,7 +466,7 @@ struct ConsolidationTask : Task<ConsolidationTask> {
 
   irs::merge_writer::flush_progress_t progress;
   IResearchViewMeta::ConsolidationPolicy consolidationPolicy;
-  std::chrono::milliseconds consolidationIntervalMsec{};
+  std::chrono::milliseconds consolidationIntervalMs{};
 };  // ConsolidationTask
 
 void ConsolidationTask::operator()() {
@@ -489,7 +489,7 @@ void ConsolidationTask::operator()() {
 
     // blindly reschedule consolidation task
     ++state->pendingConsolidations;
-    schedule(consolidationIntervalMsec);
+    schedule(consolidationIntervalMs);
     return;
   }
 
@@ -503,7 +503,7 @@ void ConsolidationTask::operator()() {
     try {
       for (auto count = state->pendingConsolidations.load(); count < 1;) {
         if (state->pendingConsolidations.compare_exchange_weak(count, count + 1)) {
-          schedule(consolidationIntervalMsec);
+          schedule(consolidationIntervalMs);
           break;
         }
       }
@@ -523,10 +523,10 @@ void ConsolidationTask::operator()() {
     auto& meta = linkPtr->_dataStore._meta;
 
     consolidationPolicy = meta._consolidationPolicy;
-    consolidationIntervalMsec = std::chrono::milliseconds(meta._consolidationIntervalMsec);
+    consolidationIntervalMs = std::chrono::milliseconds(meta._consolidationIntervalMs);
   }
 
-  if (std::chrono::milliseconds::zero() == consolidationIntervalMsec  // disabled via interval
+  if (std::chrono::milliseconds::zero() == consolidationIntervalMs  // disabled via interval
       || !consolidationPolicy.policy()) {  // disabled via policy
     reschedule.cancel();
 
@@ -542,7 +542,7 @@ void ConsolidationTask::operator()() {
   if (state->noopCommitCount < MAX_NOOP_COMMITS &&
       state->noopConsolidationCount < MAX_NOOP_CONSOLIDATIONS) {
     ++state->pendingConsolidations;
-    schedule(consolidationIntervalMsec);
+    schedule(consolidationIntervalMs);
   }
 
   TRI_IF_FAILURE("IResearchConsolidationTask::consolidateUnsafe") {
@@ -1425,8 +1425,8 @@ Result IResearchLink::initDataStore(InitCallback const& initCallback,
 
   // reset data store meta, will be updated at runtime via properties(...)
   _dataStore._meta._cleanupIntervalStep = 0;        // 0 == disable
-  _dataStore._meta._commitIntervalMsec = 0;         // 0 == disable
-  _dataStore._meta._consolidationIntervalMsec = 0;  // 0 == disable
+  _dataStore._meta._commitIntervalMs = 0;         // 0 == disable
+  _dataStore._meta._consolidationIntervalMs = 0;  // 0 == disable
   _dataStore._meta._consolidationPolicy = IResearchViewMeta::ConsolidationPolicy();  // disable
   _dataStore._meta._writebufferActive = options.segment_count_max;
   _dataStore._meta._writebufferIdle = options.segment_pool_size;
@@ -1486,12 +1486,12 @@ Result IResearchLink::initDataStore(InitCallback const& initCallback,
         flushFeature.registerFlushSubscription(link->_flushSubscription);
 
         // setup asynchronous tasks for commit, cleanup if enabled
-        if (dataStore._meta._commitIntervalMsec) {
+        if (dataStore._meta._commitIntervalMs) {
           link->scheduleCommit(0ms);
         }
 
         // setup asynchronous tasks for consolidation if enabled
-        if (dataStore._meta._consolidationIntervalMsec) {
+        if (dataStore._meta._consolidationIntervalMs) {
           link->scheduleConsolidation(0ms);
         }
 
@@ -1704,12 +1704,12 @@ Result IResearchLink::properties(IResearchViewMeta const& meta) {
   }
 
   if (_engine->recoveryState() == RecoveryState::DONE) {
-    if (meta._commitIntervalMsec) {
-      scheduleCommit(std::chrono::milliseconds(meta._commitIntervalMsec));
+    if (meta._commitIntervalMs) {
+      scheduleCommit(std::chrono::milliseconds(meta._commitIntervalMs));
     }
 
-    if (meta._consolidationIntervalMsec && meta._consolidationPolicy.policy()) {
-      scheduleConsolidation(std::chrono::milliseconds(meta._consolidationIntervalMsec));
+    if (meta._consolidationIntervalMs && meta._consolidationPolicy.policy()) {
+      scheduleConsolidation(std::chrono::milliseconds(meta._consolidationIntervalMs));
     }
   }
 
