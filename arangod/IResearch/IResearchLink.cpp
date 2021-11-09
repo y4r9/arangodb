@@ -172,11 +172,11 @@ Result insertDocument(irs::index_writer::documents_context& ctx,
 
   // Stored value field
   {
-    StoredValue sorted(trx, meta._collectionName, document, id);
+    StoredValue stored(trx, meta._collectionName, document, id);
     for (auto const& column : meta._storedValues.columns()) {
-      sorted.fieldName = column.name;
-      sorted.fields = &column.fields;
-      doc.insert<irs::Action::STORE>(sorted);
+      stored.fieldName = column.name;
+      stored.fields = &column.fields;
+      doc.insert<irs::Action::STORE>(stored);
     }
   }
 
@@ -270,10 +270,10 @@ struct Task {
 template <typename T>
 T getMetric(const IResearchLink& link) {
   T metric;
-  metric.addLabel("viewId", std::move(link.getViewId()));
-  metric.addLabel("collId", std::move(link.getCollectionName()));
-  metric.addLabel("shardName", std::move(link.getShardName()));
-  metric.addLabel("dbName", std::move(link.getDbName()));
+  metric.addLabel("viewId", link.getViewId());
+  metric.addLabel("collId", link.getCollectionName());
+  metric.addLabel("shardName", link.getShardName());
+  metric.addLabel("dbName", link.getDbName());
   return metric;
 }
 
@@ -1284,27 +1284,19 @@ Result IResearchLink::init(velocypack::Slice const& definition,
   // of for DB Server. But in case of DB Server we must check that
   // link created for actual dataStore and not for ClusterInfo
   if (ServerState::instance()->isSingleServer() || !clusterWideLink) {
-    _linkStats =
-        &_collection.vocbase().server().getFeature<arangodb::MetricsFeature>().add(
-            getMetric<arangodb_arangosearch_link_stats>(*this));
+    auto& metric = _collection.vocbase().server().getFeature<arangodb::MetricsFeature>();
+    _linkStats = &metric.add(getMetric<arangodb_arangosearch_link_stats>(*this));
     _numFailedCommits =
-        &_collection.vocbase().server().getFeature<arangodb::MetricsFeature>().add(
-            getMetric<arangodb_arangosearch_num_failed_commits>(*this));
+        &metric.add(getMetric<arangodb_arangosearch_num_failed_commits>(*this));
     _numFailedCleanups =
-        &_collection.vocbase().server().getFeature<arangodb::MetricsFeature>().add(
-            getMetric<arangodb_arangosearch_num_failed_cleanups>(*this));
+        &metric.add(getMetric<arangodb_arangosearch_num_failed_cleanups>(*this));
     _numFailedConsolidations =
-        &_collection.vocbase().server().getFeature<arangodb::MetricsFeature>().add(
-            getMetric<arangodb_arangosearch_num_failed_consolidations>(*this));
-    _allCommitTimeMs =
-        &_collection.vocbase().server().getFeature<arangodb::MetricsFeature>().add(
-            getMetric<arangodb_arangosearch_commit_time>(*this));
+        &metric.add(getMetric<arangodb_arangosearch_num_failed_consolidations>(*this));
+    _allCommitTimeMs = &metric.add(getMetric<arangodb_arangosearch_commit_time>(*this));
     _allCleanupTimeMs =
-        &_collection.vocbase().server().getFeature<arangodb::MetricsFeature>().add(
-            getMetric<arangodb_arangosearch_cleanup_time>(*this));
+        &metric.add(getMetric<arangodb_arangosearch_cleanup_time>(*this));
     _allConsolidationTimeMs =
-        &_collection.vocbase().server().getFeature<arangodb::MetricsFeature>().add(
-            getMetric<arangodb_arangosearch_consolidation_time>(*this));
+        &metric.add(getMetric<arangodb_arangosearch_consolidation_time>(*this));
   }
 
   return {};
@@ -1616,8 +1608,8 @@ Result IResearchLink::insert(transaction::Methods& trx,
     return {};
   }
 
-  auto insertImpl = [this, doc, documentId,
-                     &trx](irs::index_writer::documents_context& ctx) -> Result {
+  auto insertImpl = [this, doc, documentId, &trx]  //
+      (irs::index_writer::documents_context & ctx) -> Result {
     try {
       FieldIterator body(trx, _meta._collectionName, _id);
 
@@ -2042,40 +2034,35 @@ IResearchViewStoredValues const& IResearchLink::storedValues() const noexcept {
 }
 
 void IResearchLink::removeStats() {
+  auto& metricFeature =
+      _collection.vocbase().server().getFeature<arangodb::MetricsFeature>();
   if (_linkStats) {
     _linkStats = nullptr;
-    _collection.vocbase().server().getFeature<arangodb::MetricsFeature>().remove(
-        getMetric<arangodb_arangosearch_link_stats>(*this));
+    metricFeature.remove(getMetric<arangodb_arangosearch_link_stats>(*this));
   }
   if (_numFailedCommits) {
     _numFailedCommits = nullptr;
-    _collection.vocbase().server().getFeature<arangodb::MetricsFeature>().remove(
-        getMetric<arangodb_arangosearch_num_failed_commits>(*this));
+    metricFeature.remove(getMetric<arangodb_arangosearch_num_failed_commits>(*this));
   }
   if (_numFailedCleanups) {
     _numFailedCleanups = nullptr;
-    _collection.vocbase().server().getFeature<arangodb::MetricsFeature>().remove(
-        getMetric<arangodb_arangosearch_num_failed_cleanups>(*this));
+    metricFeature.remove(getMetric<arangodb_arangosearch_num_failed_cleanups>(*this));
   }
   if (_numFailedConsolidations) {
     _numFailedConsolidations = nullptr;
-    _collection.vocbase().server().getFeature<arangodb::MetricsFeature>().remove(
-        getMetric<arangodb_arangosearch_num_failed_consolidations>(*this));
+    metricFeature.remove(getMetric<arangodb_arangosearch_num_failed_consolidations>(*this));
   }
   if (_allCommitTimeMs) {
     _allCommitTimeMs = nullptr;
-    _collection.vocbase().server().getFeature<arangodb::MetricsFeature>().remove(
-        getMetric<arangodb_arangosearch_commit_time>(*this));
+    metricFeature.remove(getMetric<arangodb_arangosearch_commit_time>(*this));
   }
   if (_allCleanupTimeMs) {
     _allCleanupTimeMs = nullptr;
-    _collection.vocbase().server().getFeature<arangodb::MetricsFeature>().remove(
-        getMetric<arangodb_arangosearch_cleanup_time>(*this));
+    metricFeature.remove(getMetric<arangodb_arangosearch_cleanup_time>(*this));
   }
   if (_allConsolidationTimeMs) {
     _allConsolidationTimeMs = nullptr;
-    _collection.vocbase().server().getFeature<arangodb::MetricsFeature>().remove(
-        getMetric<arangodb_arangosearch_consolidation_time>(*this));
+    metricFeature.remove(getMetric<arangodb_arangosearch_consolidation_time>(*this));
   }
 }
 
@@ -2097,17 +2084,18 @@ void IResearchLink::wasFailedConsolidation() {
   }
 }
 
-std::string IResearchLink::getViewId() const { return _viewGuid; }
+const std::string& IResearchLink::getViewId() const { return _viewGuid; }
 
 std::string IResearchLink::getDbName() const {
   return std::to_string(_collection.vocbase().id());
 }
 
-std::string IResearchLink::getShardName() const {
+const std::string& IResearchLink::getShardName() const {
   if (ServerState::instance()->isDBServer()) {
     return _collection.name();
   }
-  return {};
+  static const std::string empty;
+  return empty;
 }
 
 std::string IResearchLink::getCollectionName() const {
@@ -2131,8 +2119,8 @@ std::string IResearchLink::getCollectionName() const {
 irs::utf8_path getPersistedPath(DatabasePathFeature const& dbPathFeature,
                                 IResearchLink const& link) {
   irs::utf8_path dataPath(dbPathFeature.directory());
-  static const std::string_view kSubPath{"databases"};
-  static const std::string_view kDbPath{"database-"};
+  static constexpr std::string_view kSubPath{"databases"};
+  static constexpr std::string_view kDbPath{"database-"};
 
   dataPath /= kSubPath;
   dataPath /= kDbPath;

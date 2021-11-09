@@ -296,9 +296,9 @@ class IResearchLink {
     size_t indexSize{};        // size of the index in bytes
   };
 
-  std::string getViewId() const;
+  const std::string& getViewId() const;
   std::string getDbName() const;
-  std::string getShardName() const;
+  const std::string& getShardName() const;
   std::string getCollectionName() const;
 
   struct LinkStats : Stats {
