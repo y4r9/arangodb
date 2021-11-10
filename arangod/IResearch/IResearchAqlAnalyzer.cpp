@@ -245,7 +245,7 @@ struct CalculationTransactionContext final : public arangodb::transaction::Smart
   void unregisterTransaction() noexcept override {}
 
   std::shared_ptr<Context> clone() const override {
-    TRI_ASSERT(FALSE);
+    TRI_ASSERT(false);
     THROW_ARANGO_EXCEPTION_MESSAGE(
         TRI_ERROR_NOT_IMPLEMENTED,
         "CalculationTransactionContext cloning is not implemented");
@@ -314,7 +314,7 @@ class CalculationQueryContext final : public arangodb::aql::QueryContext {
   virtual bool isAsyncQuery() const noexcept override { return false; }
 
   virtual void enterV8Context() override {
-    TRI_ASSERT(FALSE);
+    TRI_ASSERT(false);
     THROW_ARANGO_EXCEPTION_MESSAGE(
         TRI_ERROR_NOT_IMPLEMENTED,
         "CalculationQueryContext entering V8 context is not implemented");
@@ -461,7 +461,7 @@ arangodb::Result validateQuery(std::string const& queryStringRaw, TRI_vocbase_t&
   } catch (std::exception const& e) {
     return {TRI_ERROR_QUERY_PARSE, e.what()};
   } catch (...) {
-    TRI_ASSERT(FALSE);
+    TRI_ASSERT(false);
     return {TRI_ERROR_QUERY_PARSE, "Unexpected"};
   }
   return {};

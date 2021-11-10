@@ -63,9 +63,9 @@
 // I have not dug into which header included by ClusterInfo.h will finally
 // include mwsockdef.h. Nor did I check whether all of the following headers
 // will include V8's "src/base/win32-headers.h".
-#include "src/api/api.h"
+//#include "src/api/api.h"
 // #include "src/objects-inl.h"
-#include "src/objects/scope-info.h"
+//#include "src/objects/scope-info.h"
 
 namespace {
 class ArrayBufferAllocator : public v8::ArrayBuffer::Allocator {
@@ -171,7 +171,7 @@ TEST_F(V8UsersTest, test_collection_auth) {
                                    [](v8::Isolate* p) -> void { p->Dispose(); });
   ASSERT_NE(nullptr, isolate);
   v8::Isolate::Scope isolateScope(isolate.get());  // otherwise v8::Isolate::Logger() will fail (called from v8::Exception::Error)
-  v8::internal::Isolate::Current()->InitializeLoggingAndCounters();  // otherwise v8::Isolate::Logger() will fail (called from v8::Exception::Error)
+  //v8::internal::Isolate::Current()->InitializeLoggingAndCounters();  // otherwise v8::Isolate::Logger() will fail (called from v8::Exception::Error)
   v8::HandleScope handleScope(isolate.get());  // required for v8::Context::New(...), v8::ObjectTemplate::New(...) and TRI_AddMethodVocbase(...)
   auto context = v8::Context::New(isolate.get());
   v8::Context::Scope contextScope(context);  // required for TRI_AddMethodVocbase(...)

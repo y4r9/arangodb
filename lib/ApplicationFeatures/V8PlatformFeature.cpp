@@ -228,7 +228,16 @@ v8::Isolate* V8PlatformFeature::createIsolate() {
   createParams.array_buffer_allocator = _allocator.get();
 
   if (0 < _v8MaxHeap) {
-    createParams.constraints.set_max_old_space_size(static_cast<int>(_v8MaxHeap));
+    /*
+    * The method set_max_old_space_size was deprecated and was dropped from the new V8 versions.
+    * However, in the transition period the method was written as:
+    * void set_max_old_space_size(size_t limit_in_mb) {
+    *     max_old_generation_size_ = limit_in_mb * kMB;
+    * }
+    * 
+    * So it can simply be replaced by the equivalent.
+    */
+    createParams.constraints.set_max_old_generation_size_in_bytes(static_cast<size_t>(_v8MaxHeap) * 1048576u);
   }
 
   auto isolate = v8::Isolate::New(createParams);

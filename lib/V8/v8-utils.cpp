@@ -5507,8 +5507,17 @@ v8::Handle<v8::Array> static V8PathList(v8::Isolate* isolate, std::string const&
 
 static bool SingleRunGarbageCollectionV8(v8::Isolate* isolate, int idleTimeInMs) {
   isolate->LowMemoryNotification();
-  bool rc = isolate->IdleNotificationDeadline(idleTimeInMs);
-  isolate->RunMicrotasks();
+  /*
+  * The method IdleNotificationDeadline() takes time in SECONDS not MILLISECONDS,
+  * thus the garbage collector could have run 1000x longer than anticipated.
+  */
+  bool rc = isolate->IdleNotificationDeadline(static_cast<double>(idleTimeInMs) / 1000.0);
+  /*
+  * The RunMicrotasks() method no longer exists. It has been replaced by the
+  * new method PerformMicrotaskCheckpoint(). However, what this function does seems
+  * to depend on the MicrotasksPolicy type { kExplicit, kScoped, kAuto }
+  */
+  isolate->PerformMicrotaskCheckpoint();
   return rc;
 }
 

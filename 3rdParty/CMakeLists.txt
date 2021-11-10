@@ -84,14 +84,7 @@ endif ()
 
 option(USE_PRECOMPILED_V8 "use a precompiled V8" OFF)
 
-set(V8_VERSION
-  "7.9.317"
-  CACHE INTERNAL
-  "${PROJECT_NAME}: Version"
-  FORCE
-  )
-set(V8_SUB_DIR "v${V8_VERSION}")
-set(V8_VERSION ${V8_VERSION} PARENT_SCOPE)
+set(V8_SUB_DIR "V8")
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/V8)
 set(ICU_DT "${ICU_DT}" PARENT_SCOPE)
 set(ICU_DT_DEST "${ICU_DT_DEST}" PARENT_SCOPE)

@@ -120,3 +120,9 @@ perf*
 callgrind*
 
 Documentation/Metrics/allMetrics.yaml
+
+#ignore the dynamic V8 stuff
+3rdParty/V8/V8/depot_tools/
+3rdParty/V8/V8/v8/
+.gclient
+.gclient_entries

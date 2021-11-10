@@ -9,21 +9,20 @@ cmake_minimum_required(VERSION 2.8)
 if (POLICY CMP0048)
   cmake_policy(SET CMP0048 NEW)
 endif ()
-
+include(ExternalProject)
 project(V8)
 
 # create target directory
 
 set(V8_DIR "${PROJECT_SOURCE_DIR}/${V8_SUB_DIR}")
 set(V8_TARGET_DIR "${CMAKE_CURRENT_BINARY_DIR}/${V8_SUB_DIR}")
-set(GYP_FILES_DIR "${PROJECT_SOURCE_DIR}/gypfiles")
 
 ################################################################################
 ## ICU EXPORTS
 ################################################################################
 
 set(ICU_COMPACT_VERSION
-  "64.2"
+  "69"
   CACHE INTERNAL
   "ICU: compact Version"
 )
@@ -34,7 +33,7 @@ set(ICU_VERSION
   "ICU: Version"
   )
 
-set(ICU_BASEDIR ${V8_DIR}/third_party/icu)
+set(ICU_BASEDIR ${V8_DIR}/v8/v8/third_party/icu)
 
 set(ICU_INCLUDE_DIR
   ${ICU_BASEDIR}/source/common;${ICU_BASEDIR}/source/i18n;${ICU_BASEDIR}/source/io
@@ -44,14 +43,16 @@ set(ICU_INCLUDE_DIR
 )
 
 set(V8_VERSION
-  ${V8_VERSION}
+  "9.4"
   CACHE INTERNAL
   "${PROJECT_NAME}: Version"
+  FORCE
 )
 
+set(V8_VERSION ${V8_VERSION} PARENT_SCOPE)
 
 SET(V8_RELATIVE_SOURCE_DIR "../${V8_SUB_DIR}")
-file(MAKE_DIRECTORY ${V8_TARGET_DIR})
+############file(MAKE_DIRECTORY ${V8_TARGET_DIR})
 
 # detect endianess, and translate to gyp/v8 proper string
 
@@ -87,38 +88,38 @@ endif()
 
 file(RELATIVE_PATH V8_REL_TARGET_PATH ${V8_DIR} ${V8_TARGET_DIR})
 
-list(APPEND V8_GYP_ARGS
-  --generator-output=${V8_TARGET_DIR}
-  -DV8_ROOT=${V8_RELATIVE_SOURCE_DIR}
-  #$ ${V8_REL_TARGET_PATH}
-  -Dv8_target_arch=${V8_PROC_ARCH}
-  -Dtarget_arch=${V8_PROC_ARCH}
-  -Dv8_host_arch=${V8_PROC_ARCH}
-  -Dhost_arch=${V8_PROC_ARCH}
-  -Dbyteorder=${ENDIANESS}
-  -Dv8_enable_i18n_support=1
-  -DV8_SRC_ROOT=${GYP_FILES_DIR}/
-)
+##list(APPEND V8_GYP_ARGS
+##  --generator-output=${V8_TARGET_DIR}
+##  -DV8_ROOT=${V8_RELATIVE_SOURCE_DIR}
+##  #$ ${V8_REL_TARGET_PATH}
+##  -Dv8_target_arch=${V8_PROC_ARCH}
+##  -Dtarget_arch=${V8_PROC_ARCH}
+##  -Dv8_host_arch=${V8_PROC_ARCH}
+##  -Dhost_arch=${V8_PROC_ARCH}
+##  -Dbyteorder=${ENDIANESS}
+##  -Dv8_enable_i18n_support=1
+##  -DV8_SRC_ROOT=${GYP_FILES_DIR}/
+##)
 
-if (CROSS_COMPILING)
-  list(APPEND V8_GYP_ARGS
-  -Dhost_arch=${V8_PROC_ARCH}
-  -DGYP_CROSSCOMPILE=1
-  -DEXECUTABLE_PREFIX=${V8_PROC_ARCH}.
-  )
-  configure_file (
-    "${CMAKE_SOURCE_DIR}/lib/V8/v8-mkpeephole.in"
-    "${V8_TARGET_DIR}/${V8_PROC_ARCH}.release/${V8_PROC_ARCH}.mkpeephole"
-    NEWLINE_STYLE UNIX
-    @ONLY
-  )
-  configure_file (
-    "${CMAKE_SOURCE_DIR}/lib/V8/v8-mksnapshot.in"
-    "${V8_TARGET_DIR}/${V8_PROC_ARCH}.release/${V8_PROC_ARCH}.mksnapshot"
-    NEWLINE_STYLE UNIX
-    @ONLY
-  )
-endif()
+##if (CROSS_COMPILING)
+##  list(APPEND V8_GYP_ARGS
+##  -Dhost_arch=${V8_PROC_ARCH}
+##  -DGYP_CROSSCOMPILE=1
+##  -DEXECUTABLE_PREFIX=${V8_PROC_ARCH}.
+##  )
+##  configure_file (
+##    "${CMAKE_SOURCE_DIR}/lib/V8/v8-mkpeephole.in"
+##    "${V8_TARGET_DIR}/${V8_PROC_ARCH}.release/${V8_PROC_ARCH}.mkpeephole"
+##    NEWLINE_STYLE UNIX
+##    @ONLY
+##  )
+##  configure_file (
+##    "${CMAKE_SOURCE_DIR}/lib/V8/v8-mksnapshot.in"
+##    "${V8_TARGET_DIR}/${V8_PROC_ARCH}.release/${V8_PROC_ARCH}.mksnapshot"
+##    NEWLINE_STYLE UNIX
+##    @ONLY
+##  )
+##endif()
 
 option(USE_DEBUG_V8 "compile V8 in DEBUG mode" OFF)
   
@@ -126,7 +127,7 @@ option(USE_DEBUG_V8 "compile V8 in DEBUG mode" OFF)
 ## WINDOWS with msbuild; Gyp now does TrackFileAccess too.
 ################################################################################
 
-set(GYP_MAIN ${PROJECT_SOURCE_DIR}/gyp/gyp_main.py)
+##set(GYP_MAIN ${PROJECT_SOURCE_DIR}/gyp/gyp_main.py)
 
 if (WIN32)
   MESSAGE(STATUS "Building V8 for Windows with MSBUILD")
@@ -339,118 +340,175 @@ else ()
 ## UNIX
 ################################################################################
 
-  set(V8_CFLAGS   "$ENV{V8_CFLAGS}")
-  set(V8_CXXFLAGS "$ENV{V8_CXXFLAGS}")
-  set(V8_LDFLAGS  "$ENV{V8_LDFLAGS}")
+##  set(V8_CFLAGS   "$ENV{V8_CFLAGS}")
+##  set(V8_CXXFLAGS "$ENV{V8_CXXFLAGS}")
+##  set(V8_LDFLAGS  "$ENV{V8_LDFLAGS}")
 
   # build V8 without debug information
-  if (USE_MINIMAL_DEBUGINFO)
-    set(V8_CFLAGS   "${V8_CFLAGS} -g0")
-    set(V8_CXXFLAGS "${V8_CXXFLAGS} -g0")
-  endif()
+##  if (USE_MINIMAL_DEBUGINFO)
+##    set(V8_CFLAGS   "${V8_CFLAGS} -g0")
+##    set(V8_CXXFLAGS "${V8_CXXFLAGS} -g0")
+##  endif()
 
-  list(APPEND V8_GYP_ARGS "-Dv8_use_snapshot=true")
+##  list(APPEND V8_GYP_ARGS "-Dv8_use_snapshot=true")
 
-  if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    set(V8_CFLAGS   "${V8_CFLAGS} -fno-delete-null-pointer-checks")
-    set(V8_CXXFLAGS "${V8_CXXFLAGS} -fno-delete-null-pointer-checks")
-  endif()
-  add_c_flags_if_supported(V8_CFLAGS -Wno-suggest-override -Wno-implicit-const-int-float-conversion -Wno-non-virtual-dtor -Wno-final-dtor-non-final-class -Wno-implicit-const-int-float-conversion)
-  add_cxx_flags_if_supported(V8_CXXFLAGS -Wno-suggest-override -Wno-implicit-const-int-float-conversion -Wno-non-virtual-dtor -Wno-final-dtor-non-final-class -Wno-implicit-const-int-float-conversion)
+##  if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+##    set(V8_CFLAGS   "${V8_CFLAGS} -fno-delete-null-pointer-checks")
+##    set(V8_CXXFLAGS "${V8_CXXFLAGS} -fno-delete-null-pointer-checks")
+##  endif()
+##  add_c_flags_if_supported(V8_CFLAGS -Wno-suggest-override -Wno-implicit-const-int-float-conversion -Wno-non-virtual-dtor -Wno-final-dtor-non-final-class -Wno-implicit-const-int-float-conversion)
+##  add_cxx_flags_if_supported(V8_CXXFLAGS -Wno-suggest-override -Wno-implicit-const-int-float-conversion -Wno-non-virtual-dtor -Wno-final-dtor-non-final-class -Wno-implicit-const-int-float-conversion)
 
   if (USE_DEBUG_V8)
-    set(V8_TARGET_ARCH "${V8_PROC_ARCH}.debug")
+    set(V8_TARGET_ARCH "${V8_PROC_ARCH}.Debug")
   else ()
-    set(V8_TARGET_ARCH "${V8_PROC_ARCH}.release")
+    set(V8_TARGET_ARCH "${V8_PROC_ARCH}.Release")
   endif ()
 
-  if (USE_DEBUG_V8)
-    list(APPEND V8_GYP_ARGS -Dv8_enable_backtrace=1)
-  endif ()
+##  if (USE_DEBUG_V8)
+##    list(APPEND V8_GYP_ARGS -Dv8_enable_backtrace=1)
+##  endif ()
 
-  set(V8_LIBRARY_DIR "${V8_TARGET_DIR}/${V8_TARGET_ARCH}/")
+  set(V8_LIBRARY_DIR "${V8_TARGET_DIR}/${V8_TARGET_ARCH}/obj")
+  file(MAKE_DIRECTORY "${V8_TARGET_DIR}/${V8_TARGET_ARCH}")
   set(ICU_LIBRARY_DIR "${V8_LIBRARY_DIR}")
 
-  list(APPEND V8_GYP_ARGS ../gypfiles/all.gyp)
-  list(APPEND V8_GYP_ARGS --format make)
-  list(APPEND V8_GYP_ARGS -S.${V8_TARGET_ARCH})
+##  list(APPEND V8_GYP_ARGS ../gypfiles/all.gyp)
+##  list(APPEND V8_GYP_ARGS --format make)
+##  list(APPEND V8_GYP_ARGS -S.${V8_TARGET_ARCH})
 
-  set(V8_INTERNAL_INCLUDE_DIR "${V8_LIBRARY_DIR}/obj/gen/generate-bytecode-output-root;${V8_LIBRARY_DIR}/obj/gen/torque-output-root")
+  set(V8_INTERNAL_INCLUDE_DIR "${V8_TARGET_DIR}/${V8_TARGET_ARCH}/gen/builtins-generated;${V8_TARGET_DIR}/${V8_TARGET_ARCH}/gen/torque-generated")
   if (LINUX)
-    set(V8_LIBRARY_DIR "${V8_LIBRARY_DIR}/gypfiles")
-    set(ICU_LIBRARY_DIR "${ICU_LIBRARY_DIR}/obj.target/third_party/icu")
+##    set(V8_LIBRARY_DIR "${V8_LIBRARY_DIR}/gypfiles")
+    set(ICU_LIBRARY_DIR "${ICU_LIBRARY_DIR}/third_party/icu")
   elseif (APPLE)
     set(V8_LIBRARY_DIR "${V8_LIBRARY_DIR}/")
     set(ICU_LIBRARY_DIR "${V8_LIBRARY_DIR}/")
   endif ()
 
-  list(APPEND V8_GYP_ARGS
-    -I../gypfiles/standalone.gypi
-    -Dmac_deployment_target=${CMAKE_OSX_DEPLOYMENT_TARGET}
-    --depth=.
-    -Dstandalone_static_library=1
-    -Dlinux_use_bundled_gold=0
-    -Dlinux_use_gold_flags=0
-    -Dv8_no_strict_aliasing=1
-    -Dwerror=
-    -Dclang=0
-    -Dhost_clang=
-    -Dv8_embed_script=
-    -Dembed_script=
-    -Dwarmup_script=
-    -Dv8_enable_embedded_builtins=0
-    -Dembedded_builtins_snapshot_src=
-    -Dv8_enable_handle_zapping=0
-    -Dv8_use_snapshot=1 )
+##  list(APPEND V8_GYP_ARGS
+##    -I../gypfiles/standalone.gypi
+##    -Dmac_deployment_target=${CMAKE_OSX_DEPLOYMENT_TARGET}
+##    --depth=.
+##    -Dstandalone_static_library=1
+##    -Dlinux_use_bundled_gold=0
+##    -Dlinux_use_gold_flags=0
+##    -Dv8_no_strict_aliasing=1
+##    -Dwerror=
+##    -Dclang=0
+##    -Dhost_clang=
+##    -Dv8_embed_script=
+##    -Dembed_script=
+##    -Dwarmup_script=
+##    -Dv8_enable_embedded_builtins=0
+##    -Dembedded_builtins_snapshot_src=
+##    -Dv8_enable_handle_zapping=0
+##    -Dv8_use_snapshot=1 )
 
   if (USE_DEBUG_V8)
     set(V8_BUILDTYPE Debug)
+    list(APPEND V8_GN_ARGS
+      is_component_build=true
+      is_debug=true
+      symbol_level=2
+      v8_enable_backtrace=true
+      v8_enable_fast_mksnapshot=true
+      v8_enable_slow_dchecks=true
+      v8_optimized_debug=false
+      v8_enable_hugepage=true
+    )
   else ()
     set(V8_BUILDTYPE Release)
+    list(APPEND V8_GN_ARGS
+      is_component_build=false
+      is_debug=false
+      v8_enable_backtrace=false
+      dcheck_always_on=false
+    )
   endif ()
 
-  set(V8_COMPILE_ARGS
-    -C ${V8_TARGET_DIR}
-    -f Makefile.${V8_TARGET_ARCH}
-    BUILDTYPE=${V8_BUILDTYPE}
-    builddir=${V8_TARGET_DIR}/${V8_TARGET_ARCH}
-    CC=${CMAKE_C_COMPILER}
-    CXX=${CMAKE_CXX_COMPILER}
-    CFLAGS=${V8_CFLAGS}
-    CXXFLAGS=${V8_CXXFLAGS}
-    LDFLAGS=${V8_LDFLAGS}
+  #Use libstdc++ instead of libc++ from V8
+  #Using use_rtti=true is required because boost and arangodb are compiled with RTTI
+  #Pointer compression is turned off on the embedder side, so V8 must also be compiled 
+  #without pointer compression
+  list(APPEND V8_GN_ARGS
+    v8_enable_handle_zapping=true
+    v8_enable_hugepage=true
+    v8_enable_disassembler=true
+    v8_enable_object_print=true
+    v8_enable_verify_heap=true
+    is_clang=true
+    target_cpu=\\\"${V8_PROC_ARCH}\\\"
+    v8_target_cpu=\\\"${V8_PROC_ARCH}\\\"
+    host_byteorder=\\\"${ENDIANESS}\\\"
+    v8_enable_i18n_support=true
+    use_custom_libcxx_for_host=false
+    use_custom_libcxx=false
+    v8_use_external_startup_data=false
+    v8_monolithic=true
+    use_rtti=true
+    v8_enable_pointer_compression=false
+    v8_enable_pointer_compression_shared_cage=false
   )
-
-  list(APPEND V8_COMPILE_TARGETS icui18n icuuc)
-  list(APPEND V8_COMPILE_TARGETS v8_libbase
-    v8_libplatform
-    v8_base
-    v8_libsampler
-    v8_init
-    v8_initializers
-    v8_nosnapshot
-    mksnapshot
-    v8_snapshot
-    )
-message(${V8_GYP_ARGS})
+  file(MAKE_DIRECTORY ${V8_DIR}/v8)
+  file(WRITE ${V8_DIR}/v8/buildConfig.txt "${V8_GN_ARGS}")
+  MESSAGE("Getting and building V8 version ${V8_VERSION}")
   ExternalProject_Add(v8_build
-    BUILD_IN_SOURCE
-      TRUE
-    SOURCE_DIR
-      "${V8_DIR}"
-    CONFIGURE_COMMAND
-      ${PYTHON_EXECUTABLE} ${GYP_MAIN} ${V8_GYP_ARGS}
-    BUILD_COMMAND
-      $(MAKE) ${V8_COMPILE_TARGETS} ${V8_COMPILE_ARGS}
-    STEP_TARGETS
-      v8_libbase v8_libplatform icui18n icuuc v8_base v8_libsampler v8_init v8_initializers v8_nosnapshot mksnapshot v8_snapshot
-    INSTALL_COMMAND
-      "")
+    DOWNLOAD_DIR "${V8_DIR}"
+    SOURCE_DIR "${V8_DIR}/depot_tools"
+    GIT_PROGRESS TRUE
+    GIT_REMOTE_UPDATE_STRATEGY CHECKOUT
+    GIT_REPOSITORY https://chromium.googlesource.com/chromium/tools/depot_tools.git
+    GIT_TAG main
+    USES_TERMINAL_CONFIGURE TRUE #because the download and fetch dependencies step requires root privileges
+    LIST_SEPARATOR " "
+    CONFIGURE_COMMAND "${V8_DIR}/getV8.sh" "${V8_VERSION}" "${V8_DIR}"
+    BUILD_COMMAND cd "${V8_DIR}/v8/v8" && "${V8_DIR}/buildV8.sh" "${V8_DIR}" "${V8_TARGET_DIR}/${V8_TARGET_ARCH}" "${V8_PROC_ARCH}" "${V8_BUILDTYPE}"
+    LIST_SEPARATOR ";"
+    INSTALL_COMMAND ""
+  )
+##  set(V8_COMPILE_ARGS
+##    -C ${V8_TARGET_DIR}
+##    -f Makefile.${V8_TARGET_ARCH}
+##    BUILDTYPE=${V8_BUILDTYPE}
+##    builddir=${V8_TARGET_DIR}/${V8_TARGET_ARCH}
+##    CC=${CMAKE_C_COMPILER}
+##    CXX=${CMAKE_CXX_COMPILER}
+##    CFLAGS=${V8_CFLAGS}
+##    CXXFLAGS=${V8_CXXFLAGS}
+##    LDFLAGS=${V8_LDFLAGS}
+##  )
+
+##  list(APPEND V8_COMPILE_TARGETS icui18n icuuc)
+##  list(APPEND V8_COMPILE_TARGETS v8_libbase
+##    v8_libplatform
+##    v8_base
+##    v8_libsampler
+##    v8_init
+##    v8_initializers
+##    v8_nosnapshot
+##    mksnapshot
+##    v8_snapshot
+##    )
+##message(${V8_GYP_ARGS})
+##  ExternalProject_Add(v8_build
+##    BUILD_IN_SOURCE
+##      TRUE
+##    SOURCE_DIR
+##      "${V8_DIR}"
+##    CONFIGURE_COMMAND
+##      ${PYTHON_EXECUTABLE} ${GYP_MAIN} ${V8_GYP_ARGS}
+##    BUILD_COMMAND
+##      $(MAKE) ${V8_COMPILE_TARGETS} ${V8_COMPILE_ARGS}
+##    STEP_TARGETS
+##      v8_libbase v8_libplatform icui18n icuuc v8_base v8_libsampler v8_init v8_initializers v8_nosnapshot mksnapshot v8_snapshot
+##    INSTALL_COMMAND
+##      "")
 
   list(APPEND LINK_DIRECTORIES "${V8_LIBRARY_DIR}")
 
   set(V8_LIBS
-    "v8_base_without_compiler;v8_compiler;v8_base_without_compiler;torque_base;v8_libplatform;v8_libsampler;v8_libbase;v8_init;;v8_initializers;v8_snapshot"
+    "v8_monolith"
     CACHE INTERNAL
     "${PROJECT_NAME}: Libraries"
   )
@@ -465,14 +523,17 @@ message(${V8_GYP_ARGS})
 
   set(LINK_DIRECTORIES "${LINK_DIRECTORIES}" PARENT_SCOPE)
   set(V8_INCLUDE_DIR
-    "${V8_DIR}/include;${V8_DIR};${V8_TARGET_DIR}/${V8_TARGET_ARCH}/obj/gen"
+    "${V8_DIR}/v8/v8/include;${V8_DIR}/v8/v8;${V8_TARGET_DIR}/${V8_TARGET_ARCH}/gen"
     CACHE INTERNAL
     "${PROJECT_NAME}: include path"
     )
 endif()
-
 set(ICU_LIBRARY_DIR "${ICU_LIBRARY_DIR}" PARENT_SCOPE)
-set(ICU_DT "${ICU_BASEDIR}/common/icudtl.dat")
+if (WIN32)
+  set(ICU_DT "${ICU_BASEDIR}/common/icudtl.dat")
+else()
+  set(ICU_DT "${V8_TARGET_DIR}/${V8_TARGET_ARCH}/icudtl.dat")
+endif()
 set(ICU_DT ${ICU_DT} PARENT_SCOPE)
 set(ICU_DT_DEST "icudtl.dat" )
 set(ICU_DT_DEST ${ICU_DT_DEST} PARENT_SCOPE)
@@ -497,7 +558,7 @@ else()
 endif()
 if (NOT WIN32)
   add_custom_target(nonthinV8
-    COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/../../Installation/archive-de-thinner.sh ${V8_REL_TARGET_PATH}
+    COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/../../Installation/archive-de-thinner.sh ${V8_TARGET_DIR}
     COMMENT de-thins V8 .a files)
 endif()
 
