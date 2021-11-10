@@ -69,7 +69,7 @@ struct ScopeGuard : private Func, private detail::UniqueBool,
                     private detail::ConditionalDeletedMoveConstructor<!std::is_nothrow_move_constructible_v<Func>> {
   static_assert(std::is_nothrow_invocable_r_v<void, F>);
 
-  [[nodiscard]] explicit ScopeGuard(F&& fn) : Func(std::forward<F>(fn)), UniqueBool(true) {}
+  explicit ScopeGuard(F&& fn) : Func(std::forward<F>(fn)), UniqueBool(true) {}
 
   ScopeGuard(ScopeGuard&&) noexcept = default;
   ScopeGuard& operator=(ScopeGuard&&) noexcept = default;
