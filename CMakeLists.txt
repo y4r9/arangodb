@@ -534,12 +534,12 @@ get_filename_component(PYTHON_EXECUTABLE "${PYTHON_EXECUTABLE}" REALPATH)
 
 set($ENV{PYTHON_EXECUTABLE} ${PYTHON_EXECUTABLE})
 execute_process(
-    COMMAND ${PYTHON_EXECUTABLE} -c "import distutils.spawn"
+    COMMAND ${PYTHON_EXECUTABLE} -c "from shutil import which"
     RESULT_VARIABLE EXIT_CODE
     OUTPUT_QUIET
     )
 if (NOT "${EXIT_CODE}" EQUAL "0")
-  message(FATAL_ERROR "python distutils package is required! ")
+  message(FATAL_ERROR "python shutil.which package is required! ")
 endif()
 
 # FIXME the build containers seem to have a
@@ -640,6 +640,9 @@ endif ()
 # need c++20
 # XXX this should really be set on a per target level using cmake compile_features capabilties
 set(CMAKE_CXX_STANDARD 20)
+# turn off compiler language extensions (e.g. don't use -std=gnu++20, but
+# -std=c++20).
+set(CMAKE_CXX_EXTENSIONS OFF)
 if(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
   # We need to use c++latest instead of c++20 because <format>, <ranges>, and the formatting part of <chrono> will
   # remain restricted to /std:c++latest due to WG21's upcoming changes.

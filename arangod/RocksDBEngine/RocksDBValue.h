@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 /// DISCLAIMER
 ///
-/// Copyright 2014-2021 ArangoDB GmbH, Cologne, Germany
+/// Copyright 2014-2022 ArangoDB GmbH, Cologne, Germany
 /// Copyright 2004-2014 triAGENS GmbH, Cologne, Germany
 ///
 /// Licensed under the Apache License, Version 2.0 (the "License");
@@ -45,7 +45,7 @@ class LogId;
 struct LogIndex;
 struct LogTerm;
 struct LogPayload;
-}
+}  // namespace replication2
 
 class RocksDBValue {
  public:
@@ -58,12 +58,16 @@ class RocksDBValue {
   static RocksDBValue Database(VPackSlice data);
   static RocksDBValue Collection(VPackSlice data);
   static RocksDBValue ReplicatedLog(VPackSlice data);
-  static RocksDBValue PrimaryIndexValue(LocalDocumentId const& docId, RevisionId revision);
+  static RocksDBValue PrimaryIndexValue(LocalDocumentId const& docId,
+                                        RevisionId revision);
   static RocksDBValue EdgeIndexValue(std::string_view vertexId);
   static RocksDBValue VPackIndexValue();
+  static RocksDBValue VPackIndexValue(VPackSlice data);
   static RocksDBValue ZkdIndexValue();
   static RocksDBValue UniqueZkdIndexValue(LocalDocumentId const& docId);
   static RocksDBValue UniqueVPackIndexValue(LocalDocumentId const& docId);
+  static RocksDBValue UniqueVPackIndexValue(LocalDocumentId const& docId,
+                                            VPackSlice data);
   static RocksDBValue View(VPackSlice data);
   static RocksDBValue ReplicationApplierConfig(VPackSlice data);
   static RocksDBValue KeyGeneratorValue(VPackSlice data);
@@ -112,6 +116,9 @@ class RocksDBValue {
   static VPackSlice data(rocksdb::Slice const&);
   static VPackSlice data(std::string_view);
 
+  static VPackSlice uniqueIndexStoredValues(rocksdb::Slice const&);
+  static VPackSlice indexStoredValues(rocksdb::Slice const&);
+
   //////////////////////////////////////////////////////////////////////////////
   /// @brief Centroid of shape or point on the sphere surface in degrees
   //////////////////////////////////////////////////////////////////////////////
@@ -158,7 +165,10 @@ class RocksDBValue {
  private:
   RocksDBValue();
   explicit RocksDBValue(RocksDBEntryType type);
-  RocksDBValue(RocksDBEntryType type, LocalDocumentId const& docId, RevisionId revision);
+  RocksDBValue(RocksDBEntryType type, LocalDocumentId const& docId,
+               RevisionId revision);
+  RocksDBValue(RocksDBEntryType type, LocalDocumentId const& docId,
+               VPackSlice data);
   RocksDBValue(RocksDBEntryType type, VPackSlice data);
   RocksDBValue(RocksDBEntryType type, std::string_view data);
   RocksDBValue(RocksDBEntryType type, replication2::PersistingLogEntry const&);
@@ -174,4 +184,3 @@ class RocksDBValue {
 };
 
 }  // namespace arangodb
-

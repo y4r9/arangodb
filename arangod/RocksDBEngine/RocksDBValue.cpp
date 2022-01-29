@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 /// DISCLAIMER
 ///
-/// Copyright 2014-2021 ArangoDB GmbH, Cologne, Germany
+/// Copyright 2014-2022 ArangoDB GmbH, Cologne, Germany
 /// Copyright 2004-2014 triAGENS GmbH, Cologne, Germany
 ///
 /// Licensed under the Apache License, Version 2.0 (the "License");
@@ -40,14 +40,15 @@ RocksDBValue RocksDBValue::Database(VPackSlice data) {
 }
 
 RocksDBValue RocksDBValue::Collection(VPackSlice data) {
-    return RocksDBValue(RocksDBEntryType::Collection, data);
+  return RocksDBValue(RocksDBEntryType::Collection, data);
 }
 
 RocksDBValue RocksDBValue::ReplicatedLog(VPackSlice data) {
-    return RocksDBValue(RocksDBEntryType::ReplicatedLog, data);
+  return RocksDBValue(RocksDBEntryType::ReplicatedLog, data);
 }
 
-RocksDBValue RocksDBValue::PrimaryIndexValue(LocalDocumentId const& docId, RevisionId rev) {
+RocksDBValue RocksDBValue::PrimaryIndexValue(LocalDocumentId const& docId,
+                                             RevisionId rev) {
   return RocksDBValue(RocksDBEntryType::PrimaryIndexValue, docId, rev);
 }
 
@@ -59,17 +60,27 @@ RocksDBValue RocksDBValue::VPackIndexValue() {
   return RocksDBValue(RocksDBEntryType::VPackIndexValue);
 }
 
+RocksDBValue RocksDBValue::VPackIndexValue(VPackSlice data) {
+  return RocksDBValue(RocksDBEntryType::VPackIndexValue, data);
+}
 
 RocksDBValue RocksDBValue::ZkdIndexValue() {
   return RocksDBValue(RocksDBEntryType::ZkdIndexValue);
 }
 
 RocksDBValue RocksDBValue::UniqueZkdIndexValue(LocalDocumentId const& docId) {
-  return RocksDBValue(RocksDBEntryType::UniqueZkdIndexValue, docId, RevisionId::none());
+  return RocksDBValue(RocksDBEntryType::UniqueZkdIndexValue, docId,
+                      RevisionId::none());
 }
 
 RocksDBValue RocksDBValue::UniqueVPackIndexValue(LocalDocumentId const& docId) {
-  return RocksDBValue(RocksDBEntryType::UniqueVPackIndexValue, docId, RevisionId::none());
+  return RocksDBValue(RocksDBEntryType::UniqueVPackIndexValue, docId,
+                      RevisionId::none());
+}
+
+RocksDBValue RocksDBValue::UniqueVPackIndexValue(LocalDocumentId const& docId,
+                                                 VPackSlice data) {
+  return RocksDBValue(RocksDBEntryType::UniqueVPackIndexValue, docId, data);
 }
 
 RocksDBValue RocksDBValue::View(VPackSlice data) {
@@ -90,8 +101,8 @@ RocksDBValue RocksDBValue::Empty(RocksDBEntryType type) {
   return RocksDBValue(type);
 }
 
-
-RocksDBValue RocksDBValue::LogEntry(replication2::PersistingLogEntry const& entry) {
+RocksDBValue RocksDBValue::LogEntry(
+    replication2::PersistingLogEntry const& entry) {
   return RocksDBValue(RocksDBEntryType::LogEntry, entry);
 }
 
@@ -109,7 +120,8 @@ LocalDocumentId RocksDBValue::documentId(std::string_view s) {
 
 bool RocksDBValue::revisionId(rocksdb::Slice const& slice, RevisionId& id) {
   if (slice.size() == sizeof(LocalDocumentId::BaseType) + sizeof(RevisionId)) {
-    id = RevisionId::fromPersistent(slice.data() + sizeof(LocalDocumentId::BaseType));
+    id = RevisionId::fromPersistent(slice.data() +
+                                    sizeof(LocalDocumentId::BaseType));
     return true;
   }
   return false;
@@ -149,11 +161,25 @@ VPackSlice RocksDBValue::data(std::string_view s) {
   return data(s.data(), s.size());
 }
 
+VPackSlice RocksDBValue::indexStoredValues(rocksdb::Slice const& slice) {
+  TRI_ASSERT(
+      VPackSlice(reinterpret_cast<uint8_t const*>(slice.data())).isArray());
+  return data(slice.data(), slice.size());
+}
+
+VPackSlice RocksDBValue::uniqueIndexStoredValues(rocksdb::Slice const& slice) {
+  TRI_ASSERT(VPackSlice(reinterpret_cast<uint8_t const*>(slice.data() +
+                                                         sizeof(uint64_t)))
+                 .isArray());
+  return data(slice.data() + sizeof(uint64_t), slice.size() - sizeof(uint64_t));
+}
+
 S2Point RocksDBValue::centroid(rocksdb::Slice const& s) {
   TRI_ASSERT(s.size() == sizeof(double) * 3);
-  return S2Point(intToDouble(uint64FromPersistent(s.data())),
-                 intToDouble(uint64FromPersistent(s.data() + sizeof(uint64_t))),
-                 intToDouble(uint64FromPersistent(s.data() + sizeof(uint64_t) * 2)));
+  return S2Point(
+      intToDouble(uint64FromPersistent(s.data())),
+      intToDouble(uint64FromPersistent(s.data() + sizeof(uint64_t))),
+      intToDouble(uint64FromPersistent(s.data() + sizeof(uint64_t) * 2)));
 }
 
 replication2::LogTerm RocksDBValue::logTerm(rocksdb::Slice const& slice) {
@@ -171,7 +197,8 @@ replication2::LogPayload RocksDBValue::logPayload(rocksdb::Slice const& slice) {
 
 RocksDBValue::RocksDBValue(RocksDBEntryType type) : _type(type), _buffer() {}
 
-RocksDBValue::RocksDBValue(RocksDBEntryType type, LocalDocumentId const& docId, RevisionId revision)
+RocksDBValue::RocksDBValue(RocksDBEntryType type, LocalDocumentId const& docId,
+                           RevisionId revision)
     : _type(type), _buffer() {
   switch (_type) {
     case RocksDBEntryType::UniqueVPackIndexValue:
@@ -193,18 +220,39 @@ RocksDBValue::RocksDBValue(RocksDBEntryType type, LocalDocumentId const& docId, 
   }
 }
 
+RocksDBValue::RocksDBValue(RocksDBEntryType type, LocalDocumentId const& docId,
+                           VPackSlice data)
+    : _type(type), _buffer() {
+  switch (_type) {
+    case RocksDBEntryType::UniqueVPackIndexValue: {
+      size_t byteSize = static_cast<size_t>(data.byteSize());
+      _buffer.reserve(sizeof(uint64_t) + byteSize);
+      uint64ToPersistent(_buffer, docId.id());  // LocalDocumentId
+      _buffer.append(reinterpret_cast<char const*>(data.begin()), byteSize);
+      break;
+    }
+
+    default:
+      THROW_ARANGO_EXCEPTION(TRI_ERROR_BAD_PARAMETER);
+  }
+}
+
 RocksDBValue::RocksDBValue(RocksDBEntryType type, VPackSlice data)
     : _type(type), _buffer() {
   switch (_type) {
+    case RocksDBEntryType::VPackIndexValue:
+      TRI_ASSERT(data.isArray());
+      [[fallthrough]];
+
     case RocksDBEntryType::Database:
     case RocksDBEntryType::Collection:
     case RocksDBEntryType::ReplicatedLog:
     case RocksDBEntryType::View:
     case RocksDBEntryType::KeyGeneratorValue:
     case RocksDBEntryType::ReplicationApplierConfig: {
-      _buffer.reserve(static_cast<size_t>(data.byteSize()));
-      _buffer.append(reinterpret_cast<char const*>(data.begin()),
-                     static_cast<size_t>(data.byteSize()));
+      size_t byteSize = static_cast<size_t>(data.byteSize());
+      _buffer.reserve(byteSize);
+      _buffer.append(reinterpret_cast<char const*>(data.begin()), byteSize);
       break;
     }
 
@@ -231,7 +279,8 @@ RocksDBValue::RocksDBValue(RocksDBEntryType type, std::string_view data)
   }
 }
 
-RocksDBValue::RocksDBValue(RocksDBEntryType type, replication2::PersistingLogEntry const& entry) {
+RocksDBValue::RocksDBValue(RocksDBEntryType type,
+                           replication2::PersistingLogEntry const& entry) {
   TRI_ASSERT(type == RocksDBEntryType::LogEntry);
   VPackBuilder builder;
   entry.toVelocyPack(builder, replication2::PersistingLogEntry::omitLogIndex);

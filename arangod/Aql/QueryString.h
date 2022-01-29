@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 /// DISCLAIMER
 ///
-/// Copyright 2014-2021 ArangoDB GmbH, Cologne, Germany
+/// Copyright 2014-2022 ArangoDB GmbH, Cologne, Germany
 /// Copyright 2004-2014 triAGENS GmbH, Cologne, Germany
 ///
 /// Licensed under the Apache License, Version 2.0 (the "License");
@@ -46,7 +46,7 @@ class QueryString {
   explicit QueryString(std::string_view val)
       : QueryString(val.data(), val.size()) {}
 
-  explicit QueryString(std::string val)
+  explicit QueryString(std::string val) noexcept
       : _queryString(std::move(val)), _hash(computeHash()) {}
 
   QueryString() : QueryString("", 0) {}
@@ -76,4 +76,3 @@ class QueryString {
 std::ostream& operator<<(std::ostream&, QueryString const&);
 }  // namespace aql
 }  // namespace arangodb
-

@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 /// DISCLAIMER
 ///
-/// Copyright 2014-2021 ArangoDB GmbH, Cologne, Germany
+/// Copyright 2014-2022 ArangoDB GmbH, Cologne, Germany
 /// Copyright 2004-2014 triAGENS GmbH, Cologne, Germany
 ///
 /// Licensed under the Apache License, Version 2.0 (the "License");
@@ -52,28 +52,22 @@ struct Variable {
 
   /// @brief indicates the type of the variable
   enum class Type {
-    /// @brief a regular variable with a value determined while executing the query
+    /// @brief a regular variable with a value determined while executing the
+    /// query
     Regular,
     /// @brief a variable with a constant value
     Const
   };
 
   /// @brief create the variable
-  Variable(std::string name, VariableId id, bool isDataFromCollection);
+  Variable(std::string name, VariableId id, bool isFullDocumentFromCollection);
 
   explicit Variable(arangodb::velocypack::Slice const&);
 
   /// @brief destroy the variable
   ~Variable();
-  
+
   Variable* clone() const;
-
-  /// @brief registers a constant value for the variable
-  /// this constant value is used for constant propagation while creating the AST
-  void setConstAstNode(AstNode* node) { _constAstNode = node; }
-
-  /// @brief returns a constant value registered for this variable
-  AstNode* getConstAstNode() const { return _constAstNode; }
 
   /// @brief whether or not the variable is user-defined
   bool isUserDefined() const;
@@ -85,16 +79,17 @@ struct Variable {
   void toVelocyPack(arangodb::velocypack::Builder&) const;
 
   /// @brief replace a variable by another
-  static Variable const* replace(Variable const*,
-                                 std::unordered_map<VariableId, Variable const*> const&);
+  static Variable const* replace(
+      Variable const*, std::unordered_map<VariableId, Variable const*> const&);
 
   /// @brief factory for (optional) variables from VPack
-  static Variable* varFromVPack(Ast* ast, arangodb::velocypack::Slice const& base,
-                                char const* variableName, bool optional = false);
-
+  static Variable* varFromVPack(Ast* ast,
+                                arangodb::velocypack::Slice const& base,
+                                char const* variableName,
+                                bool optional = false);
 
   bool isEqualTo(Variable const& other) const;
-  
+
   /// @brief returns the type of the variable. The type is determined based
   // on the constantValue. If constantValue.isNone, the type is Type::Regular,
   // otherwise it is Type::Const
@@ -114,21 +109,15 @@ struct Variable {
   /// note: this cannot be const as variables can be renamed by the optimizer
   std::string name;
 
-  /// @brief whether or not the source data for this variable is from a collection 
-  /// (i.e. is a document). this is only used for optimizations
-  bool isDataFromCollection;
+  /// @brief whether or not the source data for this variable is from a
+  /// collection AND is a full document. this is only used for optimizations
+  bool isFullDocumentFromCollection;
 
  private:
-  /// @brief constant variable value (points to another AstNode)
-  /// Used for constant propagation while creating the AST.
-  AstNode* _constAstNode{nullptr};
-  
-  // TODO - we have two kinds of const values here; this should be cleaned up!
-  /// @brief for const variables, this stores the constant value determined while
-  /// initializing the plan.
-  /// Note: the variable takes ownership of this value and destroys it
+  // for const variables, this stores the constant value determined
+  // while initializing the plan. Note: the variable takes ownership of this
+  // value and destroys it
   AqlValue _constantValue;
 };
 }  // namespace aql
 }  // namespace arangodb
-

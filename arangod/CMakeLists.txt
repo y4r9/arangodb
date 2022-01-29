@@ -59,12 +59,15 @@ add_library(arango_iresearch
   IResearch/IResearchAqlAnalyzer.cpp IResearch/IResearchAqlAnalyzer.h
   IResearch/IResearchCommon.cpp IResearch/IResearchCommon.h
   IResearch/IResearchCompression.cpp IResearch/IResearchCompression.h
+  IResearch/IResearchDataStore.cpp IResearch/IResearchDataStore.h
   IResearch/IResearchDocument.cpp IResearch/IResearchDocument.h
   IResearch/IResearchExpressionContext.cpp IResearch/IResearchExpressionContext.h
   IResearch/IResearchFeature.cpp IResearch/IResearchFeature.h
   IResearch/IResearchFilterFactory.cpp IResearch/IResearchFilterFactory.h
   IResearch/IResearchFilterOptimization.cpp IResearch/IResearchFilterOptimization.h
   IResearch/IResearchIdentityAnalyzer.cpp IResearch/IResearchIdentityAnalyzer.h
+  IResearch/IResearchInvertedIndex.h IResearch/IResearchInvertedIndex.cpp
+  IResearch/IResearchInvertedIndexMeta.h IResearch/IResearchInvertedIndexMeta.cpp
   IResearch/IResearchKludge.cpp IResearch/IResearchKludge.h
   IResearch/IResearchLink.cpp IResearch/IResearchLink.h
   IResearch/IResearchLinkCoordinator.cpp IResearch/IResearchLinkCoordinator.h
@@ -73,6 +76,8 @@ add_library(arango_iresearch
   IResearch/IResearchOrderFactory.cpp IResearch/IResearchOrderFactory.h
   IResearch/IResearchPDP.cpp IResearch/IResearchPDP.h
   IResearch/IResearchPrimaryKeyFilter.cpp IResearch/IResearchPrimaryKeyFilter.h
+  IResearch/IResearchRocksDBEncryption.cpp IResearch/IResearchRocksDBEncryption.h
+  IResearch/IResearchRocksDBInvertedIndex.cpp IResearch/IResearchRocksDBInvertedIndex.h
   IResearch/IResearchRocksDBLink.cpp IResearch/IResearchRocksDBLink.h
   IResearch/IResearchRocksDBRecoveryHelper.cpp
   IResearch/IResearchRocksDBRecoveryHelper.h
@@ -429,6 +434,7 @@ set(LIB_ARANGO_AQL_SOURCES
 set(LIB_ARANGO_VOCBASE_SOURCES
   Aql/PlanCache.cpp
   Aql/QueryCursor.cpp
+  Aql/StandaloneCalculation.cpp
   Replication/DatabaseReplicationApplier.cpp
   Utils/CollectionNameResolver.cpp
   Utils/CursorRepository.cpp
@@ -541,29 +547,38 @@ set(LIB_ARANGO_REPLICATION_SOURCES
 set(LIB_ARANGO_REPLICATION2_SOURCES
   Replication2/AgencyCollectionSpecification.cpp
   Replication2/AgencyMethods.cpp
+  Replication2/Exceptions/ParticipantResignedException.h
+  Replication2/Methods.cpp
   Replication2/ReplicatedLog/AgencyLogSpecification.cpp
   Replication2/ReplicatedLog/Algorithms.cpp
+  Replication2/ReplicatedLog/ILogInterfaces.cpp
   Replication2/ReplicatedLog/InMemoryLog.cpp
   Replication2/ReplicatedLog/LogCommon.cpp
   Replication2/ReplicatedLog/LogCore.cpp
   Replication2/ReplicatedLog/LogFollower.cpp
   Replication2/ReplicatedLog/LogLeader.cpp
-  Replication2/ReplicatedLog/ILogParticipant.cpp
   Replication2/ReplicatedLog/LogStatus.cpp
   Replication2/ReplicatedLog/NetworkAttachedFollower.cpp
   Replication2/ReplicatedLog/NetworkMessages.cpp
   Replication2/ReplicatedLog/ReplicatedLog.cpp
   Replication2/ReplicatedLog/ReplicatedLogFeature.cpp
   Replication2/ReplicatedLog/ReplicatedLogMetrics.cpp
+  Replication2/ReplicatedLog/Supervision.cpp
+  Replication2/ReplicatedLog/SupervisionAction.cpp
   Replication2/ReplicatedLog/types.cpp
+  Replication2/ReplicatedState/AgencySpecification.cpp
+  Replication2/ReplicatedState/FollowerStateManager.tpp Replication2/ReplicatedState/FollowerStateManager.h
+  Replication2/ReplicatedState/LeaderStateManager.tpp Replication2/ReplicatedState/LeaderStateManager.h
+  Replication2/ReplicatedState/ReplicatedStateCore.cpp
+  Replication2/ReplicatedState/ReplicatedStateFeature.cpp
+  Replication2/ReplicatedState/StateCommon.cpp
+  Replication2/ReplicatedState/StateStatus.cpp
+  Replication2/StateMachines/BlackHole/BlackHoleStateMachine.cpp
+  Replication2/StateMachines/BlackHole/BlackHoleStateMachineFeature.cpp
   Replication2/Version.cpp
   RestHandler/RestLogHandler.cpp
-  Replication2/Methods.cpp
   RestHandler/RestLogInternalHandler.cpp
-  Replication2/ReplicatedState/ReplicatedStateFeature.cpp
-  Replication2/ReplicatedState/AgencySpecification.cpp
-  Replication2/ReplicatedState/StateStatus.cpp
-  Replication2/ReplicatedState/StateCommon.cpp)
+)
 
 set (LIB_ARANGO_METRICS_SOURCES
   Metrics/Builder.cpp
@@ -1011,6 +1026,7 @@ target_link_libraries(arango_indexes date_interface)
 
 target_link_libraries(arango_iresearch arango_indexes)
 target_link_libraries(arango_iresearch arango_cluster_engine)
+target_link_libraries(arango_iresearch arango_vocbase)
 
 target_link_libraries(arango_metrics arango)
 target_link_libraries(arango_metrics arango::validation)
