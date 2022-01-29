@@ -47,7 +47,6 @@
 #include <velocypack/Iterator.h>
 #include <velocypack/Parser.h>
 #include <velocypack/Slice.h>
-#include <velocypack/StringRef.h>
 #include <velocypack/velocypack-aliases.h>
 
 using namespace arangodb;
@@ -56,7 +55,7 @@ using namespace arangodb::httpclient;
 using namespace arangodb::rest;
 
 namespace {
-arangodb::velocypack::StringRef const cuidRef("cuid");
+constexpr std::string_view cuidRef("cuid");
 }
 
 DatabaseTailingSyncer::DatabaseTailingSyncer(TRI_vocbase_t& vocbase,
@@ -179,7 +178,7 @@ Result DatabaseTailingSyncer::inheritFromInitialSyncer(DatabaseInitialSyncer con
   TRI_ASSERT(!leaderInfo.engine.empty());
   TRI_ASSERT(leaderInfo.version() > 0);
 
-  _state.leader.serverId = leaderInfo.serverId;;
+  _state.leader.serverId = leaderInfo.serverId;
   _state.leader.engine = leaderInfo.engine;
   _state.leader.majorVersion = leaderInfo.majorVersion;
   _state.leader.minorVersion = leaderInfo.minorVersion;

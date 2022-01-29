@@ -29,6 +29,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
@@ -36,7 +37,6 @@ namespace arangodb {
 namespace velocypack {
 class Builder;
 class Slice;
-class StringRef;
 }  // namespace velocypack
 namespace basics {
 struct AttributeName;
@@ -79,6 +79,7 @@ enum AstNodeFlagType : AstNodeFlagsType {
   FLAG_SUBQUERY_REFERENCE = 0x0080000,  // node references a subquery
   
   FLAG_INTERNAL_CONST = 0x0100000,  // internal, constant node
+  FLAG_READ_OWN_WRITES = 0x0200000,  // reads own writes (only needed for UPSERT FOR nodes)
 };
 
 /// @brief enumeration of AST node value types
@@ -239,8 +240,8 @@ struct AstNode {
   /// @brief return the string value of a node, as an std::string
   std::string getString() const;
 
-  /// @brief return the string value of a node, as a arangodb::velocypack::StringRef
-  arangodb::velocypack::StringRef getStringRef() const noexcept;
+  /// @brief return the string value of a node
+  std::string_view getStringView() const noexcept;
 
   /// @brief test if all members of a node are equality comparisons
   bool isOnlyEqualityMatch() const;
