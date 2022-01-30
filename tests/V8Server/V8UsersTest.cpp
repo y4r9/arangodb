@@ -24,7 +24,7 @@
 
 #include "Mocks/Servers.h"  // this must be first because windows
 
-#include "src/objects/objects.h"
+//#include "src/objects/objects.h"
 
 #include "gtest/gtest.h"
 
@@ -64,9 +64,9 @@
 // I have not dug into which header included by ClusterInfo.h will finally
 // include mwsockdef.h. Nor did I check whether all of the following headers
 // will include V8's "src/base/win32-headers.h".
-#include "src/api/api.h"
+//#include "src/api/api.h"
 // #include "src/objects-inl.h"
-#include "src/objects/scope-info.h"
+//#include "src/objects/scope-info.h"
 
 namespace {
 class ArrayBufferAllocator : public v8::ArrayBuffer::Allocator {
